@@ -1,0 +1,31 @@
+# Operating System
+.DS_Store
+Thumbs.db
+
+# IDE & Editors
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# Build & Dependency Directories
+build/
+.gradle/
+dist/
+node_modules/
+.next/
+out/
+
+# Logs & Temporary
+*.log
+scratch/
+tmp/
+*.tmp
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
