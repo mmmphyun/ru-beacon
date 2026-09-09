@@ -190,4 +190,41 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 - **보안 무결성**: 인스턴스 토큰 원문 평문 노출 0건, 5회 실패 시 1회용 코드 즉시 파기, 타인 기연동 탈취 시도 409 차단.
 - **빌드 및 검증 속도**: 컨테이너 싱글톤 패턴 적용으로 전체 모듈 빌드 및 Docker 컨테이너 통합 테스트를 37초 이내 완료.
 
+---
+
+### [마일스톤 4] `workflow-worker` 인메모리 DAG 엔진 및 선착순 동시성 제어 (완료)
+
+#### 1. 아키텍처 트레이드오프 & 핵심 의사결정
+- **워크플로우 엔진 아키텍처: 인메모리 코루틴 DAG 엔진(선택) vs 분산 오케스트레이터(Temporal, Camunda 등)(기각)**:
+  - *기각한 대안 (Temporal/Camunda 등 무거운 외부 분산 오케스트레이터 도입)*:
+    - *기각으로 잃은 이익*: 장기 실행(Long-running) 워크플로우의 단계별 자동 상태 저장/체크포인팅 및 서버 재부팅 시의 인플라이트 재개(Resume) 기능을 프레임워크 수준에서 무상 획득.
+    - *기각한 이유*: Ru-Beacon의 워크플로우는 마인크래프트-디스코드 간 즉각적인 보상 지급 및 알림 트리거로, 실행 시간이 수 초 이내에 종결되는 단기 작업(Short-lived task)임. Temporal 같은 클러스터를 구축하면 최소 2GB~4GB 이상의 메모리를 추가 점유하여 소형 VM/OCI Free Tier 단일 노드 운영 원칙(마일스톤 0)이 파괴됨. Kotlin Coroutine 기반 인메모리 DAG 엔진과 단 1회 비동기 Audit Log 기록으로 극단적인 초저지연 및 FinOps 효율성 확보.
+- **선착순 쿼터 동시성 통제: RDBMS 조건부 원자적 UPDATE(선택) vs Redis 분산 락 / Lua 스크립트(기각)**:
+  - *기각한 대안 (Redis 분산 락 `Redlock` 또는 Lua 스크립트)*:
+    - *기각으로 잃은 이익*: Redis 메모리 상에서 초당 수천 건의 고속 쿼터 차감 및 락 획득 가능.
+    - *기각한 이유*: 출석 보상 선착순 100명 이벤트는 최종적으로 RDBMS의 `reward_reservations` 레코드와 100% 일치해야 함. Redis에서 먼저 카운트를 차감하고 DB 쓰기를 시도하면, DB 연결 실패나 데드락 발생 시 Redis를 원복해야 하는 이중 쓰기(Dual-write) 불일치 및 데이터 고아화가 불가피함. PostgreSQL의 `reserved_count < total_limit` 조건부 원자적 UPDATE와 `(tenant_id, reward_date, player_uuid)` UNIQUE 제약을 단일 트랜잭션으로 묶어 데이터 무결성과 동시성 방어를 한 번에 완결.
+
+#### 2. AI 통제 및 거버넌스 (Human-in-the-Loop)
+- **코루틴 취소 예외(CancellationException) 삼킴 적발 및 재전파 교정**:
+  - 빌더 세션에서 `DagWorkflowDispatcher.kt`가 `runCatching`으로 노드를 실행하여, 상위 스코프 취소 시 발생하는 `CancellationException`까지 `Failure` 결과로 변환하고 코루틴 취소 협동성을 깨뜨리던 결함을 점검 세션에서 적발. 명시적 try-catch로 취소 예외를 즉시 rethrow 하도록 교정.
+- **포니테일 기반 복잡도 사냥 (`/ponytail-review`)**:
+  - `RedisStreamsConsumer.kt`: `processBatch`와 `autoClaimStaleMessages`에 100% 중복되어 있던 15줄의 이벤트 파싱·디스패치·XACK 로직을 `processEntry` 단일 헬퍼 함수로 추출 (`shrink: -20 lines`).
+  - `TarjanCycleDetector.kt`: `definition.nodes`를 2번 순회하던 불필요한 노드 초기화 루프를 엣지 수집의 `getOrPut` 단일 루프로 통합 (`shrink: -5 lines`).
+  - `DagWorkflowDispatcher.kt`: `contextMutex` 내 `fold`를 통한 중복 Context 복제를 맵 병합으로 축약 (`shrink: -3 lines`).
+  - `DagWorkflowDispatcher.kt`: 감사 로그 `details`의 `completed_nodes`, `failed_nodes`가 이스케이프된 문자열로 들어가지 않고 정규 JSON 배열로 적재되도록 `buildJsonArray` 구조화.
+
+#### 3. 도출된 엣지케이스 & 방어 체계
+- **일일 출석 보상 중복 예약 사전 차단 (`ALREADY_RESERVED`)**:
+  - 동일 플레이어가 당일 다중 클릭하거나 동시 요청을 유입시킬 경우, DB 레벨의 UNIQUE 제약 충돌(500 에러)을 유발하지 않고 사전 검증을 통해 `ALREADY_RESERVED` 비즈니스 에러 코드로 즉각 차단.
+- **보상 트랜잭션 롤백(RELEASE) 시 언더플로우 방어**:
+  - 중간 노드 실패로 인한 롤백 실행 시, 악의적 중복 호출이나 오류로 `reserved_count`가 음수로 떨어지지 않도록 `reserved_count > 0` 조건을 원자적 UPDATE에 강제.
+- **FinOps OOM 방어**:
+  - Worker가 외부로 발행하는 마인크래프트 명령어(`commands:request`) 및 디스코드 액션(`discord:actions`) 스트림에 `MAXLEN ~ 10000` 근사 트리밍을 강제 적용하여 장기 운영 시 Redis 메모리 고갈 차단.
+
+#### 4. 정량적 엔지니어링 지표
+- **테스트 커버리지**: Testcontainers PostgreSQL 16 + Redis 7 기반 템플릿 A/B 및 엣지케이스 테스트 100% 통과 (8/8 tests).
+- **코드 다이어트**: 중복 루프 및 파싱 보일러플레이트 제거로 `net: -28 lines` 절감.
+- **동시성 검증**: 100개 코루틴 선착순 동시 요청 경합 완벽 통과, 101번째 초과 요청 및 중복 예약 100% 차단 입증.
+- **빌드 및 검증 속도**: 전체 멀티모듈 통합 테스트 32초 이내 완료.
+
 

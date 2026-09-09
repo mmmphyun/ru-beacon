@@ -169,13 +169,18 @@
 
 #### 2. 점검 세션 (Inspector Session)
 - [x] **`/ponytail-review` 복잡도 사냥**:
-  - [x] `NodeExecutor` 다중 노드 타입 구현체 완결 및 단일 구현체 인터페이스 0개 유지 (`yagni`)
-  - [x] DTO 1:1 단순 매퍼 배제 및 JSONB 직렬화 표준 활용
+  - [x] `RedisStreamsConsumer.kt`: 중복 entry 처리 로직 `processEntry` 단일 헬퍼로 통합 (`shrink: -20 lines`)
+  - [x] `TarjanCycleDetector.kt`: 불필요한 선행 노드 초기화 루프 제거 및 `getOrPut` 통합 (`shrink: -5 lines`)
+  - [x] `DagWorkflowDispatcher.kt`: `contextMutex` Context 복제 단일화 및 JSONB 정규 배열 구조화 (`shrink: -3 lines`)
+  - [x] `NodeExecutor` 단일 구현체 인터페이스 0개 유지 및 DTO 1:1 매퍼 배제 (`yagni`)
 - [x] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
-  - [x] Tarjan SCC 기반 단일 노드 루프/다중 노드 순환 사전 탐지 및 `WorkflowCycleException` 검증
-  - [x] 미정의 변수 묵인 없는 즉시 예외 처리 (`VariableResolver`)
-  - [x] DB 조건부 UPDATE 원자성을 통한 선착순 100명 동시성 경합 차단 및 롤백(`RELEASE`) 복구 검증
-  - [x] 종단 1회 원자적 비동기 감사 로그(`AuditLogs`) 기록 및 부분 실패(`PARTIAL_FAILURE`) 격리 검증
+  - [x] `AttendanceReservationExecutor.kt`: 당일 동일 플레이어 중복 예약 사전 차단(`ALREADY_RESERVED`) 및 롤백 언더플로우 방어
+  - [x] `NodeExecutors.kt`: Redis Streams `xadd`에 `MAXLEN ~ 10000` 트리밍 강제 적용 (FinOps OOM 방어)
+  - [x] `DagWorkflowDispatcher.kt`: 코루틴 `CancellationException` 명시적 재전파로 라이프사이클 격리 보장
+  - [x] `WorkflowTemplateIntegrationTest.kt`: 중복 예약 차단 및 언더플로우 방어 통합 테스트 추가
+- [x] **리팩터링 커밋 및 푸시**:
+  - [x] `./gradlew test` 통과 후 커밋: `refactor(worker): DAG 디스패처 안전 가드 보강 및 출석 중복 예약·FinOps 트리밍 방어`
+  - [x] 본 문서의 마일스톤 4 체크박스를 `[x]`로 완료하고 `git push origin main`
 
 ---
 
