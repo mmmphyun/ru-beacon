@@ -234,4 +234,36 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 - **동시성 검증**: 100개 코루틴 선착순 동시 요청 경합 완벽 통과, 101번째 초과 요청 및 중복 예약 100% 차단 입증.
 - **빌드 및 검증 속도**: 전체 멀티모듈 통합 테스트 32초 이내 완료.
 
+---
+
+### [마일스톤 5] `bot-service` Kord Discord 상호작용 및 이벤트 정규화 (완료)
+
+#### 1. 아키텍처 트레이드오프 & 핵심 의사결정
+- **Discord 인터랙션 처리: 즉각적인 비동기 접수(Fire-and-Forget Ingress) 채택**
+  - *기각한 대안*: Discord 사용자 요청 시 백엔드 워크플로우 엔진이 마인크래프트 서버 명령을 실행하고 DB 트랜잭션을 끝마칠 때까지 응답을 지연시키는 동기식 대기 모델.
+  - *기각한 이유*: Discord Gateway는 인터랙션 발생 후 정확히 3초 이내에 ACK를 수신하지 못하면 무조건 `Interaction Failed` 오류를 반환함. 마인크래프트 서버 틱 지연이나 분산 워크플로우 큐잉 지연이 Discord UI의 장애로 직결됨.
+  - *채택한 구조*: `deferEphemeralResponse()` 즉시 호출로 Gateway 타임아웃을 원천 차단하고, 요청을 Ru-Beacon 표준 `EventEnvelope`로 정규화하여 Redis Streams(`stream:events:{tenantId}`)에 발행한 뒤 "접수 완료" Ephemeral 피드백을 0ms 수준으로 즉각 반환. 최종 보상 및 연동 결과는 인게임 인벤토리 또는 후속 비동기 메시지로 전달.
+- **Discord Action 컨슈머의 영구 실패 처리: Poison Pill 즉각 격리 및 XACK 채택**
+  - *기각한 대안*: 채널 미존재, 권한 없음 등의 4xx 오류 발생 시 별도의 DLQ(Dead Letter Queue)를 구축하거나 Redis에 무한 재시도 보류.
+  - *기각한 이유*: 1인 개발 및 소형 VM 운영 환경에서 복잡한 DLQ 아키텍처는 운영 오버헤드와 디스크 낭비를 유발함. 또한 존재하지 않는 채널 ID나 봇 권한 누락은 재시도해도 영원히 성공할 수 없는 불변의 클라이언트 에러임.
+  - *채택한 구조*: Kord `RestRequestException` 감지 시 에러 로그를 남기고 즉시 `XACK`하여 컨슈머 루프의 무한 블로킹 및 `XAUTOCLAIM` 누수를 원천 차단.
+
+#### 2. AI 통제 및 거버넌스 (Human-in-the-Loop)
+- **Discord Defer 단계 예외 격리 (Gateway 연결 단절 방어)**:
+  - 빌더 세션에서 `interaction.deferEphemeralResponse()`가 네트워크 지연으로 실패할 경우 발생한 예외가 상위 이벤트 디스패처로 전파되어 Gateway 세션 루프를 중단시킬 수 있던 결함을 점검 세션에서 적발. Defer 호출부 자체를 독립 `try-catch`로 감싸 Gateway 수명주기를 완벽히 격리.
+- **포니테일 강제 강령 (`/ponytail-review`) 준수**:
+  - `bot-service` 내 단일 구현체 인터페이스 0개 유지. 별도 Repository/Service 레이어를 만들지 않고 `RuBeaconBot`, `DiscordEventNormalizer`, `DiscordEventPublisher`, `DiscordActionConsumer` 4개 컴포넌트로 가장 단순하고 응집도 높은 구조 확립.
+  - Discord Interaction 객체에서 Ru-Beacon 공통 `EventEnvelope`로 1단계 직접 정규화하여 불필요한 중간 DTO/매퍼 전면 배제.
+
+#### 3. 도출된 엣지케이스 & 방어 체계
+- **입력값 선제 유효성 검증**: `/verify` 호출 시 공백 코드 유입을 사전에 차단하여 무의미한 Redis Streams 발행 방지.
+- **Poison Pill 방어**: 비정상 메시지(채널 ID 누락 등) 유입 시 크래시 없이 건너뛰고 정상 ACK 처리 (`DiscordActionConsumerTest`).
+- **FinOps OOM 방어**: Discord 이벤트 발행 시 `MAXLEN ~ 10000` 근사 트리밍 강제로 Redis 메모리 통제.
+
+#### 4. 정량적 엔지니어링 지표
+- **테스트 커버리지**: Testcontainers Redis 7 기반 이벤트 정규화, 직렬화, 스트림 발행, 액션 소비 및 엣지케이스 테스트 100% 통과 (4개 테스트 클래스).
+- **성능 및 빌드 속도**: 전체 멀티모듈 5개 프로젝트 통합 테스트 통과 시간 8초 이내.
+- **코드 규모**: 5개 신규 핵심 파일 및 테스트 4종 구축 완료 (`+965 lines`).
+
+
 
