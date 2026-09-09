@@ -19,7 +19,7 @@
 ## 2. 전체 마일스톤 현황 요약
 
 - [x] **마일스톤 0**: 10대 아키텍처 의사결정 확정, 저수준 상세 명세서 구축 및 하드 가드 설치
-- [ ] **마일스톤 1**: Gradle 멀티모듈 뼈대 구성 및 `common` 모듈 (공통 이벤트/WSS 계약)
+- [x] **마일스톤 1**: Gradle 멀티모듈 뼈대 구성 및 `common` 모듈 (공통 이벤트/WSS 계약)
 - [ ] **마일스톤 2**: `minecraft-plugin` WSS 클라이언트 및 MockBukkit 인코드 테스트 하네스
 - [ ] **마일스톤 3**: `api-service` Ingress & PostgreSQL/Redis 연동 (Testcontainers 하네스)
 - [ ] **마일스톤 4**: `workflow-worker` 인메모리 DAG 엔진 및 대표 템플릿 2종 검증
@@ -34,18 +34,18 @@
 ### [마일스톤 1] Gradle 멀티모듈 뼈대 구성 및 `common` 모듈
 > **목표**: 전체 백엔드의 기초가 되는 멀티프로젝트 빌드 환경을 구축하고, 서비스 간 공유되는 순수 도메인 이벤트/WSS 프레임 계약을 Kotlin 100% 코루틴/직렬화 스택으로 완결한다.
 
-- [ ] **Root Build 셋업**:
-  - [ ] `settings.gradle.kts` 구성 (모듈: `common`, `minecraft-plugin`, `api-service`, `bot-service`, `workflow-worker`)
-  - [ ] Root `build.gradle.kts`에 JVM 21, Kotlin 1.9+, `kotlinx.serialization`, `kotlinx.coroutines` 공통 설정
-  - [ ] `gradlew` 래퍼 스크립트 및 `.gitattributes` 검증
-- [ ] **`common` 모듈 구현**:
-  - [ ] [EVENT_CONTRACTS.md](EVENT_CONTRACTS.md) 기반의 `EventEnvelope` 불변 `data class` 작성
-  - [ ] [TRANSPORT_PROTOCOL_SPEC.md](TRANSPORT_PROTOCOL_SPEC.md) 기반의 `WebSocketFrame` (`EVENT`, `COMMAND_REQ`, `COMMAND_RES`, `PING`, `PONG`) DTO 작성
-  - [ ] Redis Streams 키 네임스페이스 및 상수 객체 정의
-- [ ] **단위 테스트 및 검증**:
-  - [ ] `EventEnvelope` 및 `WebSocketFrame` JSON 직렬화/역직렬화 JUnit 5 테스트 작성
-  - [ ] `./gradlew :common:test` 100% 통과 확인
-  - [ ] Green 커밋: `feat(common): 공통 이벤트 봉투 및 WebSocket 프레임 계약 구현`
+- [x] **Root Build 셋업**:
+  - [x] `settings.gradle.kts` 구성 (모듈: `common`, `minecraft-plugin`, `api-service`, `bot-service`, `workflow-worker`)
+  - [x] Root `build.gradle.kts`에 JVM 21, Kotlin 1.9+, `kotlinx.serialization`, `kotlinx.coroutines` 공통 설정
+  - [x] `gradlew` 래퍼 스크립트 및 `.gitattributes` 검증
+- [x] **`common` 모듈 구현**:
+  - [x] [EVENT_CONTRACTS.md](EVENT_CONTRACTS.md) 기반의 `EventEnvelope` 불변 `data class` 작성
+  - [x] [TRANSPORT_PROTOCOL_SPEC.md](TRANSPORT_PROTOCOL_SPEC.md) 기반의 `WebSocketFrame` (`EVENT`, `COMMAND_REQ`, `COMMAND_RES`, `PING`, `PONG`) DTO 작성
+  - [x] Redis Streams 키 네임스페이스 및 상수 객체 정의
+- [x] **단위 테스트 및 검증**:
+  - [x] `EventEnvelope` 및 `WebSocketFrame` JSON 직렬화/역직렬화 JUnit 5 테스트 작성
+  - [x] `./gradlew :common:test` 100% 통과 확인
+  - [x] Green 커밋: `feat(common): 공통 이벤트 봉투 및 WebSocket 프레임 계약 구현`
 
 ---
 
