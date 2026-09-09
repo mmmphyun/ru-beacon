@@ -33,8 +33,12 @@ open class RuBeaconPlugin : JavaPlugin() {
     var webSocketClient: RuBeaconWebSocketClient? = null
         private set
 
-    // 테스트 검증 및 버퍼링용 아웃바운드 프레임 큐
+    // 테스트 검증 및 최근 이벤트 디버깅용 아웃바운드 프레임 큐 (최대 50개 유지, 메모리 누수 방지)
     private val outboundQueue = ConcurrentLinkedQueue<WebSocketFrame>()
+
+    companion object {
+        private const val MAX_OUTBOUND_HISTORY = 50
+    }
 
     override fun onEnable() {
         saveDefaultConfig()
@@ -71,8 +75,12 @@ open class RuBeaconPlugin : JavaPlugin() {
 
     /**
      * 외부(이벤트 등)에서 생성된 프레임을 큐에 넣고 WSS 클라이언트로 전달함.
+     * 메모리 누수를 방지하기 위해 최대 50개의 최근 프레임만 보관함.
      */
     fun enqueueOutboundFrame(frame: WebSocketFrame) {
+        while (outboundQueue.size >= MAX_OUTBOUND_HISTORY) {
+            outboundQueue.poll()
+        }
         outboundQueue.add(frame)
         webSocketClient?.let { client ->
             pluginScope.launch {
@@ -91,8 +99,15 @@ open class RuBeaconPlugin : JavaPlugin() {
      *
      * DEC-071: IllegalStateException: Asynchronous entity track 크래시 원천 방지.
      */
-    suspend fun executeCommandOnMainTick(payload: CommandRequestPayload): CommandResponsePayload =
-        suspendCancellableCoroutine { continuation ->
+    suspend fun executeCommandOnMainTick(payload: CommandRequestPayload): CommandResponsePayload {
+        if (!isEnabled) {
+            return CommandResponsePayload(
+                requestId = payload.requestId,
+                success = false,
+                output = "Plugin is disabled"
+            )
+        }
+        return suspendCancellableCoroutine { continuation ->
             if (server.isPrimaryThread) {
                 val result = runDispatchCommand(payload)
                 continuation.resume(result)
@@ -103,23 +118,6 @@ open class RuBeaconPlugin : JavaPlugin() {
                 })
             }
         }
-
-    /**
-     * MockBukkit 및 단위 테스트에서 직접 동기 디스패치를 검증하기 위한 진입점.
-     */
-    fun handleIncomingCommand(payload: CommandRequestPayload): CommandResponsePayload {
-        if (server.isPrimaryThread) {
-            return runDispatchCommand(payload)
-        }
-        var response: CommandResponsePayload? = null
-        server.scheduler.runTask(this, Runnable {
-            response = runDispatchCommand(payload)
-        })
-        return response ?: CommandResponsePayload(
-            requestId = payload.requestId,
-            success = true,
-            output = "Scheduled on main tick"
-        )
     }
 
     private fun runDispatchCommand(payload: CommandRequestPayload): CommandResponsePayload {

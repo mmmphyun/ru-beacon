@@ -24,9 +24,9 @@
 - [x] **마일스톤 1**: Gradle 멀티모듈 뼈대 구성 및 `common` 모듈 (공통 이벤트/WSS 계약)
   - [x] 개발 세션 (Builder): 멀티모듈 셋업, `common` DTO 및 직렬화 테스트
   - [x] 점검 세션 (Inspector): `/ponytail-review`, [INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검 및 리팩터링
-- [ ] **마일스톤 2**: `minecraft-plugin` WSS 클라이언트 및 MockBukkit 인코드 테스트 하네스
+- [x] **마일스톤 2**: `minecraft-plugin` WSS 클라이언트 및 MockBukkit 인코드 테스트 하네스
   - [x] 개발 세션 (Builder): Paper 뼈대, WSS 클라이언트, 메인 틱 디스패처, MockBukkit 테스트
-  - [ ] 점검 세션 (Inspector): `/ponytail-review`, 틱 렉/스레드 안전성/재연결 점검
+  - [x] 점검 세션 (Inspector): `/ponytail-review`, 틱 렉/스레드 안전성/재연결 점검
 - [ ] **마일스톤 3**: `api-service` Ingress & PostgreSQL/Redis 연동 (Testcontainers 하네스)
   - [ ] 개발 세션 (Builder): Flyway V1, WSS 인그레스, Testcontainers 통합 테스트
   - [ ] 점검 세션 (Inspector): `/ponytail-review`, 세션 릭/토큰 보안/동시성 점검
@@ -79,6 +79,7 @@
 ### [마일스톤 2] `minecraft-plugin` WSS 클라이언트 및 MockBukkit 하네스
 > **목표**: Paper API 1.20.4+ 기반 플러그인을 구축하고, MockBukkit을 통해 실제 마인크래프트 서버 없이도 가상 틱 환경에서 비동기 WSS 통신과 메인 틱 동기 명령어 디스패치를 100% 자동 검증한다.
 
+#### 1. 개발 세션 (Builder Session)
 - [x] **Paper 플러그인 뼈대 및 MockBukkit 셋업**:
   - [x] `minecraft-plugin/build.gradle.kts` (Paper API 1.20.4, Java 21, MockBukkit 1.20 의존성)
   - [x] `plugin.yml` 명세 및 메인 클래스 `RuBeaconPlugin` 선언
@@ -93,6 +94,20 @@
   - [x] [TESTING_STRATEGY.md](TESTING_STRATEGY.md) §2.1 기반 가상 플레이어 레벨업 및 명령어 실행 테스트
   - [x] `./gradlew :minecraft-plugin:test` 100% 통과 확인
   - [x] Green 커밋: `feat(plugin): WSS 클라이언트 및 MockBukkit 기반 명령어 디스패처 구현`
+
+#### 2. 점검 세션 (Inspector Session)
+- [x] **`/ponytail-review` 복잡도 사냥**:
+  - [x] `RuBeaconPlugin.kt`: `handleIncomingCommand` 중복 디스패치 제거 및 `executeCommandOnMainTick` 단일화 (`shrink`)
+  - [x] `MinecraftEventListener.kt`: 중복된 `EventEnvelope` 생성 코드를 제네릭 헬퍼로 통합 (`shrink`)
+  - [x] `RuBeaconPlugin.kt`: 아웃바운드 큐 50개 제한으로 메모리 누수 방지 (`FinOps OOM 방어`)
+- [x] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
+  - [x] 하트비트 PONG 타임아웃 감지 및 좀비 WSS 소켓 세션 재연결 트리거 (`RuBeaconWebSocketClient.kt`)
+  - [x] 이벤트 중복 실행 방지를 위한 비즈니스 기반 멱등키(`mc:lvl:...`, `mc:adv:...`) 전면 적용
+  - [x] Paper `PlayerAdvancementDoneEvent` 및 디스플레이 필터링 엣지케이스 MockBukkit 테스트 완비
+  - [x] 플러그인 비활성화 상태(`!isEnabled`) 명령어 수신 거부 가드 보강
+- [x] **리팩터링 커밋 및 푸시**:
+  - [x] `./gradlew test` 통과 후 커밋: `refactor(plugin): WSS 클라이언트 좀비세션 방어 및 멱등키·디스패처 단순화`
+  - [x] 본 문서의 마일스톤 2 체크박스를 `[x]`로 완료하고 `git push origin main`
 
 ---
 

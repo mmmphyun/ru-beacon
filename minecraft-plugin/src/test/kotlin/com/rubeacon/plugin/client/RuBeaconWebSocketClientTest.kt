@@ -153,4 +153,38 @@ class RuBeaconWebSocketClientTest {
 
         client.close()
     }
+
+    @Test
+    fun `서버가 PING을 전송하면 클라이언트는 동일한 traceId로 PONG을 즉시 회신해야 한다`() = runBlocking {
+        val config = RuBeaconConfig(
+            serverUrl = "ws://127.0.0.1:$serverPort/ws/minecraft/v1",
+            tenantId = "tenant_test_02",
+            networkId = "net_test_02",
+            instanceId = "inst_test_02",
+            instanceToken = "token_secret_456",
+            pingIntervalMs = 10000L
+        )
+
+        val client = RuBeaconWebSocketClient(
+            config = config,
+            scope = clientScope,
+            logger = Logger.getLogger("TestPingClient"),
+            commandHandler = { payload, _ ->
+                CommandResponsePayload(payload.requestId, true, "OK")
+            }
+        )
+
+        client.start()
+
+        withTimeout(5000) {
+            val pingFrame = WebSocketFrame.ping(traceId = "trc_ping_test_99")
+            serverOutgoingFrames.send(pingFrame)
+
+            val pongFrame = serverIncomingFrames.receive()
+            assertEquals(Opcode.PONG, pongFrame.op)
+            assertEquals("trc_ping_test_99", pongFrame.traceId)
+        }
+
+        client.close()
+    }
 }

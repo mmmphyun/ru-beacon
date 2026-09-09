@@ -12,7 +12,9 @@ import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.header
+import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
+import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -58,6 +60,7 @@ class RuBeaconWebSocketClient(
     private var connectionJob: Job? = null
 
     val connected: Boolean get() = isConnected.get()
+    val lastPongAt: Long get() = lastPongReceivedAt.get()
 
     /**
      * WSS 비동기 재연결 루프를 시작함.
@@ -104,6 +107,7 @@ class RuBeaconWebSocketClient(
                     }
                 ) {
                     isConnected.set(true)
+                    lastPongReceivedAt.set(System.currentTimeMillis())
                     currentDelayMs = config.reconnectInitialDelayMs
                     logger.info("[RuBeacon] WSS 서버와 연결 수립 완료 (인스턴스: ${config.instanceId})")
 
@@ -133,6 +137,14 @@ class RuBeaconWebSocketClient(
         val pingJob = scope.launch {
             while (isActive && isRunning.get()) {
                 delay(config.pingIntervalMs)
+                // 하트비트 PONG 타임아웃 감지: 마지막 PONG 수신 후 3 * pingIntervalMs 초과 시 좀비 커넥션으로 간주
+                val elapsedSincePong = System.currentTimeMillis() - lastPongReceivedAt.get()
+                if (elapsedSincePong > config.pingIntervalMs * 3) {
+                    logger.warning("[RuBeacon] 하트비트 PONG 미수신(${elapsedSincePong}ms 경과). 좀비 세션 강제 종료 및 재연결 트리거.")
+                    session.close(CloseReason(CloseReason.Codes.GOING_AWAY, "Heartbeat pong timeout"))
+                    break
+                }
+
                 val pingFrame = WebSocketFrame.ping(traceId = "trc_ping_${UUID.randomUUID().toString().take(8)}")
                 val text = RuBeaconJson.default.encodeToString(pingFrame)
                 session.send(Frame.Text(text))

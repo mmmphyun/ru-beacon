@@ -53,35 +53,19 @@ class MinecraftEventListener(
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     fun onPlayerLevelChange(event: PlayerLevelChangeEvent) {
         val player = event.player
-        val now = Instant.now().toString()
-        val eventId = "evt_${UUID.randomUUID()}"
-        val traceId = "trc_${UUID.randomUUID()}"
-
         val payloadDto = PlayerLevelChangePayload(
             playerUuid = player.uniqueId.toString(),
             playerName = player.name,
             oldLevel = event.oldLevel,
             newLevel = event.newLevel
         )
-
-        val envelope = EventEnvelope(
-            eventId = eventId,
+        val frame = buildEventFrame(
             eventType = "minecraft.player.level_up",
-            source = "minecraft",
-            sourceInstanceId = config.instanceId,
-            tenantId = config.tenantId,
-            minecraftNetworkId = config.networkId,
-            occurredAt = now,
-            receivedAt = now,
-            correlationId = traceId,
-            causationId = null,
-            idempotencyKey = "idempotent_${eventId}",
-            actor = EventEntity(type = "minecraft_player", id = player.uniqueId.toString()),
-            subject = EventEntity(type = "minecraft_player", id = player.uniqueId.toString()),
-            payload = RuBeaconJson.default.encodeToJsonElement(payloadDto).jsonObject
+            player = player,
+            idempotencyKey = "mc:lvl:${player.uniqueId}:${event.newLevel}",
+            payloadDto = payloadDto
         )
-
-        onEventGenerated(WebSocketFrame.event(envelope))
+        onEventGenerated(frame)
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -89,19 +73,32 @@ class MinecraftEventListener(
         // 내부 레시피 언락 등 디스플레이가 없는 백그라운드 advancement는 이벤트 발행 대상에서 제외
         if (event.advancement.display == null) return
         val player = event.player
-        val now = Instant.now().toString()
-        val eventId = "evt_${UUID.randomUUID()}"
-        val traceId = "trc_${UUID.randomUUID()}"
-
         val payloadDto = PlayerAdvancementPayload(
             playerUuid = player.uniqueId.toString(),
             playerName = player.name,
             advancementId = event.advancement.key.toString()
         )
+        val frame = buildEventFrame(
+            eventType = "minecraft.player.advancement_done",
+            player = player,
+            idempotencyKey = "mc:adv:${player.uniqueId}:${event.advancement.key}",
+            payloadDto = payloadDto
+        )
+        onEventGenerated(frame)
+    }
 
+    private inline fun <reified T> buildEventFrame(
+        eventType: String,
+        player: org.bukkit.entity.Player,
+        idempotencyKey: String,
+        payloadDto: T
+    ): WebSocketFrame {
+        val now = Instant.now().toString()
+        val eventId = "evt_${UUID.randomUUID()}"
+        val traceId = "trc_${UUID.randomUUID()}"
         val envelope = EventEnvelope(
             eventId = eventId,
-            eventType = "minecraft.player.advancement_done",
+            eventType = eventType,
             source = "minecraft",
             sourceInstanceId = config.instanceId,
             tenantId = config.tenantId,
@@ -110,12 +107,11 @@ class MinecraftEventListener(
             receivedAt = now,
             correlationId = traceId,
             causationId = null,
-            idempotencyKey = "idempotent_${eventId}",
+            idempotencyKey = idempotencyKey,
             actor = EventEntity(type = "minecraft_player", id = player.uniqueId.toString()),
             subject = EventEntity(type = "minecraft_player", id = player.uniqueId.toString()),
             payload = RuBeaconJson.default.encodeToJsonElement(payloadDto).jsonObject
         )
-
-        onEventGenerated(WebSocketFrame.event(envelope))
+        return WebSocketFrame.event(envelope)
     }
 }
