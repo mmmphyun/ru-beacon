@@ -21,7 +21,9 @@
 | `TESTING_STRATEGY.md` | MockBukkit/Testcontainers 하네스 및 커밋 규칙 | 에이전트는 어떻게 자율 검증하는가? |
 | `MILESTONES.md` | 자율 주행 마일스톤 상세 체크리스트 | 무엇을 어떤 순서로 개발하는가? |
 | `INSPECTION_CHECKLIST.md` | 마일스톤 점검 세션 전수 감사 체크리스트 | 어떻게 검증하고 다이어트하는가? |
+| `ENGINEERING_LOG.md` | 인터뷰 기반 포트폴리오 엔지니어링 일지 | 어떤 고민과 결정을 거쳤는가? |
 | `developer_guide.md` | 레거시 참고자료 | 과거 구현은 어떻게 동작했는가? |
+
 
 
 

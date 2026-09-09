@@ -93,6 +93,8 @@
      - **`/ponytail-review` 실행 필수**: 불필요한 추상화, 팩토리, 1:1 매퍼 사냥 (`net: -N lines`).
      - **[docs/INSPECTION_CHECKLIST.md](docs/INSPECTION_CHECKLIST.md) 전수 점검**: 엣지 케이스(WSS 단절, 틱 렉, 동시성), 클라우드 포트폴리오 가치, 감사 로그 무결성 검증.
      - 발견된 취약점 보강 및 테스트 통과 후 `refactor(...)` 커밋.
+     - **인터뷰 기반 엔지니어링 일지 작성**: [docs/ENGINEERING_LOG.md](docs/ENGINEERING_LOG.md) 프로토콜에 따라 엔지니어에게 핵심 결정/고민을 질문하고, 엔지니어의 답변을 바탕으로 포트폴리오 엔지니어링 일지를 기록한다.
      - [docs/MILESTONES.md](docs/MILESTONES.md) 체크박스 `[x]` 완료 처리 후 `git push origin main`.
+
 
 
