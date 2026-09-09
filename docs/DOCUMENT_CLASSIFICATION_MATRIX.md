@@ -19,7 +19,9 @@
 | `TRANSPORT_PROTOCOL_SPEC.md` | WSS 및 Redis Streams 통신 상세 | 전송 계층은 어떻게 동작하는가? |
 | `WORKFLOW_ENGINE_SPEC.md` | 워크플로우 AST 및 실행 인터페이스 | 워크플로우 엔진은 어떻게 도는가? |
 | `TESTING_STRATEGY.md` | MockBukkit/Testcontainers 하네스 및 커밋 규칙 | 에이전트는 어떻게 자율 검증하는가? |
+| `MILESTONES.md` | 자율 주행 마일스톤 상세 체크리스트 | 무엇을 어떤 순서로 개발하는가? |
 | `developer_guide.md` | 레거시 참고자료 | 과거 구현은 어떻게 동작했는가? |
+
 
 
 ## 내용 이동표

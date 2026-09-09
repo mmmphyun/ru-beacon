@@ -83,4 +83,6 @@
 ## 4. 마일스톤 분할 실행 지침
 
 - 단일 `/goal` 호출로 전체 서비스를 한 번에 구현하려 하지 않는다.
-- 반드시 `common 모듈` → `Minecraft Plugin WSS` → `API Service Ingress` → `Worker DAG 디스패처` → `Bot 인터랙션` 순으로 마일스톤 단위로 분할하여 실행한다.
+- 모든 자율 주행은 **[docs/MILESTONES.md](docs/MILESTONES.md)**에 정의된 마일스톤 체크리스트를 단일 기준으로 삼는다.
+- 새 세션에서 에이전트는 `docs/MILESTONES.md`의 미완료 마일스톤 1개만 완수하고, 해당 마일스톤의 체크박스 `[ ]`를 `[x]`로 수정한 뒤 커밋 및 원격 푸시를 완료해야 한다.
+
