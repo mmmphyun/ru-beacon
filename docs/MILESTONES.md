@@ -16,16 +16,32 @@
 
 ---
 
-## 2. 전체 마일스톤 현황 요약
+## 2. 전체 마일스톤 현황 요약 (2-Session Cycle)
+
+각 마일스톤은 **[개발 세션: Builder]**과 **[점검 세션: Inspector]**의 2단계로 진행된다.
 
 - [x] **마일스톤 0**: 10대 아키텍처 의사결정 확정, 저수준 상세 명세서 구축 및 하드 가드 설치
-- [x] **마일스톤 1**: Gradle 멀티모듈 뼈대 구성 및 `common` 모듈 (공통 이벤트/WSS 계약)
+- [ ] **마일스톤 1**: Gradle 멀티모듈 뼈대 구성 및 `common` 모듈 (공통 이벤트/WSS 계약)
+  - [ ] 개발 세션 (Builder): 멀티모듈 셋업, `common` DTO 및 직렬화 테스트
+  - [ ] 점검 세션 (Inspector): `/ponytail-review`, [INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검 및 리팩터링
 - [ ] **마일스톤 2**: `minecraft-plugin` WSS 클라이언트 및 MockBukkit 인코드 테스트 하네스
+  - [ ] 개발 세션 (Builder): Paper 뼈대, WSS 클라이언트, 메인 틱 디스패처, MockBukkit 테스트
+  - [ ] 점검 세션 (Inspector): `/ponytail-review`, 틱 렉/스레드 안전성/재연결 점검
 - [ ] **마일스톤 3**: `api-service` Ingress & PostgreSQL/Redis 연동 (Testcontainers 하네스)
+  - [ ] 개발 세션 (Builder): Flyway V1, WSS 인그레스, Testcontainers 통합 테스트
+  - [ ] 점검 세션 (Inspector): `/ponytail-review`, 세션 릭/토큰 보안/동시성 점검
 - [ ] **마일스톤 4**: `workflow-worker` 인메모리 DAG 엔진 및 대표 템플릿 2종 검증
+  - [ ] 개발 세션 (Builder): Streams 컨슈머, DAG 엔진, 대표 템플릿 2종 E2E 테스트
+  - [ ] 점검 세션 (Inspector): `/ponytail-review`, 사이클 검증/부분 실패/멱등성 점검
 - [ ] **마일스톤 5**: `bot-service` Kord Discord 상호작용 및 이벤트 정규화
+  - [ ] 개발 세션 (Builder): Kord 봇, 인터랙션 핸들러, Fake Discord 테스트
+  - [ ] 점검 세션 (Inspector): `/ponytail-review`, Gateway 레이트리밋/에러 격리 점검
 - [ ] **마일스톤 6**: `web-dashboard` Next.js + Shadcn UI 위저드형 대시보드
+  - [ ] 개발 세션 (Builder): Next.js 위저드 워크플로우 폼 빌더 구현
+  - [ ] 점검 세션 (Inspector): `/ponytail-review`, 폼 유효성/반응형/UX 점검
 - [ ] **마일스톤 7**: K3s + Helm 차트 패키징 및 GitHub Actions CI/CD 파이프라인
+  - [ ] 개발 세션 (Builder): Dockerfile, Helm 차트, CI 워크플로우 작성
+  - [ ] 점검 세션 (Inspector): `/ponytail-review`, FinOps 리소스 리밋/보안 스캔 점검
 
 ---
 
@@ -34,18 +50,29 @@
 ### [마일스톤 1] Gradle 멀티모듈 뼈대 구성 및 `common` 모듈
 > **목표**: 전체 백엔드의 기초가 되는 멀티프로젝트 빌드 환경을 구축하고, 서비스 간 공유되는 순수 도메인 이벤트/WSS 프레임 계약을 Kotlin 100% 코루틴/직렬화 스택으로 완결한다.
 
-- [x] **Root Build 셋업**:
-  - [x] `settings.gradle.kts` 구성 (모듈: `common`, `minecraft-plugin`, `api-service`, `bot-service`, `workflow-worker`)
-  - [x] Root `build.gradle.kts`에 JVM 21, Kotlin 1.9+, `kotlinx.serialization`, `kotlinx.coroutines` 공통 설정
-  - [x] `gradlew` 래퍼 스크립트 및 `.gitattributes` 검증
-- [x] **`common` 모듈 구현**:
-  - [x] [EVENT_CONTRACTS.md](EVENT_CONTRACTS.md) 기반의 `EventEnvelope` 불변 `data class` 작성
-  - [x] [TRANSPORT_PROTOCOL_SPEC.md](TRANSPORT_PROTOCOL_SPEC.md) 기반의 `WebSocketFrame` (`EVENT`, `COMMAND_REQ`, `COMMAND_RES`, `PING`, `PONG`) DTO 작성
-  - [x] Redis Streams 키 네임스페이스 및 상수 객체 정의
-- [x] **단위 테스트 및 검증**:
-  - [x] `EventEnvelope` 및 `WebSocketFrame` JSON 직렬화/역직렬화 JUnit 5 테스트 작성
-  - [x] `./gradlew :common:test` 100% 통과 확인
-  - [x] Green 커밋: `feat(common): 공통 이벤트 봉투 및 WebSocket 프레임 계약 구현`
+#### 1. 개발 세션 (Builder Session)
+- [ ] **Root Build 셋업**:
+  - [ ] `settings.gradle.kts` 구성 (모듈: `common`, `minecraft-plugin`, `api-service`, `bot-service`, `workflow-worker`)
+  - [ ] Root `build.gradle.kts`에 JVM 21, Kotlin 1.9+, `kotlinx.serialization`, `kotlinx.coroutines` 공통 설정
+  - [ ] `gradlew` 래퍼 스크립트 및 `.gitattributes` 검증
+- [ ] **`common` 모듈 구현**:
+  - [ ] [EVENT_CONTRACTS.md](EVENT_CONTRACTS.md) 기반의 `EventEnvelope` 불변 `data class` 작성
+  - [ ] [TRANSPORT_PROTOCOL_SPEC.md](TRANSPORT_PROTOCOL_SPEC.md) 기반의 `WebSocketFrame` (`EVENT`, `COMMAND_REQ`, `COMMAND_RES`, `PING`, `PONG`) DTO 작성
+  - [ ] Redis Streams 키 네임스페이스 및 상수 객체 정의
+- [ ] **단위 테스트 및 검증**:
+  - [ ] `EventEnvelope` 및 `WebSocketFrame` JSON 직렬화/역직렬화 JUnit 5 테스트 작성
+  - [ ] `./gradlew :common:test` 100% 통과 확인
+  - [ ] Green 커밋: `feat(common): 공통 이벤트 봉투 및 WebSocket 프레임 계약 구현`
+
+#### 2. 점검 세션 (Inspector Session)
+- [ ] **`/ponytail-review` 복잡도 사냥**: 불필요한 추상화, DTO 1:1 단순 매퍼, 과도한 계층 제거 (`net: -N lines`)
+- [ ] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
+  - [ ] `common` 모듈의 단방향 의존성 확인 (타 모듈 참조 0개 원칙)
+  - [ ] 직렬화 불변성, `schema_version` 호환성, 엣지 케이스 확인
+- [ ] **리팩터링 커밋 및 푸시**:
+  - [ ] `./gradlew :common:test` 통과 후 커밋: `refactor(common): 공통 모델 복잡도 다이어트 및 직렬화 엣지케이스 보강`
+  - [ ] 본 문서의 마일스톤 1 체크박스를 `[x]`로 완료하고 `git push origin main`
+
 
 ---
 

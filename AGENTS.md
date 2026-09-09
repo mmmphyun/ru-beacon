@@ -80,9 +80,19 @@
 ---
 
 
-## 4. 마일스톤 분할 실행 지침
+## 4. 마일스톤 분할 실행 지침 (2-Session Cycle)
 
 - 단일 `/goal` 호출로 전체 서비스를 한 번에 구현하려 하지 않는다.
 - 모든 자율 주행은 **[docs/MILESTONES.md](docs/MILESTONES.md)**에 정의된 마일스톤 체크리스트를 단일 기준으로 삼는다.
-- 새 세션에서 에이전트는 `docs/MILESTONES.md`의 미완료 마일스톤 1개만 완수하고, 해당 마일스톤의 체크박스 `[ ]`를 `[x]`로 수정한 뒤 커밋 및 원격 푸시를 완료해야 한다.
+- 하나의 마일스톤은 **[개발 세션: Builder]**과 **[점검 세션: Inspector]**의 독립된 2개 세션으로 분할하여 수행한다.
+  1. **개발 세션 (Builder Session)**:
+     - 마일스톤의 기능 구현 및 테스트 코드 작성.
+     - `./gradlew test` 통과 확인 후 `feat(...)` 커밋 생성 및 푸시.
+  2. **점검 세션 (Inspector Session)**:
+     - 깨끗한 새 세션에서 직전 개발 세션의 커밋 diff를 감사(Audit).
+     - **`/ponytail-review` 실행 필수**: 불필요한 추상화, 팩토리, 1:1 매퍼 사냥 (`net: -N lines`).
+     - **[docs/INSPECTION_CHECKLIST.md](docs/INSPECTION_CHECKLIST.md) 전수 점검**: 엣지 케이스(WSS 단절, 틱 렉, 동시성), 클라우드 포트폴리오 가치, 감사 로그 무결성 검증.
+     - 발견된 취약점 보강 및 테스트 통과 후 `refactor(...)` 커밋.
+     - [docs/MILESTONES.md](docs/MILESTONES.md) 체크박스 `[x]` 완료 처리 후 `git push origin main`.
+
 
