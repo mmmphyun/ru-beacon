@@ -101,46 +101,58 @@ class RuBeaconBot(
 
             log.info("슬래시 커맨드 수신: /{} (user={}, tenant={})", commandName, userId, tenantId)
 
-            val deferred = interaction.deferEphemeralResponse()
             try {
-                when (commandName) {
-                    "verify" -> {
-                        val code = command.strings["code"] ?: ""
-                        val envelope = DiscordEventNormalizer.normalizeCommand(
-                            tenantId = tenantId,
-                            userId = userId,
-                            commandName = "verify",
-                            options = mapOf("code" to code),
-                            interactionId = interactionId
-                        )
-                        publisher.publish(envelope)
-                        deferred.respond {
-                            content = DiscordResponseRenderer.verificationInitiated(code)
+                val deferred = interaction.deferEphemeralResponse()
+                try {
+                    when (commandName) {
+                        "verify" -> {
+                            val code = command.strings["code"]?.trim() ?: ""
+                            if (code.isBlank()) {
+                                deferred.respond {
+                                    content = DiscordResponseRenderer.error("인증 코드를 입력해주세요.")
+                                }
+                                return@on
+                            }
+                            val envelope = DiscordEventNormalizer.normalizeCommand(
+                                tenantId = tenantId,
+                                userId = userId,
+                                commandName = "verify",
+                                options = mapOf("code" to code),
+                                interactionId = interactionId
+                            )
+                            publisher.publish(envelope)
+                            deferred.respond {
+                                content = DiscordResponseRenderer.verificationInitiated(code)
+                            }
+                        }
+                        "attend" -> {
+                            val envelope = DiscordEventNormalizer.normalizeCommand(
+                                tenantId = tenantId,
+                                userId = userId,
+                                commandName = "attend",
+                                interactionId = interactionId
+                            )
+                            publisher.publish(envelope)
+                            deferred.respond {
+                                content = DiscordResponseRenderer.attendanceRequested(userId)
+                            }
+                        }
+                        else -> {
+                            deferred.respond {
+                                content = DiscordResponseRenderer.error("알 수 없는 명령어입니다: /$commandName")
+                            }
                         }
                     }
-                    "attend" -> {
-                        val envelope = DiscordEventNormalizer.normalizeCommand(
-                            tenantId = tenantId,
-                            userId = userId,
-                            commandName = "attend",
-                            interactionId = interactionId
-                        )
-                        publisher.publish(envelope)
+                } catch (e: Exception) {
+                    log.error("슬래시 커맨드 비즈니스 처리 중 예외 발생: {}", e.message, e)
+                    runCatching {
                         deferred.respond {
-                            content = DiscordResponseRenderer.attendanceRequested(userId)
-                        }
-                    }
-                    else -> {
-                        deferred.respond {
-                            content = DiscordResponseRenderer.error("알 수 없는 명령어입니다: /$commandName")
+                            content = DiscordResponseRenderer.error(e.message ?: "내부 서버 오류")
                         }
                     }
                 }
             } catch (e: Exception) {
-                log.error("슬래시 커맨드 처리 중 예외 발생: {}", e.message, e)
-                deferred.respond {
-                    content = DiscordResponseRenderer.error(e.message ?: "내부 서버 오류")
-                }
+                log.error("슬래시 커맨드 Defer 단계 실패: {}", e.message, e)
             }
         }
 
@@ -154,31 +166,37 @@ class RuBeaconBot(
 
             log.info("버튼 인터랙션 수신: customId={} (user={}, tenant={})", customId, userId, tenantId)
 
-            val deferred = interaction.deferEphemeralResponse()
             try {
-                val envelope = DiscordEventNormalizer.normalizeButton(
-                    tenantId = tenantId,
-                    userId = userId,
-                    customId = customId,
-                    messageId = messageId,
-                    interactionId = interactionId
-                )
-                publisher.publish(envelope)
+                val deferred = interaction.deferEphemeralResponse()
+                try {
+                    val envelope = DiscordEventNormalizer.normalizeButton(
+                        tenantId = tenantId,
+                        userId = userId,
+                        customId = customId,
+                        messageId = messageId,
+                        interactionId = interactionId
+                    )
+                    publisher.publish(envelope)
 
-                val responseMessage = when {
-                    customId.startsWith("attend_claim_btn") -> DiscordResponseRenderer.attendanceRequested(userId)
-                    customId.startsWith("reward_claim_btn") -> DiscordResponseRenderer.rewardClaimRequested(userId, customId.substringAfter(":", ""))
-                    else -> DiscordResponseRenderer.interactionAcknowledged(customId)
-                }
+                    val responseMessage = when {
+                        customId.startsWith("attend_claim_btn") -> DiscordResponseRenderer.attendanceRequested(userId)
+                        customId.startsWith("reward_claim_btn") -> DiscordResponseRenderer.rewardClaimRequested(userId, customId.substringAfter(":", ""))
+                        else -> DiscordResponseRenderer.interactionAcknowledged(customId)
+                    }
 
-                deferred.respond {
-                    content = responseMessage
+                    deferred.respond {
+                        content = responseMessage
+                    }
+                } catch (e: Exception) {
+                    log.error("버튼 인터랙션 처리 중 예외 발생: {}", e.message, e)
+                    runCatching {
+                        deferred.respond {
+                            content = DiscordResponseRenderer.error(e.message ?: "내부 서버 오류")
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                log.error("버튼 인터랙션 처리 중 예외 발생: {}", e.message, e)
-                deferred.respond {
-                    content = DiscordResponseRenderer.error(e.message ?: "내부 서버 오류")
-                }
+                log.error("버튼 인터랙션 Defer 단계 실패: {}", e.message, e)
             }
         }
 
@@ -192,25 +210,31 @@ class RuBeaconBot(
             val textInputs = interaction.textInputs.mapValues { it.value.value ?: "" }
             log.info("모달 제출 수신: modalId={} (user={}, tenant={})", modalId, userId, tenantId)
 
-            val deferred = interaction.deferEphemeralResponse()
             try {
-                val envelope = DiscordEventNormalizer.normalizeModal(
-                    tenantId = tenantId,
-                    userId = userId,
-                    modalId = modalId,
-                    values = textInputs,
-                    interactionId = interactionId
-                )
-                publisher.publish(envelope)
+                val deferred = interaction.deferEphemeralResponse()
+                try {
+                    val envelope = DiscordEventNormalizer.normalizeModal(
+                        tenantId = tenantId,
+                        userId = userId,
+                        modalId = modalId,
+                        values = textInputs,
+                        interactionId = interactionId
+                    )
+                    publisher.publish(envelope)
 
-                deferred.respond {
-                    content = DiscordResponseRenderer.interactionAcknowledged(modalId)
+                    deferred.respond {
+                        content = DiscordResponseRenderer.interactionAcknowledged(modalId)
+                    }
+                } catch (e: Exception) {
+                    log.error("모달 제출 처리 중 예외 발생: {}", e.message, e)
+                    runCatching {
+                        deferred.respond {
+                            content = DiscordResponseRenderer.error(e.message ?: "내부 서버 오류")
+                        }
+                    }
                 }
             } catch (e: Exception) {
-                log.error("모달 제출 처리 중 예외 발생: {}", e.message, e)
-                deferred.respond {
-                    content = DiscordResponseRenderer.error(e.message ?: "내부 서버 오류")
-                }
+                log.error("모달 제출 Defer 단계 실패: {}", e.message, e)
             }
         }
     }

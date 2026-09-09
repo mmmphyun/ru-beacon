@@ -57,4 +57,31 @@ class DiscordActionConsumerTest : BaseBotIntegrationTest() {
         val pending = jedis.xpending(streamKey, group, XPendingParams.xPendingParams().count(10))
         assertEquals(0, pending.size)
     }
+
+    @Test
+    fun `processSingleAction should gracefully handle missing channelId or content without crashing`() = runBlocking {
+        val streamKey = RedisNamespaces.STREAM_DISCORD_ACTIONS
+        val group = RedisNamespaces.GROUP_BOT
+
+        runCatching {
+            jedis.xgroupCreate(streamKey, group, StreamEntryID("0-0"), true)
+        }
+
+        // channel_id가 누락된 비정상 메시지
+        val entryId = jedis.xadd(
+            streamKey,
+            XAddParams.xAddParams(),
+            mapOf("action" to "SEND_MESSAGE")
+        )
+
+        val readParams = XReadGroupParams.xReadGroupParams().count(1).block(1000)
+        val readResult = jedis.xreadGroup(group, "test-consumer", readParams, mapOf(streamKey to StreamEntryID.UNRECEIVED_ENTRY))
+
+        val entries = readResult[0].value
+        consumer.processEntries(entries)
+
+        // 오류 없이 정상 처리(스킵) 및 ACK되어 pending 0건이어야 함
+        val pending = jedis.xpending(streamKey, group, XPendingParams.xPendingParams().count(10))
+        assertEquals(0, pending.size)
+    }
 }

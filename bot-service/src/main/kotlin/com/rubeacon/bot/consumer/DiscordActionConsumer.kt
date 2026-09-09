@@ -123,8 +123,11 @@ class DiscordActionConsumer(
                 processSingleAction(fields)
                 jedis.xack(streamKey, groupName, entryId)
                 log.debug("액션 메시지 정상 처리 및 ACK 완료: entryId={}", entryId)
+            } catch (e: dev.kord.rest.request.RestRequestException) {
+                log.error("Discord API 영구 요청 실패(Poison Pill 격리 및 ACK 처리): entryId={}, status={}, error={}", entryId, e.status, e.message)
+                jedis.xack(streamKey, groupName, entryId)
             } catch (e: Exception) {
-                log.error("액션 메시지 처리 실패 (entryId={}): {}", entryId, e.message, e)
+                log.error("액션 메시지 일시적 처리 실패 (entryId={}): {}", entryId, e.message, e)
             }
         }
     }
