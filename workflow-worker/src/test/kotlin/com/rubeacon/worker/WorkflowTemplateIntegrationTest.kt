@@ -292,4 +292,98 @@ class WorkflowTemplateIntegrationTest : BaseWorkerIntegrationTest() {
         }
         assertEquals("RELEASED", reservation[RewardReservations.status])
     }
+
+    @Test
+    fun `동일 플레이어가 당일 2회 출석 보상 예약 시도 시 ALREADY_RESERVED 에러 코드로 즉시 차단되어야 한다`() = runBlocking {
+        val tenantId = "tenant_duplicate_01"
+        val playerUuid = UUID.randomUUID().toString()
+        val correlationId1 = "corr_dup_01"
+        val correlationId2 = "corr_dup_02"
+        ensureTenant(tenantId)
+
+        val template = WorkflowDefinition(
+            version = 1,
+            trigger = WorkflowTrigger("trig", "test", listOf("node_reserve")),
+            nodes = listOf(
+                WorkflowNode(
+                    id = "node_reserve",
+                    nodeType = "ATTENDANCE_RESERVATION",
+                    inputs = mapOf("action" to JsonPrimitive("RESERVE"), "total_limit" to JsonPrimitive("10"))
+                )
+            )
+        )
+
+        val event1 = EventEnvelope(
+            eventId = "evt_dup_01",
+            eventType = "test",
+            source = "test",
+            sourceInstanceId = "inst",
+            tenantId = tenantId,
+            occurredAt = "2026-09-09T12:00:00Z",
+            receivedAt = "2026-09-09T12:00:01Z",
+            correlationId = correlationId1,
+            idempotencyKey = "idemp_dup_01",
+            actor = EventEntity("minecraft_player", playerUuid)
+        )
+
+        // 1회차 예약 성공
+        val summary1 = dispatcher.run(template, event1)
+        assertEquals("SUCCESS", summary1.status)
+
+        // 2회차 동일 플레이어 동일 일자 중복 예약 시도
+        val event2 = event1.copy(
+            eventId = "evt_dup_02",
+            correlationId = correlationId2,
+            idempotencyKey = "idemp_dup_02"
+        )
+        val summary2 = dispatcher.run(template, event2)
+        assertEquals("FAILURE", summary2.status)
+        assertTrue(summary2.failedNodes.contains("node_reserve"))
+
+        // 감사 로그에 실패 원인과 status가 정확히 기록되었는지 확인
+        val auditLog = transaction(database) {
+            AuditLogs.selectAll().where { AuditLogs.correlationId eq correlationId2 }.single()
+        }
+        assertEquals("FAILURE", auditLog[AuditLogs.status])
+        assertTrue(auditLog[AuditLogs.details].contains("node_reserve"))
+    }
+
+    @Test
+    fun `쿼터 RELEASE 중복 호출 시 언더플로우가 방어되어 reserved_count가 0 이하로 내려가지 않아야 한다`() = runBlocking {
+        val tenantId = "tenant_underflow_01"
+        val playerUuid = UUID.randomUUID().toString()
+        val correlationId = "corr_underflow_01"
+        ensureTenant(tenantId)
+
+        val event = EventEnvelope(
+            eventId = "evt_uf_01",
+            eventType = "test",
+            source = "test",
+            sourceInstanceId = "inst",
+            tenantId = tenantId,
+            occurredAt = "2026-09-09T12:00:00Z",
+            receivedAt = "2026-09-09T12:00:01Z",
+            correlationId = correlationId,
+            idempotencyKey = "idemp_uf_01",
+            actor = EventEntity("minecraft_player", playerUuid)
+        )
+
+        val context = com.rubeacon.worker.engine.WorkflowContext(tenantId, correlationId, event, mapOf("Minecraft_UUID" to playerUuid))
+
+        // 예약 1회
+        attendanceExecutor.execute(context, mapOf("action" to JsonPrimitive("RESERVE"), "total_limit" to JsonPrimitive("10")))
+
+        // 1회차 릴리즈 -> 0으로 감소
+        attendanceExecutor.execute(context, mapOf("action" to JsonPrimitive("RELEASE")))
+
+        // 2회차 무효 릴리즈 시도 -> 음수로 떨어지지 않고 0 유지
+        attendanceExecutor.execute(context, mapOf("action" to JsonPrimitive("RELEASE")))
+
+        val quota = transaction(database) {
+            AttendanceQuotas.selectAll().where {
+                (AttendanceQuotas.tenantId eq tenantId) and (AttendanceQuotas.rewardDate eq LocalDate.now())
+            }.single()
+        }
+        assertEquals(0, quota[AttendanceQuotas.reservedCount])
+    }
 }

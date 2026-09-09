@@ -14,12 +14,7 @@ object TarjanCycleDetector {
     fun validate(definition: WorkflowDefinition) {
         val adjacency = mutableMapOf<String, MutableSet<String>>()
 
-        // 모든 노드 초기화
-        for (node in definition.nodes) {
-            adjacency[node.id] = mutableSetOf()
-        }
-
-        // 엣지 수집 (일반 next_node_ids 및 branches)
+        // 노드 초기화 및 엣지 수집 (일반 next_node_ids 및 branches)
         for (node in definition.nodes) {
             val targets = adjacency.getOrPut(node.id) { mutableSetOf() }
             targets.addAll(node.nextNodeIds)

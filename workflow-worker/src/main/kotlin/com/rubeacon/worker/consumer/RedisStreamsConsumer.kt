@@ -59,19 +59,9 @@ class RedisStreamsConsumer(
         var processedCount = 0
         for (streamEntry in response) {
             for (entry in streamEntry.value) {
-                val payloadJson = entry.fields["payload"] ?: entry.fields["data"] ?: entry.fields.values.firstOrNull()
-                if (payloadJson != null) {
-                    runCatching {
-                        val event = RuBeaconJson.default.decodeFromString<EventEnvelope>(payloadJson)
-                        val workflow = workflowLookup(event.eventType, event.tenantId)
-                        if (workflow != null) {
-                            dispatcher.run(workflow, event)
-                        }
-                    }
+                if (processEntry(stream, entry)) {
+                    processedCount++
                 }
-                // 처리 완료 후 정상 수신 확인(XACK)
-                jedis.xack(stream, groupName, entry.id)
-                processedCount++
             }
         }
         return processedCount
@@ -92,20 +82,30 @@ class RedisStreamsConsumer(
         var recoveredCount = 0
 
         for (entry in entries) {
-            val payloadJson = entry.fields["payload"] ?: entry.fields["data"] ?: entry.fields.values.firstOrNull()
-            if (payloadJson != null) {
-                runCatching {
-                    val event = RuBeaconJson.default.decodeFromString<EventEnvelope>(payloadJson)
-                    val workflow = workflowLookup(event.eventType, event.tenantId)
-                    if (workflow != null) {
-                        dispatcher.run(workflow, event)
-                    }
-                }
+            if (processEntry(stream, entry)) {
+                recoveredCount++
             }
-            jedis.xack(stream, groupName, entry.id)
-            recoveredCount++
         }
         return recoveredCount
+    }
+
+    private suspend fun processEntry(stream: String, entry: redis.clients.jedis.resps.StreamEntry): Boolean {
+        val payloadJson = entry.fields["payload"] ?: entry.fields["data"] ?: entry.fields.values.firstOrNull()
+        if (payloadJson != null) {
+            try {
+                val event = RuBeaconJson.default.decodeFromString<EventEnvelope>(payloadJson)
+                val workflow = workflowLookup(event.eventType, event.tenantId)
+                if (workflow != null) {
+                    dispatcher.run(workflow, event)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // 파싱 오류 혹은 poison pill 격리
+            }
+        }
+        jedis.xack(stream, groupName, entry.id)
+        return true
     }
 
     /**

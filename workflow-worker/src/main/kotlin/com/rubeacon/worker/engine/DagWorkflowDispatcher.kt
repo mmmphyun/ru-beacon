@@ -2,13 +2,14 @@ package com.rubeacon.worker.engine
 
 import com.rubeacon.common.event.EventEnvelope
 import com.rubeacon.worker.db.AuditLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.util.Collections
@@ -42,17 +43,22 @@ class DagWorkflowDispatcher(
                 ?: throw IllegalArgumentException("Unsupported node executor: '${node.nodeType}'")
 
             val snapshotContext = contextMutex.withLock { currentContext }
-            val result = runCatching { executor.execute(snapshotContext, node.inputs) }
-                .getOrElse { NodeResult.Failure(it.message ?: "Unknown error", "EXECUTION_EXCEPTION") }
+            val result = try {
+                executor.execute(snapshotContext, node.inputs)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                NodeResult.Failure(e.message ?: "Unknown error", "EXECUTION_EXCEPTION")
+            }
 
             when (result) {
                 is NodeResult.Success -> {
                     completedNodes.add(node.id)
                     if (result.outputVariables.isNotEmpty()) {
                         contextMutex.withLock {
-                            currentContext = result.outputVariables.entries.fold(currentContext) { ctx, (k, v) ->
-                                ctx.withVariable(k, v)
-                            }
+                            currentContext = currentContext.copy(
+                                variables = currentContext.variables + result.outputVariables
+                            )
                         }
                     }
 
@@ -96,8 +102,8 @@ class DagWorkflowDispatcher(
         // 종단 단 1회 비동기 감사 로그 기록
         val detailsJson = buildJsonObject {
             put("status", status)
-            put("completed_nodes", Json.encodeToString(completedNodes.toList()))
-            put("failed_nodes", Json.encodeToString(failedNodes.toList()))
+            put("completed_nodes", buildJsonArray { completedNodes.forEach { add(JsonPrimitive(it)) } })
+            put("failed_nodes", buildJsonArray { failedNodes.forEach { add(JsonPrimitive(it)) } })
         }.toString()
 
         auditLogger.record(

@@ -8,14 +8,17 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.greater
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.minus
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.plus
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.insertIgnore
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.update
 import redis.clients.jedis.JedisPooled
+import redis.clients.jedis.params.XAddParams
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -111,7 +114,7 @@ class MinecraftDispatchCommandExecutor(
         dispatchedCommands.add(message)
         jedis?.xadd(
             RedisNamespaces.STREAM_COMMANDS_REQUEST,
-            redis.clients.jedis.params.XAddParams.xAddParams(),
+            XAddParams.xAddParams().maxLen(10_000L).approximateTrimming(),
             message
         )
 
@@ -152,7 +155,7 @@ class DiscordSendMessageExecutor(
         sentMessages.add(payload)
         jedis?.xadd(
             RedisNamespaces.STREAM_DISCORD_ACTIONS,
-            redis.clients.jedis.params.XAddParams.xAddParams(),
+            XAddParams.xAddParams().maxLen(10_000L).approximateTrimming(),
             payload
         )
 
@@ -199,6 +202,20 @@ class AttendanceReservationExecutor : NodeExecutor {
         correlationId: String
     ): NodeResult = newSuspendedTransaction(Dispatchers.IO) {
         val quotaId = "quota_${tenantId}_$date"
+
+        // 동일 플레이어의 당일 중복 예약 여부 사전 검증 (중복 수령 원천 차단)
+        val alreadyReserved = RewardReservations.selectAll().where {
+            (RewardReservations.tenantId eq tenantId) and
+            (RewardReservations.rewardDate eq date) and
+            (RewardReservations.playerUuid eq playerUuid)
+        }.count() > 0
+
+        if (alreadyReserved) {
+            return@newSuspendedTransaction NodeResult.Failure(
+                reason = "Player already reserved attendance reward for $date",
+                errorCode = "ALREADY_RESERVED"
+            )
+        }
 
         // 쿼터 기본 레코드 선행 생성 (최초 1회 보장)
         AttendanceQuotas.insertIgnore {
@@ -294,7 +311,9 @@ class AttendanceReservationExecutor : NodeExecutor {
 
         if (updated > 0) {
             AttendanceQuotas.update({
-                (AttendanceQuotas.tenantId eq tenantId) and (AttendanceQuotas.rewardDate eq date)
+                (AttendanceQuotas.tenantId eq tenantId) and
+                (AttendanceQuotas.rewardDate eq date) and
+                (AttendanceQuotas.reservedCount greater 0)
             }) {
                 with(org.jetbrains.exposed.sql.SqlExpressionBuilder) {
                     it.update(AttendanceQuotas.reservedCount, AttendanceQuotas.reservedCount - 1)
