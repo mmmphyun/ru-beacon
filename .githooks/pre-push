@@ -1,0 +1,45 @@
+#!/bin/sh
+# ==============================================================================
+# Ru-Beacon pre-push Hook (Hard Guard)
+# Prevents convention violations even if committed with --no-verify
+# ==============================================================================
+
+remote="$1"
+url="$2"
+
+zero_oid="0000000000000000000000000000000000000000"
+
+FORMAT_PATTERN="^(feat|fix|refactor|docs|test|chore|style|perf|ci)(\([a-z0-9_-]+\))?: .*[^.]$"
+
+while read local_ref local_oid remote_ref remote_oid; do
+    if [ "$local_oid" = "$zero_oid" ]; then
+        continue
+    fi
+
+    if [ "$remote_oid" = "$zero_oid" ]; then
+        range="$local_oid"
+    else
+        range="$remote_oid..$local_oid"
+    fi
+
+    for commit in $(git rev-list "$range"); do
+        msg=$(git log -1 --pretty=%B "$commit" | head -n 1)
+        if echo "$msg" | grep -qE "^(Merge |Revert |v[0-9])"; then
+            continue
+        fi
+
+        if ! echo "$msg" | grep -qE "$FORMAT_PATTERN" || ! echo "$msg" | grep -qE "[가-힣]"; then
+            echo ""
+            echo "================================================================================"
+            echo "[PUSH REJECTED BY HARD GUARD] 컨벤션 위반 커밋이 포함되어 있습니다!"
+            echo "--------------------------------------------------------------------------------"
+            echo "위반 커밋 ($commit): $msg"
+            echo "푸시 전에 'git commit --amend' 또는 'git rebase'로 메시지를 수정하십시오."
+            echo "================================================================================"
+            echo ""
+            exit 1
+        fi
+    done
+done
+
+exit 0
