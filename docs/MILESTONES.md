@@ -134,14 +134,18 @@
 
 #### 2. 점검 세션 (Inspector Session)
 - [x] **`/ponytail-review` 복잡도 사냥**:
-  - [x] `Application.kt`: 미사용 파라미터 경고 해소 및 `defaultDatabase` 글로벌 바인딩 일원화 (`shrink`)
+  - [x] `SessionRegistry.kt`: 미사용 `Mutex` 필드 삭제 (`delete`)
+  - [x] `InstanceAuthService.kt`: `authenticate` 쿼리 조건 결합 및 count 체크로 축약 (`shrink`)
+  - [x] `MinecraftWebSocketRoute.kt`: 미사용 opcode 분기 통합 정리 (`shrink`)
   - [x] 단일 구현체 인터페이스 0개 유지 및 DTO 1:1 매퍼 배제 (`yagni`)
 - [x] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
+  - [x] `SessionRegistry.kt` & `MinecraftWebSocketRoute.kt`: 재연결 시 이전 세션 종료의 finally 블록이 신규 세션의 ONLINE 상태를 덮어쓰지 않도록 `ConcurrentHashMap.remove(k, v)` 원자적 세션 비교 해제 적용 (분산 소켓 레이스 컨디션 차단)
+  - [x] `AccountLinkService.kt`: 이미 ACTIVE 연동된 계정에 대한 타인의 탈취(requestLink) 차단 가드(`AlreadyLinked`, HTTP 409 Conflict) 적용
   - [x] `AccountLinkService.kt`: 인증 5회 연속 실패 시 1회용 코드 즉시 파기(`null`) 및 계정 잠금 처리 (무차별 대입 공격 차단)
   - [x] `MinecraftWebSocketRoute.kt`: Redis Streams 발행 실패 시 WebSocket 세션 단절 방지를 위한 예외 격리 (장애 격리 원칙)
-  - [x] `WebSocketIngressAndRedisIntegrationTest.kt`: PING/PONG 핸드셰이크 완료 기반 세션 등록 동기화 보장 (레이스 컨디션 차단)
+  - [x] `WebSocketIngressAndRedisIntegrationTest.kt` & `FlywayMigrationAndRepositoryTest.kt`: 재연결 동시성 및 계정 탈취 방어 통합 테스트 추가
 - [x] **리팩터링 커밋 및 푸시**:
-  - [x] `./gradlew test` 통과 후 커밋: `refactor(api): 5회 인증 실패 시 1회용 코드 즉시 파기 및 Redis 예외 격리`
+  - [x] `./gradlew test` 통과 후 커밋: `refactor(api): WSS 재연결 세션 덮어쓰기 방어 및 계정 탈취 차단 가드 보강`
   - [x] 본 문서의 마일스톤 3 체크박스를 `[x]`로 완료하고 `git push origin main`
 
 ---
