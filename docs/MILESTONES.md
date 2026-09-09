@@ -216,14 +216,15 @@
 
 ---
 
-### [마일스톤 6] `web-dashboard` Next.js 위저드 폼
+### [마일스톤 6] `web-dashboard` Next.js 위저드 폼 (고객 유치 & SaaS 운영)
 > **목표**: 실제 마인크래프트 커뮤니티 운영자가 사용할 Next.js + Shadcn UI 기반 대시보드를 구축하여 초기 Discord 서버 설정 및 카드형 위저드 워크플로우 빌더를 제공한다.
 
 - [ ] **Next.js 프로젝트 셋업**:
   - [ ] `web-dashboard/` (Next.js 14 App Router, Tailwind CSS, Shadcn UI, TypeScript)
 - [ ] **온보딩 & 위저드 워크플로우 폼**:
-  - [ ] Discord 서버/역할/채널 드롭다운 설정 화면
+  - [ ] Discord 서버/역할/채널 연동 및 인스턴스 인증 토큰 발급 UI
   - [ ] 3단계 카드형 워크플로우 빌더 (1단계: 트리거 선택 → 2단계: 조건 필터 → 3단계: 실행 액션)
+  - [ ] 복잡한 그래프 캔버스 라이브러리 배제, 직관적 Form State 기반 린(Lean) UI 확립
   - [ ] API Service REST API 연동 및 워크플로우 JSONB 저장/배포/롤백 연동
 - [ ] **빌드 및 린트 검증**:
   - [ ] `pnpm build` 또는 `npm run build` 성공 확인
@@ -231,16 +232,24 @@
 
 ---
 
-### [마일스톤 7] 인프라 K3s & CI/CD 파이프라인 (포트폴리오 증거)
-> **목표**: 서비스 3종의 Dockerfile과 Helm 차트를 작성하고, GitHub Actions CI/CD를 구축하여 클라우드 직무 핵심 역량을 완벽히 증명한다.
+### [마일스톤 7] 인프라 K3s & CI/CD·관측성 파이프라인 (클라우드/SRE 포트폴리오 정점)
+> **목표**: 서비스 3종의 경량 컨테이너화와 Helm 차트를 패키징하고, KEDA 이벤트 기반 오토스케일링, Prometheus/Grafana 관측성, k6 분산 부하 테스트 벤치마크를 완비하여 클라우드/인프라 직무 역량을 완벽히 증명한다.
 
-- [ ] **컨테이너화**:
-  - [ ] `api-service`, `bot-service`, `workflow-worker` 멀티스테이지 Dockerfile 작성 (Eclipse Temurin 21 JRE, 경량 이미지)
-- [ ] **Helm 차트 패키징**:
+- [ ] **컨테이너화 및 보안**:
+  - [ ] `api-service`, `bot-service`, `workflow-worker` 멀티스테이지 Dockerfile 작성 (Eclipse Temurin 21 JRE, Non-root 사용자 격리)
+- [ ] **관측성(Observability) 엔드포인트**:
+  - [ ] Ktor Micrometer Prometheus 레지스트리 연동 및 `/metrics` 엔드포인트 노출 (JVM Heap, Coroutine Dispatcher, Redis Connection Pool, HTTP latency)
+  - [ ] Grafana 대시보드 명세 (`deploy/observability/grafana-dashboard.json`) 작성
+- [ ] **Helm 차트 패키징 & 클라우드 네이티브 설계**:
   - [ ] `deploy/helm/ru-beacon` 차트 작성 (Deployment, Service, Ingress, ConfigMap, Secret, Probe)
-  - [ ] Liveness/Readiness Probe 및 리소스 리밋 설정
-- [ ] **GitHub Actions CI 워크플로우**:
-  - [ ] `.github/workflows/ci.yml` 작성 (전체 Gradle 테스트, 도커 빌드 검증)
-- [ ] **로컬 `pre-commit` 하드 가드 연동**:
+  - [ ] Liveness/Readiness Probe, 리소스 Request/Limit, PodDisruptionBudget 설정
+  - [ ] **KEDA ScaledObject**: Redis Streams 컨슈머 랙(`stream:events:*` lag > 100) 기반 `workflow-worker` 파드 자동 증설(HPA) 정의
+  - [ ] Prometheus Operator `ServiceMonitor` 매니페스트 포함
+- [ ] **k6 분산 동시성 부하 테스트 & 성능 리포트**:
+  - [ ] `deploy/load-test/k6-concurrency-benchmark.js` 작성
+  - [ ] 선착순 출석 이벤트 1,000 RPS 동시 요청 시 2-Tier Redis Admission Control의 Fast-fail 0ms 및 DB 커넥션 풀 안정성 실측 검증
+- [ ] **GitHub Actions CI 워크플로우 & 하드 가드**:
+  - [ ] `.github/workflows/ci.yml` 작성 (전체 Gradle 테스트, 도커 빌드 검증, Helm lint)
   - [ ] `.githooks/pre-commit`에 `./gradlew test` 자동 검증 연결
-  - [ ] Green 커밋: `ci: Helm 차트 패키징 및 GitHub Actions CI 워크플로우 구축`
+  - [ ] Green 커밋: `ci: Helm 차트 패키징·KEDA 오토스케일링 및 관측성 CI/CD 파이프라인 구축`
+
