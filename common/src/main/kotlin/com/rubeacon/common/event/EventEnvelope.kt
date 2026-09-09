@@ -1,9 +1,12 @@
-﻿package com.rubeacon.common.event
+package com.rubeacon.common.event
 
+import com.rubeacon.common.serialization.RuBeaconJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 
 /**
  * 이벤트의 주체(Actor) 또는 대상(Subject)을 식별하는 엔티티 정보.
@@ -56,4 +59,47 @@ data class EventEnvelope(
     val subject: EventEntity? = null,
     @SerialName("schema_version") val schemaVersion: Int = 1,
     val payload: JsonObject = buildJsonObject {}
-)
+) {
+    /**
+     * 페이로드를 구체적인 데이터 클래스 타입으로 안전하게 역직렬화함.
+     */
+    inline fun <reified T> decodePayload(json: Json = RuBeaconJson.default): T =
+        json.decodeFromJsonElement(payload)
+
+    /**
+     * 외부 경계 접수 시 이벤트 계약의 필수 제약 조건 및 정합성을 검증함.
+     * 계약 위반 시 IllegalArgumentException을 발생시킴.
+     */
+    fun validate() {
+        require(eventId.isNotBlank()) { "event_id는 공백일 수 없습니다" }
+        require(eventType.isNotBlank()) { "event_type은 공백일 수 없습니다" }
+        require(source in VALID_SOURCES) { "유효하지 않은 source: $source (허용: $VALID_SOURCES)" }
+        require(sourceInstanceId.isNotBlank()) { "source_instance_id는 공백일 수 없습니다" }
+        require(tenantId.isNotBlank()) { "tenant_id는 공백일 수 없습니다" }
+        require(occurredAt.isNotBlank()) { "occurred_at은 공백일 수 없습니다" }
+        require(receivedAt.isNotBlank()) { "received_at은 공백일 수 없습니다" }
+        require(correlationId.isNotBlank()) { "correlation_id는 공백일 수 없습니다" }
+        require(idempotencyKey.isNotBlank()) { "idempotency_key는 공백일 수 없습니다" }
+        require(schemaVersion >= 1) { "schema_version은 1 이상이어야 합니다: $schemaVersion" }
+
+        if (source == SOURCE_MINECRAFT) {
+            require(!minecraftNetworkId.isNullOrBlank()) {
+                "minecraft source 이벤트는 minecraft_network_id가 필수입니다"
+            }
+        }
+    }
+
+    companion object {
+        const val SOURCE_MINECRAFT = "minecraft"
+        const val SOURCE_DISCORD = "discord"
+        const val SOURCE_SYSTEM = "system"
+        const val SOURCE_EXTERNAL = "external"
+
+        val VALID_SOURCES = setOf(
+            SOURCE_MINECRAFT,
+            SOURCE_DISCORD,
+            SOURCE_SYSTEM,
+            SOURCE_EXTERNAL
+        )
+    }
+}

@@ -1,12 +1,13 @@
-﻿package com.rubeacon.common.transport
+package com.rubeacon.common.transport
 
 import com.rubeacon.common.event.EventEnvelope
+import com.rubeacon.common.serialization.RuBeaconJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 
@@ -48,8 +49,36 @@ data class WebSocketFrame(
     val timestamp: Long,
     val payload: JsonObject = buildJsonObject {}
 ) {
+    /**
+     * 프레임의 JSON 페이로드를 구체적인 데이터 클래스 타입으로 안전하게 역직렬화함.
+     */
+    inline fun <reified T> decodePayload(json: Json = RuBeaconJson.default): T =
+        json.decodeFromJsonElement(payload)
+
+    /**
+     * WebSocket 수신 프레임의 최소 유효성(추적 ID 및 타임스탬프)을 검증함.
+     */
+    fun validate() {
+        require(traceId.isNotBlank()) { "trace_id는 공백일 수 없습니다" }
+        require(timestamp > 0L) { "timestamp는 양수여야 합니다: $timestamp" }
+    }
+
     companion object {
-        private val defaultJson = Json { ignoreUnknownKeys = true }
+        /**
+         * 임의의 객체를 JsonObject 페이로드로 변환하여 표준 WebSocketFrame을 생성함.
+         */
+        inline fun <reified T> of(
+            op: Opcode,
+            traceId: String,
+            payload: T,
+            timestamp: Long = System.currentTimeMillis(),
+            json: Json = RuBeaconJson.default
+        ): WebSocketFrame = WebSocketFrame(
+            op = op,
+            traceId = traceId,
+            timestamp = timestamp,
+            payload = json.encodeToJsonElement(payload).jsonObject
+        )
 
         fun ping(traceId: String, timestamp: Long = System.currentTimeMillis()): WebSocketFrame =
             WebSocketFrame(op = Opcode.PING, traceId = traceId, timestamp = timestamp)
@@ -61,36 +90,39 @@ data class WebSocketFrame(
             envelope: EventEnvelope,
             traceId: String = envelope.correlationId,
             timestamp: Long = System.currentTimeMillis(),
-            json: Json = defaultJson
-        ): WebSocketFrame = WebSocketFrame(
+            json: Json = RuBeaconJson.default
+        ): WebSocketFrame = of(
             op = Opcode.EVENT,
             traceId = traceId,
+            payload = envelope,
             timestamp = timestamp,
-            payload = json.encodeToJsonElement(envelope).jsonObject
+            json = json
         )
 
         fun commandReq(
             payload: CommandRequestPayload,
             traceId: String,
             timestamp: Long = System.currentTimeMillis(),
-            json: Json = defaultJson
-        ): WebSocketFrame = WebSocketFrame(
+            json: Json = RuBeaconJson.default
+        ): WebSocketFrame = of(
             op = Opcode.COMMAND_REQ,
             traceId = traceId,
+            payload = payload,
             timestamp = timestamp,
-            payload = json.encodeToJsonElement(payload).jsonObject
+            json = json
         )
 
         fun commandRes(
             payload: CommandResponsePayload,
             traceId: String,
             timestamp: Long = System.currentTimeMillis(),
-            json: Json = defaultJson
-        ): WebSocketFrame = WebSocketFrame(
+            json: Json = RuBeaconJson.default
+        ): WebSocketFrame = of(
             op = Opcode.COMMAND_RES,
             traceId = traceId,
+            payload = payload,
             timestamp = timestamp,
-            payload = json.encodeToJsonElement(payload).jsonObject
+            json = json
         )
     }
 }

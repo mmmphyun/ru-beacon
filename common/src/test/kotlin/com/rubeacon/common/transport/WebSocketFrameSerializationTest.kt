@@ -1,21 +1,19 @@
-﻿package com.rubeacon.common.transport
+package com.rubeacon.common.transport
 
 import com.rubeacon.common.event.EventEnvelope
+import com.rubeacon.common.serialization.RuBeaconJson
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.put
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class WebSocketFrameSerializationTest {
 
-    private val json = Json {
-        prettyPrint = false
-        ignoreUnknownKeys = true
-    }
+    private val json = RuBeaconJson.default
 
     @Test
     fun `PING 및 PONG 프레임 직렬화와 역직렬화가 정상 동작한다`() {
@@ -59,7 +57,7 @@ class WebSocketFrameSerializationTest {
         assertEquals(Opcode.EVENT, deserializedFrame.op)
         assertEquals("trc_evt_01", deserializedFrame.traceId)
 
-        val restoredEnvelope = json.decodeFromJsonElement<EventEnvelope>(deserializedFrame.payload)
+        val restoredEnvelope = deserializedFrame.decodePayload<EventEnvelope>()
         assertEquals(envelope, restoredEnvelope)
     }
 
@@ -80,7 +78,7 @@ class WebSocketFrameSerializationTest {
         val deserializedReqFrame = json.decodeFromString<WebSocketFrame>(serializedReq)
         assertEquals(Opcode.COMMAND_REQ, deserializedReqFrame.op)
 
-        val restoredReqPayload = json.decodeFromJsonElement<CommandRequestPayload>(deserializedReqFrame.payload)
+        val restoredReqPayload = deserializedReqFrame.decodePayload<CommandRequestPayload>()
         assertEquals(reqPayload, restoredReqPayload)
 
         val resPayload = CommandResponsePayload(
@@ -98,7 +96,68 @@ class WebSocketFrameSerializationTest {
         val deserializedResFrame = json.decodeFromString<WebSocketFrame>(serializedRes)
         assertEquals(Opcode.COMMAND_RES, deserializedResFrame.op)
 
-        val restoredResPayload = json.decodeFromJsonElement<CommandResponsePayload>(deserializedResFrame.payload)
+        val restoredResPayload = deserializedResFrame.decodePayload<CommandResponsePayload>()
         assertEquals(resPayload, restoredResPayload)
     }
+
+    @Test
+    fun `미지의 신규 필드가 포함된 WebSocketFrame JSON도 정상 역직렬화된다`() {
+        val jsonWithUnknownFields = """
+        {
+          "op": "PING",
+          "trace_id": "trc_ping_future",
+          "timestamp": 1757318850000,
+          "payload": {},
+          "future_transport_header": "test_routing_info",
+          "priority": "HIGH"
+        }
+        """.trimIndent()
+
+        val frame = json.decodeFromString<WebSocketFrame>(jsonWithUnknownFields)
+        assertEquals(Opcode.PING, frame.op)
+        assertEquals("trc_ping_future", frame.traceId)
+        assertEquals(1757318850000L, frame.timestamp)
+    }
+
+    @Serializable
+    private data class CustomPayload(val message: String, val code: Int)
+
+    @Test
+    fun `WebSocketFrame_of 팩토리 메서드로 임의의 DTO를 페이로드로 포장하고 디코딩한다`() {
+        val payload = CustomPayload(message = "custom_event", code = 200)
+        val frame = WebSocketFrame.of(
+            op = Opcode.EVENT,
+            traceId = "trc_custom_01",
+            payload = payload,
+            timestamp = 1757318860000L
+        )
+
+        val serialized = json.encodeToString(frame)
+        val deserialized = json.decodeFromString<WebSocketFrame>(serialized)
+
+        assertEquals(Opcode.EVENT, deserialized.op)
+        val decoded = deserialized.decodePayload<CustomPayload>()
+        assertEquals(payload, decoded)
+    }
+
+    @Test
+    fun `validate()는 정상 프레임에 대해 통과하고 빈 traceId 또는 음수 timestamp에 예외를 발생시킨다`() {
+        val validFrame = WebSocketFrame.ping(traceId = "trc_valid")
+        validFrame.validate()
+
+        val blankTraceFrame = WebSocketFrame.ping(traceId = "   ")
+        assertThrows(IllegalArgumentException::class.java) {
+            blankTraceFrame.validate()
+        }
+
+        val invalidTimeFrame = WebSocketFrame(
+            op = Opcode.PING,
+            traceId = "trc_valid",
+            timestamp = -1L
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            invalidTimeFrame.validate()
+        }
+    }
 }
+
