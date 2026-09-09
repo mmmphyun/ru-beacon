@@ -78,6 +78,15 @@ fun Route.accountLinkRoutes(accountLinkService: AccountLinkService) {
                         )
                     )
                 }
+                is LinkResult.AlreadyLinked -> {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        ApiResponse(
+                            success = false,
+                            message = "이미 다른 디스코드 계정에 연동된 마인크래프트 계정입니다"
+                        )
+                    )
+                }
             }
         }
 

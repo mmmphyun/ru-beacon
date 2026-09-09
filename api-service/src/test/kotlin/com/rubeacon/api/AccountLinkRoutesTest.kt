@@ -93,4 +93,55 @@ class AccountLinkRoutesTest : BaseIntegrationTest() {
         val verifyRes = RuBeaconJson.default.decodeFromString<ApiResponse>(verifyResponse.bodyAsText())
         assertTrue(verifyRes.success)
     }
+
+    @Test
+    fun `이미 연동된 마인크래프트 계정을 타인이 요청할 경우 Conflict(409)를 반환해야 한다`() = testApplication {
+        val tenantId = "tenant_rest_hijack"
+        transaction(database) {
+            Tenants.insert {
+                it[id] = tenantId
+                it[name] = "REST 탈취 방어 테넌트"
+                it[discordGuildId] = "666777888999000111"
+            }
+        }
+
+        application {
+            module(database = database, jedis = jedis)
+        }
+
+        val client = createClient {}
+        val playerUuid = UUID.randomUUID().toString()
+
+        // 1. 유저 1 연동 및 인증 완료
+        val req1 = LinkRequestDto(
+            tenantId = tenantId,
+            discordUserId = "discord_legit",
+            minecraftUuid = playerUuid,
+            minecraftUsername = "Steve"
+        )
+        val res1 = client.post("/api/v1/accounts/link/request") {
+            contentType(ContentType.Application.Json)
+            setBody(RuBeaconJson.default.encodeToString(req1))
+        }
+        val linkRes1 = RuBeaconJson.default.decodeFromString<ApiResponse>(res1.bodyAsText())
+        client.post("/api/v1/accounts/link/verify") {
+            contentType(ContentType.Application.Json)
+            setBody(RuBeaconJson.default.encodeToString(VerifyRequestDto(tenantId, playerUuid, linkRes1.code!!)))
+        }
+
+        // 2. 유저 2가 동일 playerUuid로 연동 요청 시 409 Conflict 발생 확인
+        val req2 = LinkRequestDto(
+            tenantId = tenantId,
+            discordUserId = "discord_attacker",
+            minecraftUuid = playerUuid,
+            minecraftUsername = "Steve"
+        )
+        val res2 = client.post("/api/v1/accounts/link/request") {
+            contentType(ContentType.Application.Json)
+            setBody(RuBeaconJson.default.encodeToString(req2))
+        }
+        assertEquals(HttpStatusCode.Conflict, res2.status)
+        val linkRes2 = RuBeaconJson.default.decodeFromString<ApiResponse>(res2.bodyAsText())
+        kotlin.test.assertFalse(linkRes2.success)
+    }
 }

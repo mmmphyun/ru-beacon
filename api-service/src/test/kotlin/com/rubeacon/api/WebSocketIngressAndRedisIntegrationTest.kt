@@ -247,4 +247,83 @@ class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
         assertTrue(payloadInRedis.contains("minecraft.player.level_up"))
         assertTrue(payloadInRedis.contains("Steve"))
     }
+
+    @Test
+    fun `동일 인스턴스 재연결 시 이전 세션의 종료 처리가 신규 세션의 ONLINE 상태를 덮어쓰지 않아야 한다`() = testApplication {
+        val tenantId = "tenant_reconnect_01"
+        val networkId = "net_reconnect_01"
+        val instanceId = "inst_reconnect_01"
+        val rawToken = "reconnect-token"
+
+        transaction(database) {
+            Tenants.insert {
+                it[id] = tenantId
+                it[name] = "재연결 테스트 테넌트"
+                it[discordGuildId] = "444555666777888999"
+            }
+            MinecraftNetworks.insert {
+                it[id] = networkId
+                it[this.tenantId] = tenantId
+                it[name] = "재연결 네트워크"
+            }
+            MinecraftInstances.insert {
+                it[id] = instanceId
+                it[this.networkId] = networkId
+                it[this.tenantId] = tenantId
+                it[instanceType] = "BACKEND"
+                it[name] = "재연결 인스턴스"
+                it[tokenHash] = authService.hashToken(rawToken)
+                it[status] = "OFFLINE"
+            }
+        }
+
+        application {
+            module(
+                database = database,
+                jedis = jedis,
+                authService = authService,
+                sessionRegistry = sessionRegistry
+            )
+        }
+
+        val client = createClient {
+            install(WebSockets)
+        }
+
+        // 1. Session 1 연결
+        client.webSocket("/ws/minecraft/v1", request = {
+            header(TransportConstants.HEADER_TENANT_ID, tenantId)
+            header(TransportConstants.HEADER_INSTANCE_ID, instanceId)
+            header(TransportConstants.HEADER_INSTANCE_TOKEN, rawToken)
+        }) {
+            send(Frame.Text(RuBeaconJson.default.encodeToString(WebSocketFrame.ping(traceId = "trc_s1"))))
+            incoming.receive() // PONG 수신
+
+            // 2. Session 1이 살아있는 상태에서 Session 2 재연결
+            client.webSocket("/ws/minecraft/v1", request = {
+                header(TransportConstants.HEADER_TENANT_ID, tenantId)
+                header(TransportConstants.HEADER_INSTANCE_ID, instanceId)
+                header(TransportConstants.HEADER_INSTANCE_TOKEN, rawToken)
+            }) {
+                send(Frame.Text(RuBeaconJson.default.encodeToString(WebSocketFrame.ping(traceId = "trc_s2"))))
+                incoming.receive() // PONG 수신
+
+                // Session 2가 정상 등록되어 활성 세션 수는 1이고 상태는 ONLINE 유지
+                assertEquals(1, sessionRegistry.activeCount)
+                transaction(database) {
+                    val inst = MinecraftInstances.selectAll().where { MinecraftInstances.id eq instanceId }.single()
+                    assertEquals("ONLINE", inst[MinecraftInstances.status])
+                }
+
+                close()
+            }
+            close()
+        }
+
+        // 모든 세션이 종료된 후에는 OFFLINE으로 정상 전이
+        transaction(database) {
+            val inst = MinecraftInstances.selectAll().where { MinecraftInstances.id eq instanceId }.single()
+            assertEquals("OFFLINE", inst[MinecraftInstances.status])
+        }
+    }
 }

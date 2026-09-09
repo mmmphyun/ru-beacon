@@ -75,19 +75,18 @@ fun Route.minecraftWebSocketRoutes(
                         }
                     }
 
-                    Opcode.COMMAND_RES -> {
-                        // 명령어 실행 결과 수신 (필요 시 추후 처리)
-                    }
-
                     else -> {
-                        // 기타 프레임 무시
+                        // COMMAND_RES 또는 미지원 프레임 무시
                     }
                 }
             }
         } finally {
-            // 3. 세션 종료 시 레지스트리에서 제거하고 상태를 OFFLINE으로 갱신
-            sessionRegistry.unregister(instanceId)
-            authService.updateStatus(instanceId, "OFFLINE")
+            // 3. 세션 종료 시 레지스트리에서 제거하고, 현재 세션이 마지막 활성 세션이었을 때만 OFFLINE으로 갱신
+            // 재연결 시 이전 세션의 종료 처리가 신규 세션의 ONLINE 상태를 덮어쓰는 레이스 컨디션을 방지함.
+            val removed = sessionRegistry.unregister(instanceId, this)
+            if (removed) {
+                authService.updateStatus(instanceId, "OFFLINE")
+            }
         }
     }
 }

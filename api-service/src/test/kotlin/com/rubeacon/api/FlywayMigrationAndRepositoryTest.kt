@@ -174,4 +174,38 @@ class FlywayMigrationAndRepositoryTest : BaseIntegrationTest() {
             assertEquals(5, link[AccountLinks.failedAttempts])
         }
     }
+
+    @Test
+    fun `이미 다른 디스코드 유저에게 ACTIVE로 연동된 계정에 대해 타인이 requestLink 시도시 AlreadyLinked로 차단되어야 한다`() {
+        val tenantId = "tenant_test_hijack"
+        transaction(database) {
+            Tenants.insert {
+                it[id] = tenantId
+                it[name] = "보안 테넌트 2"
+                it[discordGuildId] = "888999000111222333"
+            }
+        }
+
+        val playerUuid = UUID.randomUUID()
+        val originalOwner = "discord_legit_user"
+        val attacker = "discord_attacker_user"
+
+        // 1. 정상 유저가 연동 및 완료
+        val req1 = linkService.requestLink(tenantId, originalOwner, playerUuid, "LegitPlayer")
+        assertTrue(req1 is LinkResult.Success)
+        val verifyRes = linkService.verifyCode(tenantId, playerUuid, req1.code)
+        assertEquals(VerifyResult.Success, verifyRes)
+
+        // 2. 공격자가 동일 UUID에 대해 requestLink 시도 시 AlreadyLinked 반환 확인
+        val hijackAttempt = linkService.requestLink(tenantId, attacker, playerUuid, "LegitPlayer")
+        assertTrue(hijackAttempt is LinkResult.AlreadyLinked)
+        assertEquals(originalOwner, hijackAttempt.existingDiscordUserId)
+
+        // 3. 기존 소유자의 ACTIVE 상태가 유지되는지 확인
+        transaction(database) {
+            val link = AccountLinks.selectAll().where { AccountLinks.minecraftUuid eq playerUuid }.single()
+            assertEquals("ACTIVE", link[AccountLinks.status])
+            assertEquals(originalOwner, link[AccountLinks.discordUserId])
+        }
+    }
 }

@@ -4,8 +4,6 @@ import com.rubeacon.common.serialization.RuBeaconJson
 import com.rubeacon.common.transport.WebSocketFrame
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.websocket.Frame
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import java.util.concurrent.ConcurrentHashMap
 
@@ -14,7 +12,6 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class SessionRegistry {
     private val sessions = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
-    private val mutex = Mutex()
 
     /**
      * 신규 인스턴스 세션을 등록함.
@@ -26,9 +23,16 @@ class SessionRegistry {
 
     /**
      * 연결이 끊긴 인스턴스 세션을 해제함.
+     * 세션 객체가 전달된 경우, 현재 활성 세션과 일치할 때만 원자적으로 제거하여 재연결 시 신규 세션 오삭제를 방지함.
+     *
+     * @return 실제로 세션이 레지스트리에서 제거되었으면 true
      */
-    fun unregister(instanceId: String) {
-        sessions.remove(instanceId)
+    fun unregister(instanceId: String, session: DefaultWebSocketServerSession? = null): Boolean {
+        return if (session != null) {
+            sessions.remove(instanceId, session)
+        } else {
+            sessions.remove(instanceId) != null
+        }
     }
 
     /**
@@ -41,7 +45,7 @@ class SessionRegistry {
             session.send(Frame.Text(text))
             true
         } catch (_: Exception) {
-            unregister(instanceId)
+            unregister(instanceId, session)
             false
         }
     }

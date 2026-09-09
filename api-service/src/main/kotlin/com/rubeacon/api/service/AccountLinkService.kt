@@ -19,6 +19,7 @@ import java.util.UUID
 sealed interface LinkResult {
     data class Success(val linkId: String, val code: String, val expiresAt: OffsetDateTime) : LinkResult
     data class LimitExceeded(val maxAllowed: Int) : LinkResult
+    data class AlreadyLinked(val existingDiscordUserId: String) : LinkResult
 }
 
 sealed interface VerifyResult {
@@ -87,6 +88,13 @@ class AccountLinkService {
             .singleOrNull()
 
         if (existing != null) {
+            // 이미 다른 디스코드 유저에게 ACTIVE 상태로 연동된 마인크래프트 계정 가로채기(Hijacking) 차단
+            val currentStatus = existing[AccountLinks.status]
+            val linkedDiscordUser = existing[AccountLinks.discordUserId]
+            if (currentStatus == "ACTIVE" && linkedDiscordUser != discordUserId) {
+                return@transaction LinkResult.AlreadyLinked(linkedDiscordUser)
+            }
+
             val id = existing[AccountLinks.id]
             AccountLinks.update({ AccountLinks.id eq id }) {
                 it[AccountLinks.discordUserId] = discordUserId
