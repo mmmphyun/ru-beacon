@@ -33,9 +33,9 @@
 - [x] **마일스톤 4**: `workflow-worker` 인메모리 DAG 엔진 및 대표 템플릿 2종 검증
   - [x] 개발 세션 (Builder): Streams 컨슈머, DAG 엔진, 대표 템플릿 2종 E2E 테스트
   - [x] 점검 세션 (Inspector): `/ponytail-review`, 사이클 검증/부분 실패/멱등성 점검
-- [ ] **마일스톤 5**: `bot-service` Kord Discord 상호작용 및 이벤트 정규화
-  - [ ] 개발 세션 (Builder): Kord 봇, 인터랙션 핸들러, Fake Discord 테스트
-  - [ ] 점검 세션 (Inspector): `/ponytail-review`, Gateway 레이트리밋/에러 격리 점검
+- [x] **마일스톤 5**: `bot-service` Kord Discord 상호작용 및 이벤트 정규화
+  - [x] 개발 세션 (Builder): Kord 봇, 인터랙션 핸들러, Fake Discord 테스트
+  - [x] 점검 세션 (Inspector): `/ponytail-review`, Gateway 레이트리밋/에러 격리 점검
 - [ ] **마일스톤 6**: `web-dashboard` Next.js + Shadcn UI 위저드형 대시보드
   - [ ] 개발 세션 (Builder): Next.js 위저드 워크플로우 폼 빌더 구현
   - [ ] 점검 세션 (Inspector): `/ponytail-review`, 폼 유효성/반응형/UX 점검
@@ -187,17 +187,32 @@
 ### [마일스톤 5] `bot-service` Discord 인터랙션
 > **목표**: Kord 라이브러리 기반으로 Discord Gateway 이벤트를 수신하고, 버튼/모달/슬래시 명령을 공통 이벤트로 정규화하여 Redis Streams로 발행하며, Ephemeral 응답을 렌더링한다.
 
-- [ ] **Kord 봇 클라이언트 셋업**:
-  - [ ] `bot-service/build.gradle.kts` (Kord, Ktor, kotlinx-coroutines)
-  - [ ] 봇 토큰 로드 및 Gateway 수명주기 관리
-- [ ] **이벤트 정규화 및 인터랙션 핸들러**:
-  - [ ] 슬래시 명령어(`/verify`, `/attend` 등) 핸들러
-  - [ ] 연동 모달 및 보상 수령 버튼 클릭 가로채기 -> `EventEnvelope` 변환 후 Streams 발행
-  - [ ] Ephemeral 안내 메시지 템플릿 렌더러
-- [ ] **Fake Discord 모킹 테스트**:
-  - [ ] 인터랙션 수신 시 올바른 이벤트 봉투가 Redis Streams로 전송되는지 검증
-  - [ ] `./gradlew :bot-service:test` 100% 통과 확인
-  - [ ] Green 커밋: `feat(bot): Kord 기반 Discord 인터랙션 이벤트 핸들러 구현`
+#### 1. 개발 세션 (Builder Session)
+- [x] **Kord 봇 클라이언트 셋업**:
+  - [x] `bot-service/build.gradle.kts` (Kord 0.14.0, coroutines, jedis, testcontainers)
+  - [x] 봇 토큰 로드 및 Gateway 수명주기 관리 (`RuBeaconBot.kt`, `DiscordBotConfig.kt`)
+- [x] **이벤트 정규화 및 인터랙션 핸들러**:
+  - [x] 슬래시 명령어(`/verify`, `/attend`) 핸들러 및 글로벌 커맨드 등록
+  - [x] 연동 모달 및 보상 수령 버튼 클릭 가로채기 -> `EventEnvelope` 변환 후 Streams 발행 (`DiscordEventNormalizer.kt`, `DiscordEventPublisher.kt`)
+  - [x] Ephemeral 안내 메시지 템플릿 렌더러 (`DiscordResponseRenderer.kt`)
+- [x] **Fake Discord 모킹 및 통합 테스트**:
+  - [x] 인터랙션 수신 시 올바른 이벤트 봉투가 Redis Streams로 전송되는지 검증 (`DiscordEventPublisherTest.kt`)
+  - [x] `stream:discord:actions` 비동기 메시지 수신 및 ACK 검증 (`DiscordActionConsumerTest.kt`)
+  - [x] `./gradlew :bot-service:test` 100% 통과 확인
+  - [x] Green 커밋: `feat(bot): Kord 기반 Discord 인터랙션 이벤트 핸들러 구현`
+
+#### 2. 점검 세션 (Inspector Session)
+- [x] **`/ponytail-review` 복잡도 사냥**:
+  - [x] 단일 구현체 인터페이스 0개 유지 및 DTO 1:1 매퍼 배제 (`yagni`)
+  - [x] Kord Event에서 직접 `EventEnvelope`로 1단계 정규화 (`shrink`)
+- [x] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
+  - [x] `RuBeaconBot.kt`: 슬래시/버튼/모달 처리 시 `deferEphemeralResponse()` 단계의 네트워크 타임아웃 예외를 try-catch로 감싸 Gateway 연결 단절 방어 (장애 격리)
+  - [x] `RuBeaconBot.kt`: `/verify` 명령 시 공백 코드에 대한 선제적 유효성 검증 가드 추가
+  - [x] `DiscordActionConsumer.kt`: 존재하지 않는 채널 등 Discord API 영구 오류(`RestRequestException`) 발생 시 poison pill로 격리 및 XACK 처리 (소비 루프 무한 블로킹 차단)
+  - [x] `DiscordActionConsumerTest.kt`: 채널 ID 누락 등 비정상 메시지 유입 시 크래시 없는 정상 격리 회귀 테스트 추가
+- [x] **리팩터링 커밋 및 푸시**:
+  - [x] `./gradlew test` 통과 후 커밋: `refactor(bot): Discord Gateway Defer 예외 격리 및 Action 컨슈머 Poison Pill 방어 보강`
+  - [x] 본 문서의 마일스톤 5 체크박스를 `[x]`로 완료하고 `git push origin main`
 
 ---
 
