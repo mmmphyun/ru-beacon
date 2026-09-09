@@ -67,8 +67,12 @@ fun Route.minecraftWebSocketRoutes(
                     }
 
                     Opcode.EVENT -> {
-                        // 수신된 비즈니스 이벤트를 Redis Streams로 발행
-                        redisPublisher.publishEvent(tenantId, wsFrame.payload.toString())
+                        // 수신된 비즈니스 이벤트를 Redis Streams로 발행하되, 일시적 Redis 장애 시에도 WSS 세션을 유지하도록 예외 격리
+                        try {
+                            redisPublisher.publishEvent(tenantId, wsFrame.payload.toString())
+                        } catch (_: Exception) {
+                            // 장애 격리: 세션 파괴 방지
+                        }
                     }
 
                     Opcode.COMMAND_RES -> {

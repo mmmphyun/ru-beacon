@@ -136,4 +136,42 @@ class FlywayMigrationAndRepositoryTest : BaseIntegrationTest() {
         assertTrue(thirdReq is LinkResult.LimitExceeded)
         assertEquals(2, thirdReq.maxAllowed)
     }
+
+    @Test
+    fun `연동 코드 검증 5회 연속 실패 시 코드가 즉시 파기되고 TooManyAttempts로 잠겨야 한다`() {
+        val tenantId = "tenant_test_lockout"
+        transaction(database) {
+            Tenants.insert {
+                it[id] = tenantId
+                it[name] = "보안 테넌트"
+                it[discordGuildId] = "777888999111222333"
+            }
+        }
+
+        val playerUuid = UUID.randomUUID()
+        val reqResult = linkService.requestLink(tenantId, "discord_attacker", playerUuid, "Attacker")
+        assertTrue(reqResult is LinkResult.Success)
+        val validCode = reqResult.code
+
+        // 4회 실패
+        repeat(4) {
+            val result = linkService.verifyCode(tenantId, playerUuid, "WRONG$it")
+            assertEquals(VerifyResult.InvalidCode, result)
+        }
+
+        // 5회째 실패 -> TooManyAttempts 반환
+        val fifthResult = linkService.verifyCode(tenantId, playerUuid, "WRONG5")
+        assertEquals(VerifyResult.TooManyAttempts, fifthResult)
+
+        // 6회째 이후는 올바른 코드를 넣어도 이미 파기되어 TooManyAttempts
+        val subsequentResult = linkService.verifyCode(tenantId, playerUuid, validCode)
+        assertEquals(VerifyResult.TooManyAttempts, subsequentResult)
+
+        // DB에 verification_code가 null로 파기되었는지 확인
+        transaction(database) {
+            val link = AccountLinks.selectAll().where { AccountLinks.minecraftUuid eq playerUuid }.single()
+            kotlin.test.assertNull(link[AccountLinks.verificationCode])
+            assertEquals(5, link[AccountLinks.failedAttempts])
+        }
+    }
 }

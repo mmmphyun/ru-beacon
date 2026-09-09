@@ -147,11 +147,17 @@ class AccountLinkService {
 
         // 코드 불일치 체크
         if (expectedCode == null || !expectedCode.equals(code.trim(), ignoreCase = true)) {
+            val newAttempts = failedAttempts + 1
             AccountLinks.update({ AccountLinks.id eq linkId }) {
-                it[AccountLinks.failedAttempts] = failedAttempts + 1
+                it[AccountLinks.failedAttempts] = newAttempts
+                if (newAttempts >= 5) {
+                    // 무차별 대입 공격 차단: 5회 실패 시 일회성 코드 즉시 파기
+                    it[AccountLinks.verificationCode] = null
+                    it[AccountLinks.codeExpiresAt] = null
+                }
                 it[AccountLinks.updatedAt] = now
             }
-            return@transaction VerifyResult.InvalidCode
+            return@transaction if (newAttempts >= 5) VerifyResult.TooManyAttempts else VerifyResult.InvalidCode
         }
 
         // 인증 성공: ACTIVE 전환 및 1회용 코드 파기

@@ -58,6 +58,8 @@ fun Application.module(
     accountLinkService: AccountLinkService = AccountLinkService(),
     redisPublisher: RedisEventPublisher = RedisEventPublisher(jedis)
 ) {
+    org.jetbrains.exposed.sql.transactions.TransactionManager.defaultDatabase = database
+
     install(WebSockets)
 
     install(ContentNegotiation) {
