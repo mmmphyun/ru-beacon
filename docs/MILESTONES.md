@@ -25,7 +25,7 @@
   - [x] 개발 세션 (Builder): 멀티모듈 셋업, `common` DTO 및 직렬화 테스트
   - [x] 점검 세션 (Inspector): `/ponytail-review`, [INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검 및 리팩터링
 - [ ] **마일스톤 2**: `minecraft-plugin` WSS 클라이언트 및 MockBukkit 인코드 테스트 하네스
-  - [ ] 개발 세션 (Builder): Paper 뼈대, WSS 클라이언트, 메인 틱 디스패처, MockBukkit 테스트
+  - [x] 개발 세션 (Builder): Paper 뼈대, WSS 클라이언트, 메인 틱 디스패처, MockBukkit 테스트
   - [ ] 점검 세션 (Inspector): `/ponytail-review`, 틱 렉/스레드 안전성/재연결 점검
 - [ ] **마일스톤 3**: `api-service` Ingress & PostgreSQL/Redis 연동 (Testcontainers 하네스)
   - [ ] 개발 세션 (Builder): Flyway V1, WSS 인그레스, Testcontainers 통합 테스트
@@ -79,20 +79,20 @@
 ### [마일스톤 2] `minecraft-plugin` WSS 클라이언트 및 MockBukkit 하네스
 > **목표**: Paper API 1.20.4+ 기반 플러그인을 구축하고, MockBukkit을 통해 실제 마인크래프트 서버 없이도 가상 틱 환경에서 비동기 WSS 통신과 메인 틱 동기 명령어 디스패치를 100% 자동 검증한다.
 
-- [ ] **Paper 플러그인 뼈대 및 MockBukkit 셋업**:
-  - [ ] `minecraft-plugin/build.gradle.kts` (Paper API 1.20.4, Java 21, MockBukkit 1.20 의존성)
-  - [ ] `plugin.yml` 명세 및 메인 클래스 `RuBeaconPlugin` 선언
-- [ ] **비동기 WSS 클라이언트 구현**:
-  - [ ] 전용 백그라운드 스레드 풀 기반 WebSocket 클라이언트 (Ktor Client Engine 사용)
-  - [ ] 30초 주기 Ping/Pong 하트비트 및 지수 백오프 재연결 루프
-  - [ ] 인스턴스 인증 토큰 핸드셰이크 (`X-Tenant-Id`, `X-Instance-Token`) 헤더 전송
-- [ ] **메인 틱 명령어 디스패처 및 이벤트 리스너**:
-  - [ ] WSS `COMMAND_REQ` 수신 시 `Bukkit.getScheduler().runTask()`로 메인 틱 동기 실행
-  - [ ] Bukkit 이벤트(`PlayerLevelUpEvent`, `PlayerAdvancementDoneEvent`) 가로채기 및 WSS 송신 큐 적재
-- [ ] **MockBukkit 시뮬레이션 테스트**:
-  - [ ] [TESTING_STRATEGY.md](TESTING_STRATEGY.md) §2.1 기반 가상 플레이어 레벨업 및 명령어 실행 테스트
-  - [ ] `./gradlew :minecraft-plugin:test` 100% 통과 확인
-  - [ ] Green 커밋: `feat(plugin): WSS 클라이언트 및 MockBukkit 기반 명령어 디스패처 구현`
+- [x] **Paper 플러그인 뼈대 및 MockBukkit 셋업**:
+  - [x] `minecraft-plugin/build.gradle.kts` (Paper API 1.20.4, Java 21, MockBukkit 1.20 의존성)
+  - [x] `plugin.yml` 명세 및 메인 클래스 `RuBeaconPlugin` 선언
+- [x] **비동기 WSS 클라이언트 구현**:
+  - [x] 전용 백그라운드 스레드 풀 기반 WebSocket 클라이언트 (Ktor Client Engine 사용)
+  - [x] 30초 주기 Ping/Pong 하트비트 및 지수 백오프 재연결 루프
+  - [x] 인스턴스 인증 토큰 핸드셰이크 (`X-Tenant-Id`, `X-Instance-Token`) 헤더 전송
+- [x] **메인 틱 명령어 디스패처 및 이벤트 리스너**:
+  - [x] WSS `COMMAND_REQ` 수신 시 `Bukkit.getScheduler().runTask()`로 메인 틱 동기 실행
+  - [x] Bukkit 이벤트(`PlayerLevelUpEvent`, `PlayerAdvancementDoneEvent`) 가로채기 및 WSS 송신 큐 적재
+- [x] **MockBukkit 시뮬레이션 테스트**:
+  - [x] [TESTING_STRATEGY.md](TESTING_STRATEGY.md) §2.1 기반 가상 플레이어 레벨업 및 명령어 실행 테스트
+  - [x] `./gradlew :minecraft-plugin:test` 100% 통과 확인
+  - [x] Green 커밋: `feat(plugin): WSS 클라이언트 및 MockBukkit 기반 명령어 디스패처 구현`
 
 ---
 

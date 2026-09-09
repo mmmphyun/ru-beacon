@@ -1,0 +1,10 @@
+# Ru-Beacon Paper Plugin Configuration
+server-url: "ws://localhost:8080/ws/minecraft/v1"
+tenant-id: "tenant_default"
+network-id: "net_default"
+instance-id: "inst_default"
+instance-token: "token_default"
+ping-interval-ms: 30000
+reconnect-initial-delay-ms: 1000
+reconnect-max-delay-ms: 60000
+enabled: false

@@ -1,0 +1,6 @@
+name: RuBeaconPlugin
+version: 0.1.0
+main: com.rubeacon.plugin.RuBeaconPlugin
+api-version: '1.20'
+author: RuBeacon Team
+description: Ru-Beacon Paper Minecraft Plugin with async WSS and tick-safe command dispatcher
