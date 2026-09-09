@@ -27,9 +27,9 @@
 - [x] **마일스톤 2**: `minecraft-plugin` WSS 클라이언트 및 MockBukkit 인코드 테스트 하네스
   - [x] 개발 세션 (Builder): Paper 뼈대, WSS 클라이언트, 메인 틱 디스패처, MockBukkit 테스트
   - [x] 점검 세션 (Inspector): `/ponytail-review`, 틱 렉/스레드 안전성/재연결 점검
-- [ ] **마일스톤 3**: `api-service` Ingress & PostgreSQL/Redis 연동 (Testcontainers 하네스)
-  - [ ] 개발 세션 (Builder): Flyway V1, WSS 인그레스, Testcontainers 통합 테스트
-  - [ ] 점검 세션 (Inspector): `/ponytail-review`, 세션 릭/토큰 보안/동시성 점검
+- [x] **마일스톤 3**: `api-service` Ingress & PostgreSQL/Redis 연동 (Testcontainers 하네스)
+  - [x] 개발 세션 (Builder): Flyway V1, WSS 인그레스, Testcontainers 통합 테스트
+  - [x] 점검 세션 (Inspector): `/ponytail-review`, 세션 릭/토큰 보안/동시성 점검
 - [ ] **마일스톤 4**: `workflow-worker` 인메모리 DAG 엔진 및 대표 템플릿 2종 검증
   - [ ] 개발 세션 (Builder): Streams 컨슈머, DAG 엔진, 대표 템플릿 2종 E2E 테스트
   - [ ] 점검 세션 (Inspector): `/ponytail-review`, 사이클 검증/부분 실패/멱등성 점검
@@ -114,22 +114,35 @@
 ### [마일스톤 3] `api-service` Ingress & DB/Redis 연동
 > **목표**: Ktor 기반 API 서버를 구축하여 외부 마인크래프트 WSS 클라이언트를 수용하고, Testcontainers를 통해 실제 PostgreSQL 16 DDL 마이그레이션과 Redis Streams 발행 파이프라인을 검증한다.
 
-- [ ] **인프라 테스트 하네스 구축**:
-  - [ ] `api-service/build.gradle.kts` (Ktor Server Netty, Exposed, Flyway, Testcontainers PostgreSQL/Redis)
-  - [ ] [TESTING_STRATEGY.md](TESTING_STRATEGY.md) §2.2 기반 `BaseIntegrationTest` 싱글톤 컨테이너 베이스 클래스 작성
-- [ ] **데이터베이스 계층**:
-  - [ ] `src/main/resources/db/migration/V1__init_schema.sql`에 [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) 배치 및 Flyway 마이그레이션 실행 검증
-  - [ ] Exposed DSL 테이블 객체 및 리포지토리 작성 (`Tenants`, `MinecraftInstances`, `AccountLinks`, `Workflows`)
-- [ ] **WebSocket Ingress 엔드포인트**:
-  - [ ] Ktor `/ws/minecraft/v1` 라우트 구현
-  - [ ] 인스턴스 토큰 SHA-256 검증 및 세션 레지스트리 관리
-  - [ ] 수신된 `EVENT` 프레임을 Redis Streams(`stream:events:{tenant_id}`, `MAXLEN ~ 10000`)로 발행
-- [ ] **계정 연동 & 관리 API**:
-  - [ ] 계정 후보 등록(Pending) 및 5분 만료 일회성 코드 발급/확증 로직
-- [ ] **통합 테스트 검증**:
-  - [ ] Testcontainers 기반 WSS 인증 및 DB/Redis 연동 통합 테스트
-  - [ ] `./gradlew :api-service:test` 100% 통과 확인
-  - [ ] Green 커밋: `feat(api): WebSocket 인그레스 서버 및 Flyway DB 연동 구현`
+#### 1. 개발 세션 (Builder Session)
+- [x] **인프라 테스트 하네스 구축**:
+  - [x] `api-service/build.gradle.kts` (Ktor Server Netty, Exposed, Flyway, Testcontainers PostgreSQL/Redis)
+  - [x] [TESTING_STRATEGY.md](TESTING_STRATEGY.md) §2.2 기반 `BaseIntegrationTest` 싱글톤 컨테이너 베이스 클래스 작성
+- [x] **데이터베이스 계층**:
+  - [x] `src/main/resources/db/migration/V1__init_schema.sql`에 [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) 배치 및 Flyway 마이그레이션 실행 검증
+  - [x] Exposed DSL 테이블 객체 및 리포지토리 작성 (`Tenants`, `MinecraftInstances`, `AccountLinks`, `Workflows`)
+- [x] **WebSocket Ingress 엔드포인트**:
+  - [x] Ktor `/ws/minecraft/v1` 라우트 구현
+  - [x] 인스턴스 토큰 SHA-256 검증 및 세션 레지스트리 관리
+  - [x] 수신된 `EVENT` 프레임을 Redis Streams(`stream:events:{tenant_id}`, `MAXLEN ~ 10000`)로 발행
+- [x] **계정 연동 & 관리 API**:
+  - [x] 계정 후보 등록(Pending) 및 5분 만료 일회성 코드 발급/확증 로직
+- [x] **통합 테스트 검증**:
+  - [x] Testcontainers 기반 WSS 인증 및 DB/Redis 연동 통합 테스트
+  - [x] `./gradlew :api-service:test` 100% 통과 확인
+  - [x] Green 커밋: `feat(api): WebSocket 인그레스 서버 및 Flyway DB 연동 구현`
+
+#### 2. 점검 세션 (Inspector Session)
+- [x] **`/ponytail-review` 복잡도 사냥**:
+  - [x] `Application.kt`: 미사용 파라미터 경고 해소 및 `defaultDatabase` 글로벌 바인딩 일원화 (`shrink`)
+  - [x] 단일 구현체 인터페이스 0개 유지 및 DTO 1:1 매퍼 배제 (`yagni`)
+- [x] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
+  - [x] `AccountLinkService.kt`: 인증 5회 연속 실패 시 1회용 코드 즉시 파기(`null`) 및 계정 잠금 처리 (무차별 대입 공격 차단)
+  - [x] `MinecraftWebSocketRoute.kt`: Redis Streams 발행 실패 시 WebSocket 세션 단절 방지를 위한 예외 격리 (장애 격리 원칙)
+  - [x] `WebSocketIngressAndRedisIntegrationTest.kt`: PING/PONG 핸드셰이크 완료 기반 세션 등록 동기화 보장 (레이스 컨디션 차단)
+- [x] **리팩터링 커밋 및 푸시**:
+  - [x] `./gradlew test` 통과 후 커밋: `refactor(api): 5회 인증 실패 시 1회용 코드 즉시 파기 및 Redis 예외 격리`
+  - [x] 본 문서의 마일스톤 3 체크박스를 `[x]`로 완료하고 `git push origin main`
 
 ---
 
