@@ -30,9 +30,9 @@
 - [x] **마일스톤 3**: `api-service` Ingress & PostgreSQL/Redis 연동 (Testcontainers 하네스)
   - [x] 개발 세션 (Builder): Flyway V1, WSS 인그레스, Testcontainers 통합 테스트
   - [x] 점검 세션 (Inspector): `/ponytail-review`, 세션 릭/토큰 보안/동시성 점검
-- [ ] **마일스톤 4**: `workflow-worker` 인메모리 DAG 엔진 및 대표 템플릿 2종 검증
-  - [ ] 개발 세션 (Builder): Streams 컨슈머, DAG 엔진, 대표 템플릿 2종 E2E 테스트
-  - [ ] 점검 세션 (Inspector): `/ponytail-review`, 사이클 검증/부분 실패/멱등성 점검
+- [x] **마일스톤 4**: `workflow-worker` 인메모리 DAG 엔진 및 대표 템플릿 2종 검증
+  - [x] 개발 세션 (Builder): Streams 컨슈머, DAG 엔진, 대표 템플릿 2종 E2E 테스트
+  - [x] 점검 세션 (Inspector): `/ponytail-review`, 사이클 검증/부분 실패/멱등성 점검
 - [ ] **마일스톤 5**: `bot-service` Kord Discord 상호작용 및 이벤트 정규화
   - [ ] 개발 세션 (Builder): Kord 봇, 인터랙션 핸들러, Fake Discord 테스트
   - [ ] 점검 세션 (Inspector): `/ponytail-review`, Gateway 레이트리밋/에러 격리 점검
@@ -153,18 +153,29 @@
 ### [마일스톤 4] `workflow-worker` 인메모리 DAG 엔진
 > **목표**: Ktor Worker 프로세스를 구축하여 Redis Streams 이벤트를 안전하게 소비하고, 순환 참조 검증과 코루틴 병렬 디스패치를 통해 대표 템플릿 2종(보상 수령, 일일 출석)을 완벽히 실행한다.
 
-- [ ] **Redis Streams 컨슈머 루프**:
-  - [ ] `worker-group` 컨슈머 그룹 생성 및 `XREADGROUP`, `XACK`, `XAUTOCLAIM` 에러 복구 루프 구현
-- [ ] **인메모리 DAG 엔진**:
-  - [ ] [WORKFLOW_ENGINE_SPEC.md](WORKFLOW_ENGINE_SPEC.md) 기반 AST 파서 및 Tarjan Cycle 검증기
-  - [ ] `NodeExecutor` 인터페이스 및 기본 노드 구현 (조건 분기, 마인크래프트 명령, Discord 액션 요청)
-  - [ ] `coroutineScope` 기반 Parallel 블록 병렬 실행 디스패처
-  - [ ] 종단 1회 비동기 감사 로그(`audit_logs`) 저장기
-- [ ] **대표 템플릿 2종 통합 테스트**:
-  - [ ] 템플릿 A: 마인크래프트 레벨업 → 보상 명령 발행 흐름
-  - [ ] 템플릿 B: 일일 출석 보상 선착순 100명 원자적 수량 예약/확정/복구 흐름
-  - [ ] `./gradlew :workflow-worker:test` 100% 통과 확인
-  - [ ] Green 커밋: `feat(worker): 인메모리 DAG 워크플로우 디스패처 및 템플릿 실행 엔진 구현`
+#### 1. 개발 세션 (Builder Session)
+- [x] **Redis Streams 컨슈머 루프**:
+  - [x] `worker-group` 컨슈머 그룹 생성 및 `XREADGROUP`, `XACK`, `XAUTOCLAIM` 에러 복구 루프 구현
+- [x] **인메모리 DAG 엔진**:
+  - [x] [WORKFLOW_ENGINE_SPEC.md](WORKFLOW_ENGINE_SPEC.md) 기반 AST 파서 및 Tarjan Cycle 검증기
+  - [x] `NodeExecutor` 인터페이스 및 기본 노드 구현 (조건 분기, 마인크래프트 명령, Discord 액션 요청, 출석 예약/확정/복구)
+  - [x] `coroutineScope` 기반 Parallel 블록 병렬 실행 디스패처
+  - [x] 종단 1회 비동기 감사 로그(`audit_logs`) 저장기
+- [x] **대표 템플릿 2종 통합 테스트**:
+  - [x] 템플릿 A: 마인크래프트 레벨업 → 보상 명령 발행 흐름
+  - [x] 템플릿 B: 일일 출석 보상 선착순 100명 원자적 수량 예약/확정/복구 흐름
+  - [x] `./gradlew :workflow-worker:test` 100% 통과 확인
+  - [x] Green 커밋: `feat(worker): 인메모리 DAG 워크플로우 디스패처 및 템플릿 실행 엔진 구현`
+
+#### 2. 점검 세션 (Inspector Session)
+- [x] **`/ponytail-review` 복잡도 사냥**:
+  - [x] `NodeExecutor` 다중 노드 타입 구현체 완결 및 단일 구현체 인터페이스 0개 유지 (`yagni`)
+  - [x] DTO 1:1 단순 매퍼 배제 및 JSONB 직렬화 표준 활용
+- [x] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
+  - [x] Tarjan SCC 기반 단일 노드 루프/다중 노드 순환 사전 탐지 및 `WorkflowCycleException` 검증
+  - [x] 미정의 변수 묵인 없는 즉시 예외 처리 (`VariableResolver`)
+  - [x] DB 조건부 UPDATE 원자성을 통한 선착순 100명 동시성 경합 차단 및 롤백(`RELEASE`) 복구 검증
+  - [x] 종단 1회 원자적 비동기 감사 로그(`AuditLogs`) 기록 및 부분 실패(`PARTIAL_FAILURE`) 격리 검증
 
 ---
 
