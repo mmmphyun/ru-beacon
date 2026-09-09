@@ -54,3 +54,44 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 #### 4. 정량적 엔지니어링 지표
 - **아키텍처 문서화**: 저수준 스펙 4종 신규 구축 (DDL, Transport, Workflow AST, Test Harness).
 - **인프라 비용 추정**: 월 \$70~\$150 이상(AWS 다중 인스턴스) → 월 \$0~\$20 미만(OCI Free Tier / K3s)으로 85% 이상 절감 설계.
+
+---
+
+### [마일스톤 1] Gradle 멀티모듈 뼈대 및 `common` 모듈 (완료)
+
+#### 1. 아키텍처 트레이드오프 & 핵심 의사결정
+- **이벤트 페이로드: `sealed class` (컴파일 타임 안전성) vs `JsonObject` (분산 결합도 격리)**
+  - *기각한 대안 (`sealed class` 다형성 모놀리스)*:
+    - `common` 모듈에 모든 이벤트 DTO(`PlayerLevelUpPayload` 등)를 정의하고 `sealed class` 기반 다형성 직렬화를 적용하는 방식.
+    - *기각으로 잃은 이익*: 컴파일 타임에 `when (payload)` 전수 검사(Exhaustiveness)를 통해 신규 이벤트 누락을 빌드 시점에 차단할 수 없음. IDE 자동완성 및 필드명 원클릭 리팩터링의 편의성을 포기함. 1-Pass 단일 스트림 역직렬화 대비 2-Pass 파싱(`JSON` → `JsonObject` → 구체 DTO)으로 인한 중간 객체 할당 및 GC 오버헤드 감수.
+  - *채택한 이유 (`JsonObject` + `decodePayload<T>()` 인라인 디코딩)*:
+    - **배포 독립성(Decoupled Release Cycle)**: 마인크래프트 플러그인, 디스코드 봇, 워커는 릴리즈 주기가 상이함. 신규 인게임 이벤트가 추가될 때마다 `common`을 수정하고 전체 서비스를 재빌드·재배포해야 하는 배포 병목을 원천 차단.
+    - **바이트코드 오염 방지**: API Ingress 서버는 라우팅과 테넌트 격리만 담당할 뿐 페이로드 내부 스키마를 알 필요가 없음. Ingress 메모리에 무의미한 도메인 DTO 클래스를 로드하지 않음.
+    - **위험 통제 방안**: `schema_version` 필드 및 각 컨슈머 서비스 단위의 단위/계약 테스트(Contract Test)로 런타임 타입 안전성을 보장.
+- **시간 표현 포맷의 계층별 이원화: WSS `timestamp: Long` vs EventEnvelope `occurred_at: String (ISO-8601 UTC)`**
+  - *기각한 대안*: 시스템 전역에서 시간 필드를 단일 포맷(전부 `Long` 또는 전부 `String`)으로 통일하는 방식.
+  - *판단 근거*:
+    - **네트워크 전송 계층 (`WebSocketFrame.timestamp: Long`)**: 초당 수십~수백 회 오가는 Ping/Pong 및 제어 패킷의 RTT를 `System.currentTimeMillis() - frame.timestamp`로 즉시 산술 계산해야 하며, 8바이트 정수를 통해 패킷 크기 최소화 및 파싱 비용 제거.
+    - **도메인/영속화 계층 (`EventEnvelope.occurred_at: String (ISO-8601 UTC)`)**: PostgreSQL `JSONB` 컬럼 적재 및 Kibana/대시보드 운영자 감사 시 추가 변환 없이 사람이 즉시 판독 가능해야 하며, 타임존 모호성을 배제하기 위해 UTC 표준 문자열(`2026-08-21T00:00:00Z`) 채택.
+
+#### 2. AI 통제 및 거버넌스 (Human-in-the-Loop)
+- **규칙 맹종 인터뷰 교정**:
+  - 에이전트가 "왜 포니테일 규칙대로 외부 라이브러리를 안 썼는가?"와 같은 자명하고 형식적인 질문을 던졌을 때, 엔지니어가 질문의 무가치함을 지적하고 "선택하지 않은 대안을 통해 얻을 수 있었던 이익과 잃은 대가"를 중심으로 질문의 방향을 전환.
+  - LLM의 자기만족적 확인 편향을 깨고, 실질적인 아키텍처 양방향 트레이드오프(결합도 vs 타입 안전성)를 심층 기록하도록 유도.
+- **포니테일 기반 복잡도 사냥 (`/ponytail-review`)**:
+  - 모듈/테스트마다 제각각 생성되던 `Json { ignoreUnknownKeys = true }` 인스턴스를 전역 싱글톤 `RuBeaconJson.default`로 단일화하여 파편화 방지.
+  - `WebSocketFrame`의 `event()`, `commandReq()`, `commandRes()` 내부의 중복 JSON 인코딩 보일러플레이트를 인라인 제네릭 팩토리 `of<T>()`로 통합 (`net: -18 lines`).
+
+#### 3. 도출된 엣지케이스 & 방어 체계
+- **외부 경계 입력값 검증 분리 (`validate()`)**:
+  - 생성자 `init` 블록 대신 명시적 `validate()` 함수를 제공하여 네트워크 인그레스가 원시 프레임(Raw Frame) 파싱 후 메타데이터(`trace_id`, `tenant_id`)를 먼저 로깅/식별할 수 있도록 단계 분리.
+  - `eventId`, `tenantId`, `idempotencyKey` 공백 검증 및 미정의 `source` 유입 차단.
+- **도메인 조건부 제약 강제**:
+  - `source == "minecraft"` 조건 시 `minecraft_network_id` 누락을 즉시 차단하여 테넌트-네트워크 매핑 누락 방지.
+- **전진 호환성 (Schema Evolution)**:
+  - `ignoreUnknownKeys = true` 설정을 통해 신규 필드(`future_field`, `client_version`)가 포함된 페이로드가 유입되어도 기존 소비자가 크래시 없이 안전하게 무시함을 회귀 테스트로 검증.
+
+#### 4. 정량적 엔지니어링 지표
+- **테스트 커버리지**: 직렬화 및 엣지케이스 테스트 8종 신규 추가 (JUnit 5, 100% 통과).
+- **코드 다이어트**: 중복 JSON 설정 및 수동 매핑 제거로 `net: -18 lines` 절감.
+- **빌드 속도**: Gradle 멀티모듈 캐시 기반 테스트 6초 이내 완료 (`BUILD SUCCESSFUL in 6s`).
