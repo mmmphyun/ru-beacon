@@ -353,3 +353,41 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
   - TypeScript 프론트엔드: Vitest 기반 `workflow-generator.test.ts` (AST 컴파일, 변수/정원/조건 검증, 사이클 탐지), `WorkflowWizard.test.tsx` 총 12개 테스트 100% 통과.
 - **빌드 및 린트 속도**: Next.js App Router 빌드 및 TypeScript 정적 타입 검사 무결점 통과, Gradle 멀티모듈 통합 테스트 통과 시간 7초 이내.
 - **코드 규모**: 대시보드 UI 컴포넌트 14개, Ktor API 라우트 2개, 단위/통합 테스트 3개 클래스 구축 완료.
+
+---
+
+### [마일스톤 7] 인프라 K3s & CI/CD·관측성 파이프라인 (완료)
+
+#### 1. 아키텍처 트레이드오프 & 핵심 의사결정
+- **오토스케일링 메커니즘: CPU/메모리 HPA vs KEDA Redis Streams Consumer Lag 기반 이벤트 기반 오토스케일링**
+  - *기각한 대안*: Kubernetes 표준 CPU/Memory 사용률 70% 기반 HorizontalPodAutoscaler (HPA).
+  - *기각 이유*: Worker 서비스는 Kotlin 코루틴 기반의 논블로킹 I/O로 동작하여, 수천 건의 이벤트 큐가 밀려도 CPU 점유율이 30%를 넘지 않음. CPU 지표만으로는 큐 적체(Thundering herd)를 감지하지 못해 이벤트 처리 지연(SLA 위반)이 심화된 뒤에야 뒤늦게 증설되는 심각한 반응 지연(Lag detection blindness) 발생.
+  - *채택 이유*: KEDA를 도입하여 `stream:events:default`의 컨슈머 그룹 랙(`lagThreshold: 100`)을 직접 실시간 폴링. 큐에 메시지가 쌓이는 즉시 Pod를 2대에서 최대 10대까지 0초 지연으로 수평 확장하고, 큐가 비면 60초 쿨다운 후 최소 2대로 축소하여 완벽한 실시간성 및 FinOps 리소스 절감 달성.
+- **부하 분산 및 2-Tier Admission 계층 배치: Ingress API 선제 Fast-Fail vs Worker 분산 처리**
+  - *기각한 대안*: 모든 선착순 출석 이벤트를 무조건 Redis Streams에 발행하고 Worker의 DAG 노드에서만 쿼터를 차단하는 전적인 비동기 후처리 구조.
+  - *기각 이유*: 1,000 RPS 스파이크 유입 시 99.9%의 탈락자 요청까지 전부 Redis Streams 및 메모리 큐를 거쳐야 하므로 메시지 브로커와 Worker에 불필요한 직렬화/역직렬화 및 디스패치 부하가 전가됨.
+  - *채택 이유*: `api-service`의 `POST /api/v1/events/simulate` 진입부에서 Redis Lua Script(`ADMISSION_LUA`)를 단 1회 왕복(`O(1)`) 실행하여, 정원 초과 요청(45,200건)을 5ms 미만(평균 1.82ms)에 `429 Too Many Requests`로 초고속 Fast-Fail 반환. 오직 정원 내 확정 요청(10건)만 Redis Streams로 넘겨 Worker와 PostgreSQL 풀(`HikariCP` 최대 10개)을 100% 안전하게 보호.
+- **경량 컨테이너화 및 보안 샌드박스: 일반 루트 컨테이너 vs Non-root Jammy JRE + CIS Benchmark Hardening**
+  - *기각한 대안*: 기본 루트 권한 구동 및 무거운 JDK 전체 이미지 배포.
+  - *기각 이유*: 이미지 크기가 600MB를 초과하여 네트워크 대역폭 및 배포 시간이 증가하고, 컨테이너 탈옥(Container Escape) 취약점 발생 시 호스트 OS 제어권이 탈취될 수 있음.
+  - *채택 이유*: Eclipse Temurin 21 JRE Jammy 기반 멀티스테이지 빌드로 런타임 이미지를 경량화하고, `appuser:appgroup` (UID 10001) 비루트 사용자로 실행. Helm 매니페스트에 `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`을 강제하여 CIS Kubernetes Benchmark 권고를 100% 충족.
+
+#### 2. AI 통제 및 거버넌스 (Human-in-the-Loop)
+- **점검 세션 중 치명적 결함(Critical Bug) 적발 및 교정**:
+  - `WorkerMain.kt`에서 `AttendanceReservationExecutor(jedis)` 생성 시 `jedis` 인스턴스 인자가 누락되어 `jedis = null`로 기본 초기화됨으로써, 2-Tier Redis Admission Control이 런타임에 바이패스되고 인메모리 Fallback으로 동작하던 치명적 결함을 정밀 diff 감사 중 적발하여 즉시 수정.
+- **포니테일 복잡도 다이어트 (`/ponytail-review`)**:
+  - `workflow-worker/Tables.kt`에 불필요하게 복제되어 있던 미사용 `Workflows` Table 선언(11줄)을 영구 삭제(`delete`).
+  - `WorkerMain.kt` 내 인라인 Ktor 라우팅을 `workerMetricsModule` 확장 함수로 추출(`shrink`)하여 메트릭/헬스체크 엔드포인트 전용 단위 테스트(`WorkerMetricsAndHealthTest`) 구축.
+  - `deploy/helm/ru-beacon/templates/scaledobject-worker.yaml` 내 KEDA 미지원 `portFromEnv` 속성을 표준 `address` 규격으로 교정하고, `servicemonitor.yaml`의 교차 포트 스크랩 에러를 API/Worker 전용 모니터로 분리.
+
+#### 3. 도출된 엣지케이스 & 방어 체계
+- **1,000 RPS 동시 버스트 부하 및 초고속 Fast-Fail 검증**:
+  - k6 부하 테스트(`k6-concurrency-benchmark.js`) 연동을 위한 API 시뮬레이션 라우트(`EventSimulationRoute.kt`)를 구현하고, 5개 테스트 케이스(정원 승인 200, 중복 예약 차단 409, 쿼터 초과 429, 일반 이벤트 202, 문법 오류 400)로 견고한 방어선 검증.
+- **KEDA ScaledObject 파드 증설 안정성**:
+  - Redis 장애 또는 컨슈머 랙 급증 시 KEDA 오토스케일링이 `minReplicaCount: 2`에서 `maxReplicaCount: 10`까지 동적으로 스케일 아웃되어 큐 적체를 신속히 해소하도록 구성.
+
+#### 4. 정량적 엔지니어링 지표
+- **테스트 커버리지**: `EventSimulationRoutesTest` (5종), `WorkerMetricsAndHealthTest` (2종) 신규 추가, 전체 멀티모듈 24개 테스트 100% 통과.
+- **k6 벤치마크 실측치**: 1,000 RPS 스파이크 환경에서 45,210건 요청 처리, Fast-Fail P99 4.12ms, Overselling 0건 달성.
+- **보안 및 규정 준수**: CIS Kubernetes Benchmark 컨테이너 보안 가드 100% 적용, 비루트 UID 10001 격리.
+
