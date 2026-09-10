@@ -31,9 +31,38 @@ jobs:
       - name: Run Gradle Test Suite
         run: ./gradlew test --no-daemon --stacktrace
 
+  frontend-check:
+    name: Frontend Build & Unit Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web-dashboard
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: '12'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Run Frontend Tests
+        run: pnpm test
+
+      - name: Build Next.js Dashboard
+        run: pnpm build
+
   docker-build-check:
     name: Multi-Stage Docker Image Build Check
-    needs: test
+    needs: [test, frontend-check]
     runs-on: ubuntu-latest
     strategy:
       matrix:

@@ -31,7 +31,7 @@ class DiscordActionConsumerTest : BaseBotIntegrationTest() {
         }
 
         // Action 메시지 발행
-        val entryId = jedis.xadd(
+        jedis.xadd(
             streamKey,
             XAddParams.xAddParams(),
             mapOf(
@@ -68,7 +68,7 @@ class DiscordActionConsumerTest : BaseBotIntegrationTest() {
         }
 
         // channel_id가 누락된 비정상 메시지
-        val entryId = jedis.xadd(
+        jedis.xadd(
             streamKey,
             XAddParams.xAddParams(),
             mapOf("action" to "SEND_MESSAGE")

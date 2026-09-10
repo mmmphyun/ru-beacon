@@ -22,6 +22,7 @@ out/
 scratch/
 tmp/
 *.tmp
+*.tsbuildinfo
 
 # Environment Variables & Secrets
 .env
