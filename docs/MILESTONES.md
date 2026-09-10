@@ -219,6 +219,7 @@
 ### [마일스톤 5.5] 분산 동시성 제어 및 인프라 하드닝 (Hardening Sprint)
 > **목표**: 일일 선착순 보상 쿼터에 1차 Redis 인메모리 빠른 탈락(Admission Control)과 2차 PostgreSQL 최종 영속화 및 보상 트랜잭션(Dual-Write 롤백)을 적용하여 트래픽 폭증 시 RDBMS 커넥션 풀을 보호하고 무중단 Graceful Fallback을 구축한다.
 
+#### 1. 개발 세션 (Builder Session)
 - [x] **가변 쿼터 2-Tier Redis 동시성 제어 (`workflow-worker`)**:
   - [x] `AttendanceReservationExecutor.kt`: `inputs["total_limit"]` 기반 동적 가변 쿼터(N) 수용
   - [x] Redis Lua Script 기반 1차 Admission Control: 당일 중복 참여 및 남은 정원 0ms 메모리 판별
@@ -236,6 +237,18 @@
   - [x] Graceful Fallback 검증: `jedis == null` 상태에서도 안전 동작 검증
   - [x] `./gradlew test` 전체 모듈 100% 통과 확인
   - [x] Green 커밋: `feat(worker): 가변 쿼터 2-Tier Redis Admission Control 및 보상 롤백 동시성 제어 구현`
+
+#### 2. 점검 세션 (Inspector Session)
+- [ ] **`/ponytail-review` 복잡도 사냥**:
+  - [ ] Lua Script 복잡도 및 불필요한 키/파라미터 정리
+  - [ ] 단일 구현체 인터페이스 0개 유지 및 DTO 1:1 매퍼 배제 (`yagni`)
+- [ ] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
+  - [ ] Redis 다운/타임아웃 시 PostgreSQL 원자적 UPDATE 전환 무중단 연속성 검증
+  - [ ] 2-Tier Dual-Write 보상 트랜잭션 실패 시 데이터 불일치 방어 가드 감사
+  - [ ] `correlationId` 분산 추적 로깅 전파 누락 구간 점검
+- [ ] **리팩터링 커밋 및 푸시**:
+  - [ ] `./gradlew test` 통과 후 커밋: `refactor(worker): 2-Tier Redis 동시성 제어 엣지케이스 방어 및 점검 완료`
+  - [ ] 본 문서의 마일스톤 5.5 점검 체크박스를 `[x]`로 완료하고 `git push origin main`
 
 ---
 
