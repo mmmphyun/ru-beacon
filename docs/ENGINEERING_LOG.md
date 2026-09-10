@@ -306,5 +306,50 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 - **FinOps & 메모리 절감**: Redis 키 2종(count, players) -> 1종(players Set)으로 50% 절감 및 48시간 TTL 강제 유지.
 - **테스트 수행 속도**: 전체 멀티모듈 24개 테스트 19초 이내 완벽 통과 (`BUILD SUCCESSFUL in 19s`).
 
+---
 
+### [마일스톤 6] `web-dashboard` Next.js 위저드형 대시보드 & 워크플로우 엔진 연동 (완료)
 
+#### 1. 아키텍처 트레이드오프 & 핵심 의사결정
+- **워크플로우 DAG 영속화 모델: 불변 JSON AST 단일 컬럼(Document Store) 채택**
+  - *기각한 대안*: Workflows, Nodes, Edges로 세분화된 정규화 RDBMS 테이블 분할 (선택지 A).
+  - *기각 이유*: 노드 수정 및 버전 복제 시 복합 JOIN 및 재귀적 INSERT 오버헤드로 인한 성능 저하와 N+1 쿼리 발생. 다양한 액션 파라미터 확장에 따른 DDL 마이그레이션 및 EAV 안티패턴 위험.
+  - *채택한 구조 및 포기한 가치*:
+    - `WorkflowVersions.definition`에 불변(Immutable) JSON AST 스냅샷을 통째로 영속화.
+    - 버전 생성, 배포(ACTIVE 전환), 롤백이 단 1회의 SQL UPDATE로 0ms에 완결되는 극단적 단순성과 원자성 확보.
+    - DB 레벨의 노드/외래키 제약조건과 부분 인덱싱을 포기하는 대신, Ktor `WorkflowRoute.kt`의 `detectCycle` DFS 알고리즘을 통해 배포 전 순환 참조 및 문법 결함을 애플리케이션 계층에서 엄격히 선제 차단.
+- **런타임 버전 배포 및 전파 메커니즘: RDBMS 원자적 포인터 스왑 + 워커 인메모리 Single-Flight TTL 캐싱**
+  - *기각한 대안*: Redis Pub/Sub 즉시 핫 리로드 (Fire-and-Forget 브로드캐스트, 선택지 A).
+  - *기각 이유*:
+    - Redis Pub/Sub은 영속성과 컨슈머 오프셋이 없어 네트워크 단절이나 워커 재부팅 시 배포 이벤트가 영구 유실됨.
+    - 특정 워커 노드만 구버전을 계속 실행하는 분산 상태 분열(Split-brain)이 발생할 경우, 인게임 보상 버그나 롤백 실패로 인한 고객 클레임(SLA 위반)의 전적인 책임이 플랫폼에 귀속됨.
+    - 유실 복구를 위해 워커 간 수동 핸드셰이크/동기화 큐를 덧대는 것은 바퀴를 재발명하는 전형적인 오버엔지니어링(RDD).
+  - *채택한 구조 및 포기한 가치*:
+    - RDBMS를 단일 진실 공급원(Single-Source-of-Truth)으로 삼고, 배포/롤백 시 트랜잭션 내에서 `active_version` 포인터만 원자적으로 스왑.
+    - 배포 후 최대 TTL(30초) 동안 구버전이 일시 실행될 수 있는 최종 일관성(Eventual Consistency) 지연을 의도적으로 감수.
+  - *DB 부하 및 단일 장애점(SPOF) 방어 체계*:
+    - **Single-Flight (Mutex)**: 캐시 만료 시 다수 워커 코루틴 중 단 1개만 DB 조회를 수행하고 결과를 공유하여 Thundering Herd(Cache Stampede)를 원천 차단 (최대 부하를 30초당 1건의 SELECT로 고정).
+    - **Stale-While-Revalidate Fallback**: DB 일시 장애/지연 시 즉시 에러를 내지 않고 메모리에 보관 중이던 구버전 워크플로우 DAG(Stale Cache)를 유지하여 인게임 이벤트 실행을 100% 무중단 보장. 제어 평면(DB)의 장애가 데이터 평면(워커 실행)으로 전파되지 않도록 완벽히 격리.
+
+#### 2. AI 통제 및 거버넌스 (Human-in-the-Loop)
+- **과도한 캔버스 라이브러리(React Flow 등) 도입 거부 및 위저드 폼 강제**:
+  - 관리자 사용자 경험에서 진입 장벽이 높은 자유형 2D 노드 드래그 앤 드롭 캔버스 라이브러리를 전면 배제하고, 3단계(트리거 → 조건 → 액션) 카드형 위저드 폼 State 구조로 단순화.
+  - UI 폼 상태에서 백엔드 표준 DAG AST로의 단방향 컴파일(`generateWorkflowAst`)을 단일 순수 함수로 일원화하여 불필요한 상태 관리 복잡도 제거.
+- **포니테일 강제 강령 (`/ponytail-review`) 준수**:
+  - `web-dashboard` 내 무거운 전역 상태 라이브러리(Redux/Zustand 등)를 배제하고 React 기본 Hook(`useState`, `useMemo`) 및 단일 API 클라이언트(`api.ts`)로 완결.
+  - `api-service` 워크플로우 엔드포인트에서 불필요한 중간 Repository 인터페이스 없이 Exposed DSL 트랜잭션 블록으로 직결하여 최단 diff 확립.
+
+#### 3. 도출된 엣지케이스 & 방어 체계
+- **DAG 순환 참조(Cycle Loop) 사전 차단**:
+  - 배포(`POST /api/v1/workflows/{id}/deploy`) 호출 시 인메모리 DFS 그래프 탐색(`detectCycle`)을 강제 실행하여 사이클 감지 시 HTTP 400 `WORKFLOW_CYCLE_DETECTED`와 함께 순환 경로 노드 목록을 반환.
+- **템플릿 변수 인젝션 방어**:
+  - 위저드 폼 검증 단계에서 `{User_Nickname}`, `{Minecraft_UUID}` 등 `ALLOWED_VARIABLES` 화이트리스트 외의 변수 유입을 차단하여 워커 런타임 NullPointerException 및 포맷 스트링 오류 방지.
+- **워크플로우 불변 버전 관리 (Immutability)**:
+  - 기존 ACTIVE 버전을 직접 수정(In-place Mutation)하지 않고 항상 새로운 DRAFT 버전을 생성(`POST /api/v1/workflows/{id}/versions`)한 뒤 검증을 거쳐 배포하도록 강제하여 이력 추적성 및 롤백 무결성 보장.
+
+#### 4. 정량적 엔지니어링 지표
+- **테스트 커버리지**:
+  - Kotlin 백엔드: Ktor `WorkflowRoutesTest` (목록, 상세, 신규 버전 생성, 사이클 탐지 차단, 배포 상태 전이, 롤백 검증 등 6개 시나리오 100% 통과).
+  - TypeScript 프론트엔드: Vitest 기반 `workflow-generator.test.ts` (AST 컴파일, 화이트리스트 변수 검증, 사이클 탐지), `WorkflowWizard.test.tsx` (위저드 스텝 이동, 프리셋 로딩, 렌더링) 총 9개 테스트 100% 통과.
+- **빌드 및 린트 속도**: Next.js App Router 빌드 및 TypeScript 정적 타입 검사 무결점 통과, Gradle 멀티모듈 통합 테스트 통과 시간 7초 이내.
+- **코드 규모**: 대시보드 UI 컴포넌트 14개, Ktor API 라우트 2개, 단위/통합 테스트 3개 클래스 구축 완료.
