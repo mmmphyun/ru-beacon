@@ -18,8 +18,7 @@ spec:
   triggers:
     - type: redis-streams
       metadata:
-        addressFromEnv: REDIS_HOST
-        portFromEnv: REDIS_PORT
+        address: {{ printf "%s:%s" .Values.config.redisHost .Values.config.redisPort | quote }}
         stream: stream:events:default
         consumerGroup: worker-group
         pendingEntriesCount: {{ .Values.workflowWorker.keda.lagThreshold | quote }}

@@ -27,6 +27,12 @@ spec:
         fsGroup: 10001
       containers:
         - name: api-service
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
           image: "{{ .Values.apiService.image.repository }}:{{ .Values.apiService.image.tag }}"
           imagePullPolicy: {{ .Values.apiService.image.pullPolicy }}
           ports:

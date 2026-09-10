@@ -1,26 +1,41 @@
 {{- if .Values.serviceMonitor.enabled }}
+{{- if .Values.apiService.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ .Release.Name }}-monitor
+  name: {{ .Release.Name }}-api-monitor
   labels:
-    app.kubernetes.io/name: ru-beacon
+    app.kubernetes.io/name: ru-beacon-api
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   selector:
-    matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: In
-        values:
-          - ru-beacon-api
-          - ru-beacon-worker
+    matchLabels:
+      app.kubernetes.io/name: ru-beacon-api
+      app.kubernetes.io/instance: {{ .Release.Name }}
   endpoints:
     - port: http
       path: /metrics
       interval: {{ .Values.serviceMonitor.interval }}
       scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+---
+{{- end }}
+{{- if .Values.workflowWorker.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}-worker-monitor
+  labels:
+    app.kubernetes.io/name: ru-beacon-worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ru-beacon-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
     - port: metrics
       path: /metrics
       interval: {{ .Values.serviceMonitor.interval }}
       scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+{{- end }}
 {{- end }}

@@ -47,6 +47,7 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+    testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
 
     // Testcontainers
     testImplementation("org.testcontainers:testcontainers:$testcontainersVersion")

@@ -12,6 +12,7 @@ import com.rubeacon.worker.engine.MinecraftDispatchCommandExecutor
 import com.rubeacon.worker.engine.WorkflowDefinition
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -36,7 +37,7 @@ import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.select
+import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import redis.clients.jedis.JedisPooled
@@ -84,7 +85,7 @@ fun main() {
     val mcCommandExecutor = MinecraftDispatchCommandExecutor(jedis)
     val discordMessageExecutor = DiscordSendMessageExecutor(jedis)
     val conditionExecutor = ConditionBranchExecutor()
-    val attendanceExecutor = AttendanceReservationExecutor()
+    val attendanceExecutor = AttendanceReservationExecutor(jedis)
 
     val executors = listOf(
         mcCommandExecutor,
@@ -98,7 +99,7 @@ fun main() {
 
     val workflowLookup: suspend (String, String) -> WorkflowDefinition? = { eventType, tenantId ->
         transaction(database) {
-            WorkflowVersions.select {
+            WorkflowVersions.selectAll().where {
                 (WorkflowVersions.tenantId eq tenantId) and (WorkflowVersions.status eq "ACTIVE")
             }.mapNotNull {
                 val defJson = it[WorkflowVersions.definition]
@@ -126,17 +127,7 @@ fun main() {
     }
 
     val server = embeddedServer(Netty, port = metricsPort, host = "0.0.0.0") {
-        install(MicrometerMetrics) {
-            registry = meterRegistry
-        }
-        routing {
-            get("/healthz") {
-                call.respondText("OK")
-            }
-            get("/metrics") {
-                call.respond(meterRegistry.scrape())
-            }
-        }
+        workerMetricsModule(meterRegistry)
     }
 
     Runtime.getRuntime().addShutdownHook(Thread {
@@ -159,4 +150,22 @@ fun main() {
     // 블로킹 대기
     Thread.currentThread().join()
 }
+
+/**
+ * workflow-worker 헬스체크 및 Prometheus 메트릭 모듈.
+ */
+fun Application.workerMetricsModule(meterRegistry: PrometheusMeterRegistry) {
+    install(MicrometerMetrics) {
+        registry = meterRegistry
+    }
+    routing {
+        get("/healthz") {
+            call.respondText("OK")
+        }
+        get("/metrics") {
+            call.respond(meterRegistry.scrape())
+        }
+    }
+}
+
 

@@ -2,6 +2,7 @@ package com.rubeacon.api
 
 import com.rubeacon.api.redis.RedisEventPublisher
 import com.rubeacon.api.routes.accountLinkRoutes
+import com.rubeacon.api.routes.eventSimulationRoutes
 import com.rubeacon.api.routes.minecraftWebSocketRoutes
 import com.rubeacon.api.routes.tenantRoutes
 import com.rubeacon.api.routes.workflowRoutes
@@ -108,6 +109,7 @@ fun Application.module(
         accountLinkRoutes(accountLinkService)
         workflowRoutes()
         tenantRoutes(authService)
+        eventSimulationRoutes(jedis, redisPublisher)
     }
 }
 

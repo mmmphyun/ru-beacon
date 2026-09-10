@@ -288,6 +288,7 @@
 ### [마일스톤 7] 인프라 K3s & CI/CD·관측성 파이프라인 (클라우드/SRE 포트폴리오 정점)
 > **목표**: 서비스 3종의 경량 컨테이너화와 Helm 차트를 패키징하고, KEDA 이벤트 기반 오토스케일링, Prometheus/Grafana 관측성, k6 분산 부하 테스트 벤치마크를 완비하여 클라우드/인프라 직무 역량을 완벽히 증명한다.
 
+#### 1. 개발 세션 (Builder Session)
 - [x] **컨테이너화 및 보안**:
   - [x] `api-service`, `bot-service`, `workflow-worker` 멀티스테이지 Dockerfile 작성 (Eclipse Temurin 21 JRE, Non-root 사용자 격리)
 - [x] **관측성(Observability) 엔드포인트**:
@@ -305,4 +306,20 @@
   - [x] `.github/workflows/ci.yml` 작성 (전체 Gradle 테스트, 도커 빌드 검증, Helm lint)
   - [x] `.githooks/pre-commit`에 `./gradlew test` 자동 검증 연결
   - [x] Green 커밋: `ci: Helm 차트 패키징·KEDA 오토스케일링 및 관측성 CI/CD 파이프라인 구축`
+
+#### 2. 점검 세션 (Inspector Session)
+- [x] **`/ponytail-review` 복잡도 사냥**:
+  - [x] `workflow-worker/Tables.kt`: 미사용 `Workflows` 객체 제거 및 `WorkflowVersions.workflowId` 단순화 (`delete: -15 lines`)
+  - [x] `WorkerMain.kt`: 인라인 metrics/health Ktor 모듈을 `workerMetricsModule`로 분리하여 단위 테스트성 확보 (`shrink`)
+  - [x] `WorkerMain.kt`: Exposed 레거시 `select` 호출을 현대적 `selectAll().where` DSL로 전환 (`stdlib`)
+  - [x] `servicemonitor.yaml`: 불필요한 포트 혼합 매핑 제거 및 API/Worker 전용 엔드포인트 분리 (`yagni`)
+- [x] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검 및 엣지케이스 보강**:
+  - [x] **동시성 2-Tier Admission 버그 수정**: `WorkerMain.kt`에서 `AttendanceReservationExecutor(jedis)`에 `jedis` 전달 누락으로 인메모리 Fallback 되던 결함 교정
+  - [x] **k6 부하 테스트 엔드포인트 구현**: `api-service`에 `/api/v1/events/simulate` 구현 및 Redis Lua Fast-Fail 연동 (409 Conflict, 429 TooManyRequests)
+  - [x] **쿠버네티스 컨테이너 보안 하드닝**: API, Bot, Worker 컨테이너에 `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]` 적용
+  - [x] **KEDA 트리거 표준화**: `scaledobject-worker.yaml` 내 `addressFromEnv`/`portFromEnv` 결함을 KEDA v2 표준 `address` 포맷으로 교정
+  - [x] **회귀 테스트 100% 통과**: `EventSimulationRoutesTest` (5종), `WorkerMetricsAndHealthTest` (2종) 신규 추가 및 전체 24개 테스트 통과
+- [x] **리팩터링 커밋 및 푸시**:
+  - [x] `./gradlew test` 통과 후 커밋: `refactor(infra): 인프라 Helm 매니페스트 하드닝 및 부하 테스트·관측성 엣지케이스 보강`
+  - [x] 본 문서의 마일스톤 7 점검 체크박스를 `[x]`로 완료하고 `git push origin main`
 

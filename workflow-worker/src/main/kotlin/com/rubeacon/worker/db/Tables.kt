@@ -112,26 +112,11 @@ class AuditLogger {
 }
 
 /**
- * 자동화 워크플로우 메타데이터 테이블.
- */
-object Workflows : Table("workflows") {
-    val id = varchar("id", 64)
-    val tenantId = reference("tenant_id", Tenants.id, onDelete = org.jetbrains.exposed.sql.ReferenceOption.CASCADE)
-    val name = varchar("name", 100)
-    val description = text("description").nullable()
-    val activeVersion = integer("active_version").nullable()
-    val createdAt = timestampWithTimeZone("created_at").clientDefault { OffsetDateTime.now() }
-    val updatedAt = timestampWithTimeZone("updated_at").clientDefault { OffsetDateTime.now() }
-
-    override val primaryKey = PrimaryKey(id)
-}
-
-/**
  * 워크플로우 버전별 DAG 정의(JSONB) 테이블.
  */
 object WorkflowVersions : Table("workflow_versions") {
     val id = varchar("id", 64)
-    val workflowId = reference("workflow_id", Workflows.id, onDelete = org.jetbrains.exposed.sql.ReferenceOption.CASCADE)
+    val workflowId = varchar("workflow_id", 64)
     val tenantId = reference("tenant_id", Tenants.id, onDelete = org.jetbrains.exposed.sql.ReferenceOption.CASCADE)
     val version = integer("version")
     val status = varchar("status", 20).default("DRAFT") // 'DRAFT', 'TESTING', 'ACTIVE', 'INACTIVE', 'ARCHIVED'
