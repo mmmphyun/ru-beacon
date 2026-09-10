@@ -98,8 +98,8 @@ class RuBeaconBot(
             val userId = interaction.user.id.toString()
             val tenantId = interaction.data.guildId.value?.toString() ?: config.defaultTenantId
             val interactionId = interaction.id.toString()
-
-            log.info("슬래시 커맨드 수신: /{} (user={}, tenant={})", commandName, userId, tenantId)
+            val correlationId = "corr_discord_$interactionId"
+            log.info("[{}] 슬래시 커맨드 수신: /{} (user={}, tenant={})", correlationId, commandName, userId, tenantId)
 
             try {
                 val deferred = interaction.deferEphemeralResponse()
@@ -144,7 +144,7 @@ class RuBeaconBot(
                         }
                     }
                 } catch (e: Exception) {
-                    log.error("슬래시 커맨드 비즈니스 처리 중 예외 발생: {}", e.message, e)
+                    log.error("[{}] 슬래시 커맨드 비즈니스 처리 중 예외 발생: {}", correlationId, e.message, e)
                     runCatching {
                         deferred.respond {
                             content = DiscordResponseRenderer.error(e.message ?: "내부 서버 오류")
@@ -152,7 +152,7 @@ class RuBeaconBot(
                     }
                 }
             } catch (e: Exception) {
-                log.error("슬래시 커맨드 Defer 단계 실패: {}", e.message, e)
+                log.error("[{}] 슬래시 커맨드 Defer 단계 실패: {}", correlationId, e.message, e)
             }
         }
 
@@ -163,8 +163,9 @@ class RuBeaconBot(
             val tenantId = interaction.data.guildId.value?.toString() ?: config.defaultTenantId
             val interactionId = interaction.id.toString()
             val messageId = interaction.message.id.toString()
+            val correlationId = "corr_discord_$interactionId"
 
-            log.info("버튼 인터랙션 수신: customId={} (user={}, tenant={})", customId, userId, tenantId)
+            log.info("[{}] 버튼 인터랙션 수신: customId={} (user={}, tenant={})", correlationId, customId, userId, tenantId)
 
             try {
                 val deferred = interaction.deferEphemeralResponse()
@@ -188,7 +189,7 @@ class RuBeaconBot(
                         content = responseMessage
                     }
                 } catch (e: Exception) {
-                    log.error("버튼 인터랙션 처리 중 예외 발생: {}", e.message, e)
+                    log.error("[{}] 버튼 인터랙션 처리 중 예외 발생: {}", correlationId, e.message, e)
                     runCatching {
                         deferred.respond {
                             content = DiscordResponseRenderer.error(e.message ?: "내부 서버 오류")
@@ -196,7 +197,7 @@ class RuBeaconBot(
                     }
                 }
             } catch (e: Exception) {
-                log.error("버튼 인터랙션 Defer 단계 실패: {}", e.message, e)
+                log.error("[{}] 버튼 인터랙션 Defer 단계 실패: {}", correlationId, e.message, e)
             }
         }
 
@@ -206,9 +207,10 @@ class RuBeaconBot(
             val userId = interaction.user.id.toString()
             val tenantId = interaction.data.guildId.value?.toString() ?: config.defaultTenantId
             val interactionId = interaction.id.toString()
+            val correlationId = "corr_discord_$interactionId"
 
             val textInputs = interaction.textInputs.mapValues { it.value.value ?: "" }
-            log.info("모달 제출 수신: modalId={} (user={}, tenant={})", modalId, userId, tenantId)
+            log.info("[{}] 모달 제출 수신: modalId={} (user={}, tenant={})", correlationId, modalId, userId, tenantId)
 
             try {
                 val deferred = interaction.deferEphemeralResponse()
@@ -226,7 +228,7 @@ class RuBeaconBot(
                         content = DiscordResponseRenderer.interactionAcknowledged(modalId)
                     }
                 } catch (e: Exception) {
-                    log.error("모달 제출 처리 중 예외 발생: {}", e.message, e)
+                    log.error("[{}] 모달 제출 처리 중 예외 발생: {}", correlationId, e.message, e)
                     runCatching {
                         deferred.respond {
                             content = DiscordResponseRenderer.error(e.message ?: "내부 서버 오류")
@@ -234,7 +236,7 @@ class RuBeaconBot(
                     }
                 }
             } catch (e: Exception) {
-                log.error("모달 제출 Defer 단계 실패: {}", e.message, e)
+                log.error("[{}] 모달 제출 Defer 단계 실패: {}", correlationId, e.message, e)
             }
         }
     }

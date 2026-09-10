@@ -19,6 +19,7 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import redis.clients.jedis.JedisPooled
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -106,9 +107,8 @@ class AttendanceConcurrencyIntegrationTest : BaseWorkerIntegrationTest() {
         }
 
         // 3. Redis 상태 검증
-        val redisCount = jedis.get("quota:$tenantId:$rewardDate:count")?.toInt() ?: 0
-        val redisPlayersSize = jedis.scard("quota:$tenantId:$rewardDate:players")
-        assertEquals(totalLimit, redisCount, "Redis 선점 카운트는 정확히 N이어야 함")
+        val playersKey = AttendanceReservationExecutor.playersKey(tenantId, rewardDate)
+        val redisPlayersSize = jedis.scard(playersKey)
         assertEquals(totalLimit.toLong(), redisPlayersSize, "Redis 플레이어 집합 크기는 정확히 N이어야 함")
     }
 
@@ -176,8 +176,9 @@ class AttendanceConcurrencyIntegrationTest : BaseWorkerIntegrationTest() {
         assertEquals("ALREADY_RESERVED", secondResult.errorCode)
 
         // Redis & DB 정합성: 1건만 유지
-        val redisCount = jedis.get("quota:$tenantId:$rewardDate:count")?.toInt() ?: 0
-        assertEquals(1, redisCount)
+        val playersKey = AttendanceReservationExecutor.playersKey(tenantId, rewardDate)
+        val redisCount = jedis.scard(playersKey)
+        assertEquals(1L, redisCount)
 
         transaction(database) {
             val count = RewardReservations.selectAll().where {
@@ -213,12 +214,11 @@ class AttendanceConcurrencyIntegrationTest : BaseWorkerIntegrationTest() {
         }
 
         // Redis 보상 롤백 확인: 카운터 및 Set에서 완전히 원복되어 카운트는 0이어야 함
-        val countKey = "quota:$tenantId:$rewardDate:count"
-        val playersKey = "quota:$tenantId:$rewardDate:players"
-        val countVal = jedis.get(countKey)?.toInt() ?: 0
+        val playersKey = AttendanceReservationExecutor.playersKey(tenantId, rewardDate)
+        val countVal = jedis.scard(playersKey)
         val isMember = jedis.sismember(playersKey, playerUuid.toString())
 
-        assertEquals(0, countVal, "DB 실패 시 Redis 카운트는 0으로 롤백되어야 함")
+        assertEquals(0L, countVal, "DB 실패 시 Redis 카운트는 0으로 롤백되어야 함")
         assertEquals(false, isMember, "DB 실패 시 Redis 플레이어 Set에서 제거되어야 함")
     }
 
@@ -252,5 +252,42 @@ class AttendanceConcurrencyIntegrationTest : BaseWorkerIntegrationTest() {
             val totalSaved = RewardReservations.selectAll().count()
             assertEquals(2L, totalSaved, "DB에 정상적으로 2명만 예약되어야 함")
         }
+    }
+
+    @Test
+    fun `Redis 다운 및 타임아웃 장애 시에도 DB 조건부 UPDATE로 무중단 Fallback 동작 검증`() = runBlocking {
+        // 유효하지 않은 포트로 연결을 시도하여 Connection/Timeout Exception을 유발하는 Jedis 인스턴스 생성
+        val deadJedis = JedisPooled("127.0.0.1", 59999)
+        val executor = AttendanceReservationExecutor(deadJedis)
+        val totalLimit = 2
+
+        val p1 = UUID.randomUUID()
+        val p2 = UUID.randomUUID()
+        val p3 = UUID.randomUUID()
+
+        val inputs = mapOf(
+            "action" to JsonPrimitive("RESERVE"),
+            "total_limit" to JsonPrimitive(totalLimit.toString())
+        )
+
+        // Redis 연결 에러가 발생해도 예외가 전파되지 않고 DB 조건부 UPDATE로 Graceful Fallback 수행
+        val r1 = executor.execute(createTestContext(p1, "corr_redis_down_1"), inputs)
+        val r2 = executor.execute(createTestContext(p2, "corr_redis_down_2"), inputs)
+        val r3 = executor.execute(createTestContext(p3, "corr_redis_down_3"), inputs)
+        val rDup = executor.execute(createTestContext(p1, "corr_redis_down_dup"), inputs)
+
+        assertTrue(r1 is NodeResult.Success, "Redis 장애 시 DB Fallback으로 1차 예약 성공해야 함")
+        assertTrue(r2 is NodeResult.Success, "Redis 장애 시 DB Fallback으로 2차 예약 성공해야 함")
+        assertTrue(r3 is NodeResult.Failure, "Redis 장애 시에도 정원 초과는 DB 조건부 UPDATE에서 QUOTA_EXCEEDED로 차단되어야 함")
+        assertEquals("QUOTA_EXCEEDED", r3.errorCode)
+        assertTrue(rDup is NodeResult.Failure, "Redis 장애 시에도 중복 예약은 ALREADY_RESERVED로 차단되어야 함")
+        assertEquals("ALREADY_RESERVED", rDup.errorCode)
+
+        transaction(database) {
+            val totalSaved = RewardReservations.selectAll().count()
+            assertEquals(2L, totalSaved, "Redis 장애 상황에서도 DB에는 정확히 2명만 영속화되어야 함")
+        }
+
+        deadJedis.close()
     }
 }

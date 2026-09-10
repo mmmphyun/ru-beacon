@@ -265,5 +265,42 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 - **성능 및 빌드 속도**: 전체 멀티모듈 5개 프로젝트 통합 테스트 통과 시간 8초 이내.
 - **코드 규모**: 5개 신규 핵심 파일 및 테스트 4종 구축 완료 (`+965 lines`).
 
+---
+
+### [마일스톤 5.5] 분산 동시성 제어 및 인프라 하드닝 (Hardening Sprint) (완료)
+
+#### 1. 아키텍처 트레이드오프 & 핵심 의사결정
+- **2-Tier 동시성 제어: Redis 1차 인메모리 빠른 탈락(Admission Control) + PostgreSQL 2차 원자적 영속화**
+  - *기각한 대안 1 (PostgreSQL 단독 운용)*:
+    - *기각 이유*: 선착순 100명 이벤트 시 수천 명의 동시 클릭 트래픽이 모두 RDBMS 커넥션 풀에 쏟아져 DB CPU 100% 포화 및 커넥션 고갈(Connection Starvation) 발생.
+  - *기각한 대안 2 (Redis 단독 카운터 `DECR` + 비동기 DB 기록)*:
+    - *기각 이유*: Redis 선점 성공 후 DB 저장 실패 시 수량 불일치 및 고아 데이터 발생 (Dual-Write 위험).
+  - *채택한 구조 (2-Tier Admission Control)*:
+    - 1차 Redis Set 기반 빠른 탈락: 당일 중복 참여(`SISMEMBER`) 및 남은 쿼터(`SCARD >= limit`)를 인메모리 0ms로 판별. 초과/중복 요청은 DB 커넥션을 0회 호출하고 즉시 반환 (`Fast-Fail`).
+    - 2차 PostgreSQL 영속화: 관문을 통과한 N개 요청만 DB 트랜잭션(`AttendanceQuotas` 조건부 UPDATE 및 `RewardReservations` INSERT) 진입.
+    - 무중단 Graceful Fallback: Redis 다운/타임아웃 발생 시에도 시스템 중단 없이 PostgreSQL 조건부 UPDATE로 자동 전환되어 정상 동작 보장.
+- **Redis 키 구조 단순화: 단일 Set 키 (`quota:{tenantId}:{date}:players`) 단일화**
+  - *기각한 대안*: `count` 문자열 키와 `players` Set 키를 이원화하여 관리하던 초기 설계.
+  - *기각 이유*: 카운트 증가(`INCR`)와 집합 추가(`SADD`)를 동기화하기 위해 Lua 스크립트 복잡도가 증가하고, 롤백 시에도 별도의 `ROLLBACK_LUA` 스크립트가 필요하며 두 키 간의 정합성 불일치 위험 존재.
+  - *채택한 구조*: Redis Set은 `SCARD`를 통해 O(1) 시간 복잡도로 요소 수를 즉시 반환하므로, `count` 키를 완전히 삭제하고 Set 하나로 통합. 롤백 또한 Redis 내장 명령인 `srem` 1줄로 단순화하여 `ROLLBACK_LUA`를 영구 제거.
+
+#### 2. AI 통제 및 거버넌스 (Human-in-the-Loop)
+- **오버엔지니어링 사냥 (`/ponytail-review`)**:
+  - Redis Set이 자체 크기(`SCARD`)를 O(1)로 제공함에도 불필요하게 `count`와 `players` 2개 키를 유지하고 복잡한 `ROLLBACK_LUA`를 수동 작성했던 오버엔지니어링을 적발 및 제거 (`net: -36 lines`).
+  - Redis 원시 명령 `srem` 단일 호출로 롤백을 단순화하고, `DiscordResponseRenderer`의 중복 문자열 템플릿 분기 축약.
+- **분산 추적 관측성 누락 점검**:
+  - `commit`, `release`, `rollbackRedis` 및 Discord 봇/컨슈머 전반의 로깅에 `[{}]` `correlationId` 전파를 누락 없이 표준화.
+
+#### 3. 도출된 엣지케이스 & 카오스 방어 체계
+- **Redis 장애 시 무중단 DB Fallback 카오스 검증**:
+  - Redis 포트가 닫히거나 타임아웃 예외가 발생하는 상황에서도 요청이 실패하지 않고 PostgreSQL 원자적 조건부 UPDATE로 매끄럽게 전환되어 정원 통제 및 멱등성이 완벽히 유지됨을 회귀 테스트(`Redis 다운 및 타임아웃 장애 시에도 DB 조건부 UPDATE로 무중단 Fallback 동작 검증`)로 입증.
+- **보상 트랜잭션 롤백 장애 시 데이터 불일치 경보**:
+  - DB 영속화 실패 후 Redis 보상 롤백 과정에서 네트워크 이상이 발생할 경우, 예외를 조용히 삼키지 않고 `[CRITICAL]` 에러 로그를 남겨 운영자 인지 및 수동 조정 가능성 확보.
+
+#### 4. 정량적 엔지니어링 지표
+- **테스트 커버리지**: Redis 동시성 경합(30개 동시 요청), Fast-Fail, 중복 차단, 보상 트랜잭션 롤백, Null Fallback, Redis 장애 타임아웃 Fallback 총 6개 통합 테스트 100% 통과.
+- **FinOps & 메모리 절감**: Redis 키 2종(count, players) -> 1종(players Set)으로 50% 절감 및 48시간 TTL 강제 유지.
+- **테스트 수행 속도**: 전체 멀티모듈 24개 테스트 19초 이내 완벽 통과 (`BUILD SUCCESSFUL in 19s`).
+
 
 

@@ -36,6 +36,9 @@
 - [x] **마일스톤 5**: `bot-service` Kord Discord 상호작용 및 이벤트 정규화
   - [x] 개발 세션 (Builder): Kord 봇, 인터랙션 핸들러, Fake Discord 테스트
   - [x] 점검 세션 (Inspector): `/ponytail-review`, Gateway 레이트리밋/에러 격리 점검
+- [x] **마일스톤 5.5**: 분산 동시성 제어 및 인프라 하드닝 (Hardening Sprint)
+  - [x] 개발 세션 (Builder): 가변 쿼터 2-Tier Redis 동시성 제어 및 Fast-Fail 구현
+  - [x] 점검 세션 (Inspector): `/ponytail-review`, Redis 단절 Fallback 및 보상 롤백 감사
 - [ ] **마일스톤 6**: `web-dashboard` Next.js + Shadcn UI 위저드형 대시보드
   - [ ] 개발 세션 (Builder): Next.js 위저드 워크플로우 폼 빌더 구현
   - [ ] 점검 세션 (Inspector): `/ponytail-review`, 폼 유효성/반응형/UX 점검
@@ -239,16 +242,16 @@
   - [x] Green 커밋: `feat(worker): 가변 쿼터 2-Tier Redis Admission Control 및 보상 롤백 동시성 제어 구현`
 
 #### 2. 점검 세션 (Inspector Session)
-- [ ] **`/ponytail-review` 복잡도 사냥**:
-  - [ ] Lua Script 복잡도 및 불필요한 키/파라미터 정리
-  - [ ] 단일 구현체 인터페이스 0개 유지 및 DTO 1:1 매퍼 배제 (`yagni`)
-- [ ] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
-  - [ ] Redis 다운/타임아웃 시 PostgreSQL 원자적 UPDATE 전환 무중단 연속성 검증
-  - [ ] 2-Tier Dual-Write 보상 트랜잭션 실패 시 데이터 불일치 방어 가드 감사
-  - [ ] `correlationId` 분산 추적 로깅 전파 누락 구간 점검
-- [ ] **리팩터링 커밋 및 푸시**:
-  - [ ] `./gradlew test` 통과 후 커밋: `refactor(worker): 2-Tier Redis 동시성 제어 엣지케이스 방어 및 점검 완료`
-  - [ ] 본 문서의 마일스톤 5.5 점검 체크박스를 `[x]`로 완료하고 `git push origin main`
+- [x] **`/ponytail-review` 복잡도 사냥**:
+  - [x] Lua Script 복잡도 및 불필요한 키/파라미터 정리
+  - [x] 단일 구현체 인터페이스 0개 유지 및 DTO 1:1 매퍼 배제 (`yagni`)
+- [x] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
+  - [x] Redis 다운/타임아웃 시 PostgreSQL 원자적 UPDATE 전환 무중단 연속성 검증
+  - [x] 2-Tier Dual-Write 보상 트랜잭션 실패 시 데이터 불일치 방어 가드 감사
+  - [x] `correlationId` 분산 추적 로깅 전파 누락 구간 점검
+- [x] **리팩터링 커밋 및 푸시**:
+  - [x] `./gradlew test` 통과 후 커밋: `refactor(worker): 2-Tier Redis 동시성 제어 엣지케이스 방어 및 점검 완료`
+  - [x] 본 문서의 마일스톤 5.5 점검 체크박스를 `[x]`로 완료하고 `git push origin main`
 
 ---
 

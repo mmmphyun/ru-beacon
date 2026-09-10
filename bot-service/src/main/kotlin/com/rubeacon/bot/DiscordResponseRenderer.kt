@@ -20,12 +20,10 @@ object DiscordResponseRenderer {
     /**
      * 보상 수령 요청 접수 안내 메시지.
      */
-    fun rewardClaimRequested(userId: String, rewardId: String? = null): String =
-        if (rewardId != null) {
-            "🎁 **[Ru-Beacon 보상 수령]**\n<@$userId> 님의 보상(`$rewardId`) 수령 요청이 서버로 전송되었습니다.\n게임 내 인벤토리를 확인해주세요!"
-        } else {
-            "🎁 **[Ru-Beacon 보상 수령]**\n<@$userId> 님의 보상 수령 요청이 서버로 전송되었습니다.\n게임 내 인벤토리를 확인해주세요!"
-        }
+    fun rewardClaimRequested(userId: String, rewardId: String? = null): String {
+        val rewardText = if (!rewardId.isNullOrBlank()) "(`$rewardId`) " else ""
+        return "🎁 **[Ru-Beacon 보상 수령]**\n<@$userId> 님의 보상${rewardText}수령 요청이 서버로 전송되었습니다.\n게임 내 인벤토리를 확인해주세요!"
+    }
 
     /**
      * 알 수 없는 컴포넌트 인터랙션 접수 안내 메시지.

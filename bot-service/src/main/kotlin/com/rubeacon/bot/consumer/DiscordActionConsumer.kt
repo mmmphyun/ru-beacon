@@ -119,15 +119,16 @@ class DiscordActionConsumer(
         for (entry in entries) {
             val entryId = entry.id
             val fields = entry.fields
+            val correlationId = fields["correlation_id"] ?: "unknown"
             try {
                 processSingleAction(fields)
                 jedis.xack(streamKey, groupName, entryId)
-                log.debug("액션 메시지 정상 처리 및 ACK 완료: entryId={}", entryId)
+                log.debug("[{}] 액션 메시지 정상 처리 및 ACK 완료: entryId={}", correlationId, entryId)
             } catch (e: dev.kord.rest.request.RestRequestException) {
-                log.error("Discord API 영구 요청 실패(Poison Pill 격리 및 ACK 처리): entryId={}, status={}, error={}", entryId, e.status, e.message)
+                log.error("[{}] Discord API 영구 요청 실패(Poison Pill 격리 및 ACK 처리): entryId={}, status={}, error={}", correlationId, entryId, e.status, e.message)
                 jedis.xack(streamKey, groupName, entryId)
             } catch (e: Exception) {
-                log.error("액션 메시지 일시적 처리 실패 (entryId={}): {}", entryId, e.message, e)
+                log.error("[{}] 액션 메시지 일시적 처리 실패 (entryId={}): {}", correlationId, entryId, e.message, e)
             }
         }
     }
@@ -136,9 +137,9 @@ class DiscordActionConsumer(
         val action = fields["action"] ?: "SEND_MESSAGE"
         val channelIdStr = fields["channel_id"] ?: return
         val content = fields["content"] ?: return
-        val correlationId = fields["correlation_id"]
+        val correlationId = fields["correlation_id"] ?: "unknown"
 
-        log.info("Discord 액션 실행: action={}, channelId={}, correlationId={}", action, channelIdStr, correlationId)
+        log.info("[{}] Discord 액션 실행: action={}, channelId={}", correlationId, action, channelIdStr)
 
         if (action == "SEND_MESSAGE") {
             if (kord != null) {
@@ -146,9 +147,9 @@ class DiscordActionConsumer(
                 kord.rest.channel.createMessage(channelId) {
                     this.content = content
                 }
-                log.info("Discord 채널 메시지 발송 완료: channelId={}", channelIdStr)
+                log.info("[{}] Discord 채널 메시지 발송 완료: channelId={}", correlationId, channelIdStr)
             } else {
-                log.debug("Kord 미주입(테스트 환경) 모의 메시지 발송 완료: channelId={}, content={}", channelIdStr, content)
+                log.debug("[{}] Kord 미주입(테스트 환경) 모의 메시지 발송 완료: channelId={}, content={}", correlationId, channelIdStr, content)
             }
         }
     }

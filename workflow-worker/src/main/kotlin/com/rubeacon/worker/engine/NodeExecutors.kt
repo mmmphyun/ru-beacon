@@ -178,40 +178,24 @@ class AttendanceReservationExecutor(
     companion object {
         private const val TTL_SECONDS = 48 * 3600L // 48시간 만료
 
-        // KEYS[1]: quota:{tenantId}:{date}:count
-        // KEYS[2]: quota:{tenantId}:{date}:players
+        fun playersKey(tenantId: String, date: LocalDate): String = "quota:$tenantId:$date:players"
+
+        // KEYS[1]: quota:{tenantId}:{date}:players
         // ARGV[1]: totalLimit
         // ARGV[2]: playerUuid
         // ARGV[3]: ttlSeconds
         private val ADMISSION_LUA = """
-            if redis.call('SISMEMBER', KEYS[2], ARGV[2]) == 1 then
+            if redis.call('SISMEMBER', KEYS[1], ARGV[2]) == 1 then
                 return 'ALREADY_RESERVED'
             end
-            local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+            local current = redis.call('SCARD', KEYS[1])
             local limit = tonumber(ARGV[1])
             if current >= limit then
                 return 'QUOTA_EXCEEDED'
             end
-            redis.call('INCR', KEYS[1])
-            redis.call('SADD', KEYS[2], ARGV[2])
+            redis.call('SADD', KEYS[1], ARGV[2])
             if redis.call('TTL', KEYS[1]) < 0 then
                 redis.call('EXPIRE', KEYS[1], ARGV[3])
-            end
-            if redis.call('TTL', KEYS[2]) < 0 then
-                redis.call('EXPIRE', KEYS[2], ARGV[3])
-            end
-            return 'OK'
-        """.trimIndent()
-
-        // KEYS[1]: quota:{tenantId}:{date}:count
-        // KEYS[2]: quota:{tenantId}:{date}:players
-        // ARGV[1]: playerUuid
-        private val ROLLBACK_LUA = """
-            if redis.call('SREM', KEYS[2], ARGV[1]) == 1 then
-                local current = tonumber(redis.call('GET', KEYS[1]) or '0')
-                if current > 0 then
-                    redis.call('DECR', KEYS[1])
-                end
             end
             return 'OK'
         """.trimIndent()
@@ -231,12 +215,12 @@ class AttendanceReservationExecutor(
         val rawPlayerUuid = context.variables["Minecraft_UUID"]?.toString()
             ?: (if (actor?.type == "minecraft_player") actor.id else null)
             ?: UUID.randomUUID().toString()
-        val playerUuid = runCatching { UUID.fromString(rawPlayerUuid) }.getOrElse { UUID.randomUUID() }
+        val playerUuid = runCatching { UUID.fromString(rawPlayerUuid.removeSurrounding("\"")) }.getOrElse { UUID.randomUUID() }
 
         return when (action.uppercase()) {
             "RESERVE" -> reserve(context.tenantId, rewardDate, totalLimit, playerUuid, context.correlationId)
-            "COMMIT" -> commit(context.tenantId, rewardDate, playerUuid)
-            "RELEASE" -> release(context.tenantId, rewardDate, playerUuid)
+            "COMMIT" -> commit(context.tenantId, rewardDate, playerUuid, context.correlationId)
+            "RELEASE" -> release(context.tenantId, rewardDate, playerUuid, context.correlationId)
             else -> NodeResult.Failure("Unsupported action: $action", "INVALID_ACTION")
         }
     }
@@ -250,13 +234,12 @@ class AttendanceReservationExecutor(
     ): NodeResult {
         // 1. Redis 기반 1차 Admission Control (Fast-Fail)
         if (jedis != null) {
-            val countKey = "quota:$tenantId:$date:count"
-            val playersKey = "quota:$tenantId:$date:players"
+            val playersKey = playersKey(tenantId, date)
 
             val admissionResult = try {
                 jedis.eval(
                     ADMISSION_LUA,
-                    listOf(countKey, playersKey),
+                    listOf(playersKey),
                     listOf(limit.toString(), playerUuid.toString(), TTL_SECONDS.toString())
                 )?.toString()
             } catch (e: Exception) {
@@ -287,7 +270,7 @@ class AttendanceReservationExecutor(
                             persistReservation(tenantId, date, limit, playerUuid, correlationId)
                         } catch (e: Exception) {
                             log.error("[{}] DB persistence failed, triggering Redis rollback: {}", correlationId, e.message)
-                            rollbackRedis(countKey, playersKey, playerUuid)
+                            rollbackRedis(playersKey, playerUuid, correlationId)
                             throw e
                         }
                     }
@@ -330,9 +313,8 @@ class AttendanceReservationExecutor(
         }
 
         if (updatedRows == 0) {
-            val countKey = "quota:$tenantId:$date:count"
-            val playersKey = "quota:$tenantId:$date:players"
-            rollbackRedis(countKey, playersKey, playerUuid)
+            val playersKey = playersKey(tenantId, date)
+            rollbackRedis(playersKey, playerUuid, correlationId)
             return@newSuspendedTransaction NodeResult.Failure(
                 reason = "Quota limit reached ($limit max)",
                 errorCode = "QUOTA_EXCEEDED"
@@ -432,16 +414,21 @@ class AttendanceReservationExecutor(
         )
     }
 
-    private fun rollbackRedis(countKey: String, playersKey: String, playerUuid: UUID) {
+    private fun rollbackRedis(playersKey: String, playerUuid: UUID, correlationId: String) {
         runCatching {
-            jedis?.eval(ROLLBACK_LUA, listOf(countKey, playersKey), listOf(playerUuid.toString()))
+            jedis?.srem(playersKey, playerUuid.toString())
+        }.onSuccess {
+            log.info("[{}] Redis compensation rollback completed: player={}, key={}", correlationId, playerUuid, playersKey)
+        }.onFailure { e ->
+            log.error("[{}] [CRITICAL] Dual-Write Redis rollback failed! Inconsistency risk: player={}, key={}, error={}", correlationId, playerUuid, playersKey, e.message, e)
         }
     }
 
     private suspend fun commit(
         tenantId: String,
         date: LocalDate,
-        playerUuid: UUID
+        playerUuid: UUID,
+        correlationId: String
     ): NodeResult = newSuspendedTransaction(Dispatchers.IO) {
         RewardReservations.update({
             (RewardReservations.tenantId eq tenantId) and
@@ -460,13 +447,15 @@ class AttendanceReservationExecutor(
             it[updatedAt] = OffsetDateTime.now()
         }
 
+        log.info("[{}] Attendance reward reservation committed: tenant={}, player={}, date={}", correlationId, tenantId, playerUuid, date)
         NodeResult.Success(outputVariables = mapOf("reservation_status" to "COMMITTED"))
     }
 
     private suspend fun release(
         tenantId: String,
         date: LocalDate,
-        playerUuid: UUID
+        playerUuid: UUID,
+        correlationId: String
     ): NodeResult = newSuspendedTransaction(Dispatchers.IO) {
         val updated = RewardReservations.update({
             (RewardReservations.tenantId eq tenantId) and
@@ -489,13 +478,11 @@ class AttendanceReservationExecutor(
                 }
                 it[updatedAt] = OffsetDateTime.now()
             }
-            jedis?.let {
-                val countKey = "quota:$tenantId:$date:count"
-                val playersKey = "quota:$tenantId:$date:players"
-                rollbackRedis(countKey, playersKey, playerUuid)
-            }
+            val playersKey = playersKey(tenantId, date)
+            rollbackRedis(playersKey, playerUuid, correlationId)
         }
 
+        log.info("[{}] Attendance reward reservation released: tenant={}, player={}, date={}", correlationId, tenantId, playerUuid, date)
         NodeResult.Success(outputVariables = mapOf("reservation_status" to "RELEASED"))
     }
 }
