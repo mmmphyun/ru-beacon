@@ -12,6 +12,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import redis.clients.jedis.JedisPooled
 import redis.clients.jedis.StreamEntryID
 import redis.clients.jedis.exceptions.JedisDataException
@@ -29,6 +30,7 @@ class RedisStreamsConsumer(
     private val groupName: String = RedisNamespaces.GROUP_WORKER,
     private val consumerName: String = "worker_${java.util.UUID.randomUUID().toString().take(8)}"
 ) {
+    private val log = LoggerFactory.getLogger(RedisStreamsConsumer::class.java)
 
     /**
      * 컨슈머 그룹이 존재하지 않을 경우 자동 생성함 (MKSTREAM).
@@ -94,14 +96,17 @@ class RedisStreamsConsumer(
         if (payloadJson != null) {
             try {
                 val event = RuBeaconJson.default.decodeFromString<EventEnvelope>(payloadJson)
+                log.info("[{}] Processing stream event: type={}, tenant={}, entryId={}", event.correlationId, event.eventType, event.tenantId, entry.id)
                 val workflow = workflowLookup(event.eventType, event.tenantId)
                 if (workflow != null) {
                     dispatcher.run(workflow, event)
+                } else {
+                    log.warn("[{}] No workflow found for event type={}", event.correlationId, event.eventType)
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // 파싱 오류 혹은 poison pill 격리
+                log.error("Failed to process stream entry {}: {}", entry.id, e.message, e)
             }
         }
         jedis.xack(stream, groupName, entry.id)

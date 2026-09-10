@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.slf4j.LoggerFactory
 import java.util.Collections
 
 /**
@@ -22,8 +23,11 @@ class DagWorkflowDispatcher(
     private val executors: Map<String, NodeExecutor>,
     private val auditLogger: AuditLogger
 ) {
+    private val log = LoggerFactory.getLogger(DagWorkflowDispatcher::class.java)
 
     suspend fun run(definition: WorkflowDefinition, event: EventEnvelope): ExecutionSummary {
+        log.info("[{}] Starting workflow: triggerId={}, triggerType={}, tenant={}", event.correlationId, definition.trigger.id, definition.trigger.eventType, event.tenantId)
+
         // 1. 배포/실행 전 Tarjan 알고리즘으로 무한 루프(Cycle) 유무 사전 검증
         TarjanCycleDetector.validate(definition)
 
@@ -39,6 +43,7 @@ class DagWorkflowDispatcher(
         val failedNodes = Collections.synchronizedList(mutableListOf<String>())
 
         suspend fun executeNode(node: WorkflowNode) {
+            log.info("[{}] Executing node: id={}, type={}", currentContext.correlationId, node.id, node.nodeType)
             val executor = executors[node.nodeType]
                 ?: throw IllegalArgumentException("Unsupported node executor: '${node.nodeType}'")
 
@@ -53,6 +58,7 @@ class DagWorkflowDispatcher(
 
             when (result) {
                 is NodeResult.Success -> {
+                    log.info("[{}] Node completed: id={}", currentContext.correlationId, node.id)
                     completedNodes.add(node.id)
                     if (result.outputVariables.isNotEmpty()) {
                         contextMutex.withLock {
@@ -80,6 +86,7 @@ class DagWorkflowDispatcher(
                     }
                 }
                 is NodeResult.Failure -> {
+                    log.warn("[{}] Node failed: id={}, reason={}, code={}", currentContext.correlationId, node.id, result.reason, result.errorCode)
                     failedNodes.add(node.id)
                     // 현재 브랜치 중단 (병렬로 실행 중인 다른 브랜치는 격리되어 계속 수행)
                 }
@@ -98,6 +105,8 @@ class DagWorkflowDispatcher(
             completedNodes.isNotEmpty() -> "PARTIAL_FAILURE"
             else -> "FAILURE"
         }
+
+        log.info("[{}] Workflow finished: status={}, completed={}, failed={}", event.correlationId, status, completedNodes.size, failedNodes.size)
 
         // 종단 단 1회 비동기 감사 로그 기록
         val detailsJson = buildJsonObject {

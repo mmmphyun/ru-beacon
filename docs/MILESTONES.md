@@ -216,6 +216,29 @@
 
 ---
 
+### [마일스톤 5.5] 분산 동시성 제어 및 인프라 하드닝 (Hardening Sprint)
+> **목표**: 일일 선착순 보상 쿼터에 1차 Redis 인메모리 빠른 탈락(Admission Control)과 2차 PostgreSQL 최종 영속화 및 보상 트랜잭션(Dual-Write 롤백)을 적용하여 트래픽 폭증 시 RDBMS 커넥션 풀을 보호하고 무중단 Graceful Fallback을 구축한다.
+
+- [x] **가변 쿼터 2-Tier Redis 동시성 제어 (`workflow-worker`)**:
+  - [x] `AttendanceReservationExecutor.kt`: `inputs["total_limit"]` 기반 동적 가변 쿼터(N) 수용
+  - [x] Redis Lua Script 기반 1차 Admission Control: 당일 중복 참여 및 남은 정원 0ms 메모리 판별
+  - [x] 48시간 만료 TTL 적용으로 메모리 누수 방지
+  - [x] N번째 초과 요청 및 중복 요청 시 DB 커넥션 호출 0회 즉시 Fast-Fail
+  - [x] 2차 관문 통과 요청만 DB 트랜잭션 진입, DB 장애 시 Redis 선점 원복(보상 트랜잭션/Dual-Write 롤백)
+  - [x] `jedis == null` 또는 Redis 연결 장애 시 기존 PostgreSQL 조건부 UPDATE 자동 Graceful Fallback
+- [x] **분산 추적(Correlation ID) 관측성 로깅 보강**:
+  - [x] `EventEnvelope.correlationId` 기반 SLF4J 경량 로깅 포맷 보강 (`DagWorkflowDispatcher`, `RedisStreamsConsumer`, `NodeExecutors`)
+- [x] **통합 테스트 검증 (`AttendanceConcurrencyIntegrationTest.kt`)**:
+  - [x] 동시성 경합 검증: 30개 동시 요청 시 정확히 N(5)개만 1차 통과 및 DB 저장 성공
+  - [x] Fast-Fail 검증: 초과 및 중복 요청 시 Redis 차단 및 DB 변동 0건 검증
+  - [x] 중복 차단 검증: 동일 플레이어 당일 재요청 즉시 차단 검증
+  - [x] 보상 트랜잭션 검증: DB 저장 실패 시 Redis 선점 카운트 정상 원복 검증
+  - [x] Graceful Fallback 검증: `jedis == null` 상태에서도 안전 동작 검증
+  - [x] `./gradlew test` 전체 모듈 100% 통과 확인
+  - [x] Green 커밋: `feat(worker): 가변 쿼터 2-Tier Redis Admission Control 및 보상 롤백 동시성 제어 구현`
+
+---
+
 ### [마일스톤 6] `web-dashboard` Next.js 위저드 폼 (고객 유치 & SaaS 운영)
 > **목표**: 실제 마인크래프트 커뮤니티 운영자가 사용할 Next.js + Shadcn UI 기반 대시보드를 구축하여 초기 Discord 서버 설정 및 카드형 위저드 워크플로우 빌더를 제공한다.
 
