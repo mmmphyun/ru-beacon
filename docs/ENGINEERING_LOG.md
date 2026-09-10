@@ -239,10 +239,14 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 ### [마일스톤 5] `bot-service` Kord Discord 상호작용 및 이벤트 정규화 (완료)
 
 #### 1. 아키텍처 트레이드오프 & 핵심 의사결정
-- **Discord 인터랙션 처리: 즉각적인 비동기 접수(Fire-and-Forget Ingress) 채택**
-  - *기각한 대안*: Discord 사용자 요청 시 백엔드 워크플로우 엔진이 마인크래프트 서버 명령을 실행하고 DB 트랜잭션을 끝마칠 때까지 응답을 지연시키는 동기식 대기 모델.
-  - *기각한 이유*: Discord Gateway는 인터랙션 발생 후 정확히 3초 이내에 ACK를 수신하지 못하면 무조건 `Interaction Failed` 오류를 반환함. 마인크래프트 서버 틱 지연이나 분산 워크플로우 큐잉 지연이 Discord UI의 장애로 직결됨.
-  - *채택한 구조*: `deferEphemeralResponse()` 즉시 호출로 Gateway 타임아웃을 원천 차단하고, 요청을 Ru-Beacon 표준 `EventEnvelope`로 정규화하여 Redis Streams(`stream:events:{tenantId}`)에 발행한 뒤 "접수 완료" Ephemeral 피드백을 0ms 수준으로 즉각 반환. 최종 보상 및 연동 결과는 인게임 인벤토리 또는 후속 비동기 메시지로 전달.
+- **Discord 인터랙션 처리: 즉각적인 비동기 접수(Fire-and-Forget Ingress) 및 비동기 이벤트 콜백 채택**
+  - *기각한 대안 1 (동기식 종단 RPC 대기)*:
+    - *기각 이유*: 마인크래프트 서버 틱 렉(TPS 저하)이나 워커 지연 발생 시 Discord Gateway의 3초 타임아웃을 초과하여 `Interaction Failed` 오류 노출.
+  - *기각한 대안 2 (타임아웃 회피용 폴링/지속 갱신 요청)*:
+    - *기각 이유*: 클라이언트 스레드가 게임 서버 응답을 대기하며 Gateway에 주기적 신호를 보내는 것은 스레드 고갈 및 네트워크 커넥션 낭비를 초래함.
+  - *채택한 구조 (Fire-and-Forget Ingress + 비동기 콜백 로드맵)*:
+    - `deferEphemeralResponse()` 즉시 호출로 Gateway 3초 셧다운을 원천 차단하고, `EventEnvelope`로 정규화하여 Redis Streams에 발행한 뒤 "접수 완료" 피드백을 0ms 수준으로 즉각 반환.
+    - 향후 최종 지급 결과 안내(UX 고도화)가 필요할 경우, 스레드를 묶어두는 것이 아니라 마인크래프트 플러그인이 실행 결과를 다시 Redis Streams로 발행하고 봇이 이를 소비하여 Discord 채널/웹훅으로 후속 안내하는 **완전 비동기 이벤트 주도 콜백(Event-Driven Callback)** 구조로 확장할 것을 확정.
 - **Discord Action 컨슈머의 영구 실패 처리: Poison Pill 즉각 격리 및 XACK 채택**
   - *기각한 대안*: 채널 미존재, 권한 없음 등의 4xx 오류 발생 시 별도의 DLQ(Dead Letter Queue)를 구축하거나 Redis에 무한 재시도 보류.
   - *기각한 이유*: 1인 개발 및 소형 VM 운영 환경에서 복잡한 DLQ 아키텍처는 운영 오버헤드와 디스크 낭비를 유발함. 또한 존재하지 않는 채널 ID나 봇 권한 누락은 재시도해도 영원히 성공할 수 없는 불변의 클라이언트 에러임.
@@ -270,12 +274,12 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 ### [마일스톤 5.5] 분산 동시성 제어 및 인프라 하드닝 (Hardening Sprint) (완료)
 
 #### 1. 아키텍처 트레이드오프 & 핵심 의사결정
-- **2-Tier 동시성 제어: Redis 1차 인메모리 빠른 탈락(Admission Control) + PostgreSQL 2차 원자적 영속화**
-  - *기각한 대안 1 (PostgreSQL 단독 운용)*:
-    - *기각 이유*: 선착순 100명 이벤트 시 수천 명의 동시 클릭 트래픽이 모두 RDBMS 커넥션 풀에 쏟아져 DB CPU 100% 포화 및 커넥션 고갈(Connection Starvation) 발생.
-  - *기각한 대안 2 (Redis 단독 카운터 `DECR` + 비동기 DB 기록)*:
-    - *기각 이유*: Redis 선점 성공 후 DB 저장 실패 시 수량 불일치 및 고아 데이터 발생 (Dual-Write 위험).
-  - *채택한 구조 (2-Tier Admission Control)*:
+- **2-Tier 동시성 제어: Redis 1차 Admission Control + PostgreSQL 2차 원자적 영속화**
+  - *포니테일(YAGNI) 맹종 탈피 및 클라우드 포트폴리오 가치 확립 (엔지니어 핵심 의사결정)*:
+    - 초기에는 포니테일 규칙("가장 게으른 해결책", "미래 대비 코드 지양")에 매몰되어 단일 PostgreSQL 조건부 UPDATE(선택지 B)만으로 구현하고 Redis 동시성 제어를 나중으로 미루어 두었음.
+    - 그러나 엔지니어가 **"소규모 가정을 핑계로 RDBMS 병목을 방치하는 것은 클라우드 직무 포트폴리오 관점에서 올바른 엔지니어링이 아니다"**라고 판단. 소형 VM 환경(HikariCP 커넥션 10~20개)에서 1,000명 동시 클릭 스파이크가 발생할 경우 단일 행 락 경합으로 커넥션 풀이 고갈되어 전체 서비스가 다운되는 치명적 한계를 선제 직시함.
+    - 이에 따라 Redis 1차 인메모리 빠른 탈락(Admission Control)과 PostgreSQL 2차 영속화 및 보상 트랜잭션 롤백(선택지 A)으로 아키텍처를 과감히 전진 배치함.
+  - *채택한 2-Tier 구조*:
     - 1차 Redis Set 기반 빠른 탈락: 당일 중복 참여(`SISMEMBER`) 및 남은 쿼터(`SCARD >= limit`)를 인메모리 0ms로 판별. 초과/중복 요청은 DB 커넥션을 0회 호출하고 즉시 반환 (`Fast-Fail`).
     - 2차 PostgreSQL 영속화: 관문을 통과한 N개 요청만 DB 트랜잭션(`AttendanceQuotas` 조건부 UPDATE 및 `RewardReservations` INSERT) 진입.
     - 무중단 Graceful Fallback: Redis 다운/타임아웃 발생 시에도 시스템 중단 없이 PostgreSQL 조건부 UPDATE로 자동 전환되어 정상 동작 보장.
