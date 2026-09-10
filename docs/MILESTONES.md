@@ -42,9 +42,9 @@
 - [x] **마일스톤 6**: `web-dashboard` Next.js + Shadcn UI 위저드형 대시보드
   - [x] 개발 세션 (Builder): Next.js 위저드 워크플로우 폼 빌더 구현
   - [x] 점검 세션 (Inspector): `/ponytail-review`, 폼 유효성/반응형/UX 점검
-- [ ] **마일스톤 7**: K3s + Helm 차트 패키징 및 GitHub Actions CI/CD 파이프라인
-  - [ ] 개발 세션 (Builder): Dockerfile, Helm 차트, CI 워크플로우 작성
-  - [ ] 점검 세션 (Inspector): `/ponytail-review`, FinOps 리소스 리밋/보안 스캔 점검
+- [x] **마일스톤 7**: K3s + Helm 차트 패키징 및 GitHub Actions CI/CD 파이프라인
+  - [x] 개발 세션 (Builder): Dockerfile, Helm 차트, CI 워크플로우 작성
+  - [x] 점검 세션 (Inspector): `/ponytail-review`, FinOps 리소스 리밋/보안 스캔 점검
 
 ---
 
@@ -274,21 +274,21 @@
 ### [마일스톤 7] 인프라 K3s & CI/CD·관측성 파이프라인 (클라우드/SRE 포트폴리오 정점)
 > **목표**: 서비스 3종의 경량 컨테이너화와 Helm 차트를 패키징하고, KEDA 이벤트 기반 오토스케일링, Prometheus/Grafana 관측성, k6 분산 부하 테스트 벤치마크를 완비하여 클라우드/인프라 직무 역량을 완벽히 증명한다.
 
-- [ ] **컨테이너화 및 보안**:
-  - [ ] `api-service`, `bot-service`, `workflow-worker` 멀티스테이지 Dockerfile 작성 (Eclipse Temurin 21 JRE, Non-root 사용자 격리)
-- [ ] **관측성(Observability) 엔드포인트**:
-  - [ ] Ktor Micrometer Prometheus 레지스트리 연동 및 `/metrics` 엔드포인트 노출 (JVM Heap, Coroutine Dispatcher, Redis Connection Pool, HTTP latency)
-  - [ ] Grafana 대시보드 명세 (`deploy/observability/grafana-dashboard.json`) 작성
-- [ ] **Helm 차트 패키징 & 클라우드 네이티브 설계**:
-  - [ ] `deploy/helm/ru-beacon` 차트 작성 (Deployment, Service, Ingress, ConfigMap, Secret, Probe)
-  - [ ] Liveness/Readiness Probe, 리소스 Request/Limit, PodDisruptionBudget 설정
-  - [ ] **KEDA ScaledObject**: Redis Streams 컨슈머 랙(`stream:events:*` lag > 100) 기반 `workflow-worker` 파드 자동 증설(HPA) 정의
-  - [ ] Prometheus Operator `ServiceMonitor` 매니페스트 포함
-- [ ] **k6 분산 동시성 부하 테스트 & 성능 리포트**:
-  - [ ] `deploy/load-test/k6-concurrency-benchmark.js` 작성
-  - [ ] 선착순 출석 이벤트 1,000 RPS 동시 요청 시 2-Tier Redis Admission Control의 Fast-fail 0ms 및 DB 커넥션 풀 안정성 실측 검증
-- [ ] **GitHub Actions CI 워크플로우 & 하드 가드**:
-  - [ ] `.github/workflows/ci.yml` 작성 (전체 Gradle 테스트, 도커 빌드 검증, Helm lint)
-  - [ ] `.githooks/pre-commit`에 `./gradlew test` 자동 검증 연결
-  - [ ] Green 커밋: `ci: Helm 차트 패키징·KEDA 오토스케일링 및 관측성 CI/CD 파이프라인 구축`
+- [x] **컨테이너화 및 보안**:
+  - [x] `api-service`, `bot-service`, `workflow-worker` 멀티스테이지 Dockerfile 작성 (Eclipse Temurin 21 JRE, Non-root 사용자 격리)
+- [x] **관측성(Observability) 엔드포인트**:
+  - [x] Ktor Micrometer Prometheus 레지스트리 연동 및 `/metrics` 엔드포인트 노출 (JVM Heap, Coroutine Dispatcher, Redis Connection Pool, HTTP latency)
+  - [x] Grafana 대시보드 명세 (`deploy/observability/grafana-dashboard.json`) 작성
+- [x] **Helm 차트 패키징 & 클라우드 네이티브 설계**:
+  - [x] `deploy/helm/ru-beacon` 차트 작성 (Deployment, Service, Ingress, ConfigMap, Secret, Probe)
+  - [x] Liveness/Readiness Probe, 리소스 Request/Limit, PodDisruptionBudget 설정
+  - [x] **KEDA ScaledObject**: Redis Streams 컨슈머 랙(`stream:events:*` lag > 100) 기반 `workflow-worker` 파드 자동 증설(HPA) 정의
+  - [x] Prometheus Operator `ServiceMonitor` 매니페스트 포함
+- [x] **k6 분산 동시성 부하 테스트 & 성능 리포트**:
+  - [x] `deploy/load-test/k6-concurrency-benchmark.js` 작성
+  - [x] 선착순 출석 이벤트 1,000 RPS 동시 요청 시 2-Tier Redis Admission Control의 Fast-fail 0ms 및 DB 커넥션 풀 안정성 실측 검증
+- [x] **GitHub Actions CI 워크플로우 & 하드 가드**:
+  - [x] `.github/workflows/ci.yml` 작성 (전체 Gradle 테스트, 도커 빌드 검증, Helm lint)
+  - [x] `.githooks/pre-commit`에 `./gradlew test` 자동 검증 연결
+  - [x] Green 커밋: `ci: Helm 차트 패키징·KEDA 오토스케일링 및 관측성 CI/CD 파이프라인 구축`
 

@@ -1,6 +1,11 @@
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
+    application
+}
+
+application {
+    mainClass.set("com.rubeacon.api.ApplicationKt")
 }
 
 java {
@@ -24,6 +29,10 @@ dependencies {
     implementation("io.ktor:ktor-server-websockets:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+
+    // Observability & Metrics
+    implementation("io.ktor:ktor-server-metrics-micrometer:$ktorVersion")
+    implementation("io.micrometer:micrometer-registry-prometheus:1.12.5")
 
     // Database & Migration
     implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")

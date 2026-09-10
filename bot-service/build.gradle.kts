@@ -1,6 +1,11 @@
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
+    application
+}
+
+application {
+    mainClass.set("com.rubeacon.bot.RuBeaconBotKt")
 }
 
 java {

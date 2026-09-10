@@ -1,0 +1,10 @@
+.git
+.gradle
+build
+**/build
+.idea
+*.iml
+.DS_Store
+deploy
+web-dashboard/node_modules
+web-dashboard/.next

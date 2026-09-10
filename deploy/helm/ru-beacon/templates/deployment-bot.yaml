@@ -1,0 +1,43 @@
+{{- if .Values.botService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-bot
+  labels:
+    app.kubernetes.io/name: ru-beacon-bot
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: bot-service
+spec:
+  replicas: {{ .Values.botService.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ru-beacon-bot
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ru-beacon-bot
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: bot-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: bot-service
+          image: "{{ .Values.botService.image.repository }}:{{ .Values.botService.image.tag }}"
+          imagePullPolicy: {{ .Values.botService.image.pullPolicy }}
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-config
+          env:
+            - name: DISCORD_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: DISCORD_BOT_TOKEN
+          resources:
+            {{- toYaml .Values.botService.resources | nindent 12 }}
+{{- end }}

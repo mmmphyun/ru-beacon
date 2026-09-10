@@ -1,0 +1,57 @@
+{{- if .Values.workflowWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-worker
+  labels:
+    app.kubernetes.io/name: ru-beacon-worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: workflow-worker
+spec:
+  replicas: {{ .Values.workflowWorker.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ru-beacon-worker
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ru-beacon-worker
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: workflow-worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: workflow-worker
+          image: "{{ .Values.workflowWorker.image.repository }}:{{ .Values.workflowWorker.image.tag }}"
+          imagePullPolicy: {{ .Values.workflowWorker.image.pullPolicy }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.workflowWorker.metricsPort }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-config
+          env:
+            - name: METRICS_PORT
+              value: {{ .Values.workflowWorker.metricsPort | quote }}
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-secrets
+                  key: DATABASE_PASSWORD
+          resources:
+            {{- toYaml .Values.workflowWorker.resources | nindent 12 }}
+          {{- with .Values.workflowWorker.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.workflowWorker.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,14 @@
+apiVersion: v2
+name: ru-beacon
+description: Production Helm chart for Ru-Beacon Minecraft-Discord Cloud Automation Platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - minecraft
+  - discord
+  - k3s
+  - kubernetes
+  - keda
+maintainers:
+  - name: Ru-Beacon SRE Team

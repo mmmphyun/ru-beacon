@@ -1,6 +1,11 @@
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
+    application
+}
+
+application {
+    mainClass.set("com.rubeacon.worker.WorkerMainKt")
 }
 
 java {
@@ -9,6 +14,7 @@ java {
     }
 }
 
+val ktorVersion = "2.3.10"
 val exposedVersion = "0.50.1"
 val testcontainersVersion = "1.20.1"
 
@@ -16,6 +22,13 @@ dependencies {
     implementation(project(":common"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+
+    // Ktor Server for Health & Observability Metrics
+    implementation("io.ktor:ktor-server-core:$ktorVersion")
+    implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("io.ktor:ktor-server-metrics-micrometer:$ktorVersion")
+    implementation("io.micrometer:micrometer-registry-prometheus:1.12.5")
+    implementation("ch.qos.logback:logback-classic:1.5.3")
 
     // Database & Migration
     implementation("org.jetbrains.exposed:exposed-core:$exposedVersion")

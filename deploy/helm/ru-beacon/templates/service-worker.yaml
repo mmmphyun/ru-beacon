@@ -1,0 +1,20 @@
+{{- if .Values.workflowWorker.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-worker
+  labels:
+    app.kubernetes.io/name: ru-beacon-worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: workflow-worker
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: {{ .Values.workflowWorker.metricsPort }}
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: ru-beacon-worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

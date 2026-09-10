@@ -1,0 +1,26 @@
+{{- if and .Values.workflowWorker.enabled .Values.workflowWorker.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Release.Name }}-worker-scaler
+  labels:
+    app.kubernetes.io/name: ru-beacon-worker
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Release.Name }}-worker
+  pollingInterval: {{ .Values.workflowWorker.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.workflowWorker.keda.cooldownPeriod }}
+  minReplicaCount: {{ .Values.workflowWorker.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.workflowWorker.keda.maxReplicaCount }}
+  triggers:
+    - type: redis-streams
+      metadata:
+        addressFromEnv: REDIS_HOST
+        portFromEnv: REDIS_PORT
+        stream: stream:events:default
+        consumerGroup: worker-group
+        pendingEntriesCount: {{ .Values.workflowWorker.keda.lagThreshold | quote }}
+{{- end }}
