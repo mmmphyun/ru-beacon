@@ -3,6 +3,7 @@ package com.rubeacon.api.db
 import org.jetbrains.exposed.sql.ReferenceOption
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.javatime.timestampWithTimeZone
+import org.jetbrains.exposed.sql.json.jsonb
 import java.time.OffsetDateTime
 
 /**
@@ -85,4 +86,33 @@ object Workflows : Table("workflows") {
     val updatedAt = timestampWithTimeZone("updated_at").clientDefault { OffsetDateTime.now() }
 
     override val primaryKey = PrimaryKey(id)
+}
+
+/**
+ * 워크플로우 버전별 DAG 정의(JSONB) 테이블.
+ */
+object WorkflowVersions : Table("workflow_versions") {
+    val id = varchar("id", 64)
+    val workflowId = reference("workflow_id", Workflows.id, onDelete = ReferenceOption.CASCADE)
+    val tenantId = reference("tenant_id", Tenants.id, onDelete = ReferenceOption.CASCADE)
+    val version = integer("version")
+    val status = varchar("status", 20).default("DRAFT") // 'DRAFT', 'TESTING', 'ACTIVE', 'INACTIVE', 'ARCHIVED'
+    val definition = jsonb<String>("definition", { it }, { it })
+    val publishedAt = timestampWithTimeZone("published_at").nullable()
+    val createdAt = timestampWithTimeZone("created_at").clientDefault { OffsetDateTime.now() }
+
+    override val primaryKey = PrimaryKey(id)
+}
+
+/**
+ * 테넌트별 관리자 2FA 정책 테이블.
+ */
+object Admin2faPolicies : Table("admin_2fa_policies") {
+    val tenantId = reference("tenant_id", Tenants.id, onDelete = ReferenceOption.CASCADE)
+    val policyMode = varchar("policy_mode", 20).default("MONITOR") // 'DISABLED', 'MONITOR', 'ENFORCE'
+    val authChannelId = varchar("auth_channel_id", 32).nullable()
+    val timeoutSeconds = integer("timeout_seconds").default(60)
+    val updatedAt = timestampWithTimeZone("updated_at").clientDefault { OffsetDateTime.now() }
+
+    override val primaryKey = PrimaryKey(tenantId)
 }

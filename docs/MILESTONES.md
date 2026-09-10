@@ -39,9 +39,9 @@
 - [x] **마일스톤 5.5**: 분산 동시성 제어 및 인프라 하드닝 (Hardening Sprint)
   - [x] 개발 세션 (Builder): 가변 쿼터 2-Tier Redis 동시성 제어 및 Fast-Fail 구현
   - [x] 점검 세션 (Inspector): `/ponytail-review`, Redis 단절 Fallback 및 보상 롤백 감사
-- [ ] **마일스톤 6**: `web-dashboard` Next.js + Shadcn UI 위저드형 대시보드
-  - [ ] 개발 세션 (Builder): Next.js 위저드 워크플로우 폼 빌더 구현
-  - [ ] 점검 세션 (Inspector): `/ponytail-review`, 폼 유효성/반응형/UX 점검
+- [x] **마일스톤 6**: `web-dashboard` Next.js + Shadcn UI 위저드형 대시보드
+  - [x] 개발 세션 (Builder): Next.js 위저드 워크플로우 폼 빌더 구현
+  - [x] 점검 세션 (Inspector): `/ponytail-review`, 폼 유효성/반응형/UX 점검
 - [ ] **마일스톤 7**: K3s + Helm 차트 패키징 및 GitHub Actions CI/CD 파이프라인
   - [ ] 개발 세션 (Builder): Dockerfile, Helm 차트, CI 워크플로우 작성
   - [ ] 점검 세션 (Inspector): `/ponytail-review`, FinOps 리소스 리밋/보안 스캔 점검
@@ -258,16 +258,16 @@
 ### [마일스톤 6] `web-dashboard` Next.js 위저드 폼 (고객 유치 & SaaS 운영)
 > **목표**: 실제 마인크래프트 커뮤니티 운영자가 사용할 Next.js + Shadcn UI 기반 대시보드를 구축하여 초기 Discord 서버 설정 및 카드형 위저드 워크플로우 빌더를 제공한다.
 
-- [ ] **Next.js 프로젝트 셋업**:
-  - [ ] `web-dashboard/` (Next.js 14 App Router, Tailwind CSS, Shadcn UI, TypeScript)
-- [ ] **온보딩 & 위저드 워크플로우 폼**:
-  - [ ] Discord 서버/역할/채널 연동 및 인스턴스 인증 토큰 발급 UI
-  - [ ] 3단계 카드형 워크플로우 빌더 (1단계: 트리거 선택 → 2단계: 조건 필터 → 3단계: 실행 액션)
-  - [ ] 복잡한 그래프 캔버스 라이브러리 배제, 직관적 Form State 기반 린(Lean) UI 확립
-  - [ ] API Service REST API 연동 및 워크플로우 JSONB 저장/배포/롤백 연동
-- [ ] **빌드 및 린트 검증**:
-  - [ ] `pnpm build` 또는 `npm run build` 성공 확인
-  - [ ] Green 커밋: `feat(dashboard): Next.js 위저드형 워크플로우 빌더 UI 구현`
+- [x] **Next.js 프로젝트 셋업**:
+  - [x] `web-dashboard/` (Next.js 14 App Router, Tailwind CSS, Shadcn UI, TypeScript)
+- [x] **온보딩 & 위저드 워크플로우 폼**:
+  - [x] Discord 서버/역할/채널 연동 및 인스턴스 인증 토큰 발급 UI
+  - [x] 3단계 카드형 워크플로우 빌더 (1단계: 트리거 선택 → 2단계: 조건 필터 → 3단계: 실행 액션)
+  - [x] 복잡한 그래프 캔버스 라이브러리 배제, 직관적 Form State 기반 린(Lean) UI 확립
+  - [x] API Service REST API 연동 및 워크플로우 JSONB 저장/배포/롤백 연동
+- [x] **빌드 및 린트 검증**:
+  - [x] `pnpm build` 또는 `npm run build` 성공 확인
+  - [x] Green 커밋: `feat(dashboard): Next.js 위저드형 워크플로우 빌더 UI 구현`
 
 ---
 

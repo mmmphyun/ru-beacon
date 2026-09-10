@@ -3,6 +3,8 @@ package com.rubeacon.api
 import com.rubeacon.api.redis.RedisEventPublisher
 import com.rubeacon.api.routes.accountLinkRoutes
 import com.rubeacon.api.routes.minecraftWebSocketRoutes
+import com.rubeacon.api.routes.tenantRoutes
+import com.rubeacon.api.routes.workflowRoutes
 import com.rubeacon.api.service.AccountLinkService
 import com.rubeacon.api.service.InstanceAuthService
 import com.rubeacon.api.service.SessionRegistry
@@ -72,5 +74,7 @@ fun Application.module(
     routing {
         minecraftWebSocketRoutes(authService, sessionRegistry, redisPublisher)
         accountLinkRoutes(accountLinkService)
+        workflowRoutes()
+        tenantRoutes(authService)
     }
 }
