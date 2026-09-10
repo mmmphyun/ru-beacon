@@ -1,5 +1,6 @@
 package com.rubeacon.api.routes
 
+import com.rubeacon.api.db.Tenants
 import com.rubeacon.api.db.WorkflowVersions
 import com.rubeacon.api.db.Workflows
 import io.ktor.http.HttpStatusCode
@@ -24,6 +25,7 @@ import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import org.slf4j.LoggerFactory
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -96,16 +98,51 @@ data class WorkflowActionResponse(
     val status: String
 )
 
+private val logger = LoggerFactory.getLogger("WorkflowRoute")
+
+/**
+ * 워크플로우 정의 JSON의 기본 문법을 검증하고 JsonObject를 파싱함.
+ */
+fun parseWorkflowJson(definitionJson: String): JsonObject? {
+    if (definitionJson.isBlank()) return null
+    return try {
+        Json.parseToJsonElement(definitionJson).jsonObject
+    } catch (_: Exception) {
+        null
+    }
+}
+
+/**
+ * 활성 워크플로우 버전을 원자적으로 전환하는 트랜잭션 헬퍼.
+ */
+private fun switchActiveWorkflowVersion(workflowId: String, targetVer: Int, now: OffsetDateTime) {
+    transaction {
+        WorkflowVersions.update({
+            (WorkflowVersions.workflowId eq workflowId) and (WorkflowVersions.status eq "ACTIVE")
+        }) {
+            it[status] = "INACTIVE"
+        }
+
+        WorkflowVersions.update({
+            (WorkflowVersions.workflowId eq workflowId) and (WorkflowVersions.version eq targetVer)
+        }) {
+            it[status] = "ACTIVE"
+            it[publishedAt] = now
+        }
+
+        Workflows.update({ Workflows.id eq workflowId }) {
+            it[activeVersion] = targetVer
+            it[updatedAt] = now
+        }
+    }
+}
+
 /**
  * 워크플로우 AST 내 노드 순환 참조(Cycle)를 탐지하는 DFS 유틸리티.
  * docs/WORKFLOW_ENGINE_SPEC.md §4 명세 준수.
  */
 fun detectCycle(definitionJson: String): List<String>? {
-    val json = try {
-        Json.parseToJsonElement(definitionJson).jsonObject
-    } catch (_: Exception) {
-        return null
-    }
+    val json = parseWorkflowJson(definitionJson) ?: return null
 
     val adjacency = mutableMapOf<String, MutableList<String>>()
     val nodes = json["nodes"]?.jsonArray ?: JsonArray(emptyList())
@@ -235,6 +272,25 @@ fun Route.workflowRoutes() {
         // 워크플로우 생성 (버전 1 DRAFT)
         post {
             val req = call.receive<CreateWorkflowRequest>()
+
+            // 1. 테넌트 존재 여부 검증
+            val tenantExists = transaction {
+                Tenants.selectAll().where { Tenants.id eq req.tenantId }.count() > 0
+            }
+            if (!tenantExists) {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Tenant '${req.tenantId}' not found"))
+                return@post
+            }
+
+            // 2. 정의 JSON 유효성 사전 검증
+            if (parseWorkflowJson(req.definition) == null) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("error" to "MALFORMED_JSON", "message" to "Workflow definition is empty or invalid JSON")
+                )
+                return@post
+            }
+
             val workflowId = "wf_" + UUID.randomUUID().toString().replace("-", "").take(16)
             val versionId = "wfv_" + UUID.randomUUID().toString().replace("-", "").take(16)
             val now = OffsetDateTime.now()
@@ -262,6 +318,7 @@ fun Route.workflowRoutes() {
                 }
             }
 
+            logger.info("[Workflow] Created workflowId={}, tenantId={}, version=1", workflowId, req.tenantId)
             call.respond(HttpStatusCode.Created, WorkflowActionResponse(
                 workflowId = workflowId,
                 version = 1,
@@ -273,6 +330,16 @@ fun Route.workflowRoutes() {
         post("/{id}/versions") {
             val workflowId = call.parameters["id"] ?: return@post call.respond(HttpStatusCode.BadRequest)
             val req = call.receive<CreateVersionRequest>()
+
+            // 정의 JSON 유효성 사전 검증
+            if (parseWorkflowJson(req.definition) == null) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("error" to "MALFORMED_JSON", "message" to "Workflow definition is empty or invalid JSON")
+                )
+                return@post
+            }
+
             val now = OffsetDateTime.now()
 
             val newVersion = transaction {
@@ -307,6 +374,7 @@ fun Route.workflowRoutes() {
             if (newVersion == null) {
                 call.respond(HttpStatusCode.NotFound, mapOf("error" to "Workflow not found"))
             } else {
+                logger.info("[Workflow] Created new version={} for workflowId={}", newVersion, workflowId)
                 call.respond(HttpStatusCode.Created, WorkflowActionResponse(
                     workflowId = workflowId,
                     version = newVersion,
@@ -321,7 +389,7 @@ fun Route.workflowRoutes() {
             val req = try { call.receive<DeployWorkflowRequest>() } catch (_: Exception) { DeployWorkflowRequest() }
             val now = OffsetDateTime.now()
 
-            // 1. 배포 대상 버전 확인 및 사이클 검증
+            // 1. 배포 대상 버전 확인
             val targetVerRow = transaction {
                 val query = WorkflowVersions.selectAll().where { WorkflowVersions.workflowId eq workflowId }
                 if (req.version != null) {
@@ -332,6 +400,16 @@ fun Route.workflowRoutes() {
             } ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("error" to "Target version not found"))
 
             val definitionJson = targetVerRow[WorkflowVersions.definition]
+
+            // 2. JSON 문법 및 DAG 사이클 검증
+            if (parseWorkflowJson(definitionJson) == null) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("error" to "MALFORMED_JSON", "message" to "Workflow definition is empty or invalid JSON")
+                )
+                return@post
+            }
+
             val cycle = detectCycle(definitionJson)
             if (cycle != null) {
                 call.respond(
@@ -347,27 +425,10 @@ fun Route.workflowRoutes() {
 
             val targetVer = targetVerRow[WorkflowVersions.version]
 
-            // 2. 상태 전이 및 activeVersion 갱신
-            transaction {
-                WorkflowVersions.update({
-                    (WorkflowVersions.workflowId eq workflowId) and (WorkflowVersions.status eq "ACTIVE")
-                }) {
-                    it[status] = "INACTIVE"
-                }
+            // 3. 상태 전이 및 activeVersion 원자적 갱신
+            switchActiveWorkflowVersion(workflowId, targetVer, now)
 
-                WorkflowVersions.update({
-                    (WorkflowVersions.workflowId eq workflowId) and (WorkflowVersions.version eq targetVer)
-                }) {
-                    it[status] = "ACTIVE"
-                    it[publishedAt] = now
-                }
-
-                Workflows.update({ Workflows.id eq workflowId }) {
-                    it[activeVersion] = targetVer
-                    it[updatedAt] = now
-                }
-            }
-
+            logger.info("[Workflow] Deployed workflowId={}, version={}", workflowId, targetVer)
             call.respond(HttpStatusCode.OK, WorkflowActionResponse(
                 workflowId = workflowId,
                 activeVersion = targetVer,
@@ -387,26 +448,33 @@ fun Route.workflowRoutes() {
                     .singleOrNull()
             } ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("error" to "Rollback target version not found"))
 
-            transaction {
-                WorkflowVersions.update({
-                    (WorkflowVersions.workflowId eq workflowId) and (WorkflowVersions.status eq "ACTIVE")
-                }) {
-                    it[status] = "INACTIVE"
-                }
+            val definitionJson = targetVerRow[WorkflowVersions.definition]
 
-                WorkflowVersions.update({
-                    (WorkflowVersions.workflowId eq workflowId) and (WorkflowVersions.version eq req.targetVersion)
-                }) {
-                    it[status] = "ACTIVE"
-                    it[publishedAt] = now
-                }
-
-                Workflows.update({ Workflows.id eq workflowId }) {
-                    it[activeVersion] = req.targetVersion
-                    it[updatedAt] = now
-                }
+            // JSON 문법 및 DAG 사이클 검증 (롤백 엣지케이스 방어)
+            if (parseWorkflowJson(definitionJson) == null) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    mapOf("error" to "MALFORMED_JSON", "message" to "Target version contains invalid JSON definition")
+                )
+                return@post
             }
 
+            val cycle = detectCycle(definitionJson)
+            if (cycle != null) {
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    CycleErrorResponse(
+                        error = "WORKFLOW_CYCLE_DETECTED",
+                        message = "Rollback target contains cyclic loop in DAG",
+                        cycleNodes = cycle
+                    )
+                )
+                return@post
+            }
+
+            switchActiveWorkflowVersion(workflowId, req.targetVersion, now)
+
+            logger.info("[Workflow] Rolled back workflowId={}, targetVersion={}", workflowId, req.targetVersion)
             call.respond(HttpStatusCode.OK, WorkflowActionResponse(
                 workflowId = workflowId,
                 activeVersion = req.targetVersion,

@@ -258,6 +258,7 @@
 ### [마일스톤 6] `web-dashboard` Next.js 위저드 폼 (고객 유치 & SaaS 운영)
 > **목표**: 실제 마인크래프트 커뮤니티 운영자가 사용할 Next.js + Shadcn UI 기반 대시보드를 구축하여 초기 Discord 서버 설정 및 카드형 위저드 워크플로우 빌더를 제공한다.
 
+#### 1. 개발 세션 (Builder Session)
 - [x] **Next.js 프로젝트 셋업**:
   - [x] `web-dashboard/` (Next.js 14 App Router, Tailwind CSS, Shadcn UI, TypeScript)
 - [x] **온보딩 & 위저드 워크플로우 폼**:
@@ -268,6 +269,19 @@
 - [x] **빌드 및 린트 검증**:
   - [x] `pnpm build` 또는 `npm run build` 성공 확인
   - [x] Green 커밋: `feat(dashboard): Next.js 위저드형 워크플로우 빌더 UI 구현`
+
+#### 2. 점검 세션 (Inspector Session)
+- [x] **`/ponytail-review` 복잡도 사냥**:
+  - [x] 워크플로우 배포/롤백의 중복 DB 상태 전이 로직을 `switchActiveWorkflowVersion`으로 단일화 (`shrink`)
+  - [x] 단일 구현체 인터페이스 0개 유지 및 Exposed DSL 직결 구조 보존 (`yagni`)
+- [x] **[INSPECTION_CHECKLIST.md](INSPECTION_CHECKLIST.md) 전수 점검**:
+  - [x] 롤백 엔드포인트 내 DAG 순환 참조(Cycle) 선제 차단 방어선 추가
+  - [x] 빈 정의/깨진 JSON(Malformed JSON) 및 미존재 테넌트 요청에 대한 400/404 방어
+  - [x] 관측성 로깅 보강: 온보딩, 인스턴스 토큰 발급, 워크플로우 생성·배포·롤백 시 표준 로그 기록
+  - [x] 엣지케이스 회귀 테스트 추가: Ktor API 테스트 7종 및 프론트엔드 Vitest 12종 100% 통과
+- [x] **리팩터링 커밋 및 푸시**:
+  - [x] `./gradlew test` 통과 후 커밋: `refactor(dashboard): 워크플로우 배포·롤백 중복 제거 및 엣지케이스 방어 검증 보강`
+  - [x] 마일스톤 6 완료 처리 및 `git push origin main`
 
 ---
 

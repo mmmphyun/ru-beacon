@@ -118,4 +118,42 @@ describe("Workflow Generator & AST Spec", () => {
     expect(cycle).toContain("n1");
     expect(cycle).toContain("n2");
   });
+
+  it("선착순 정원이 0 이하인 경우 유효성 검증에서 거부해야 한다", () => {
+    const form: WizardFormState = {
+      ...WORKFLOW_PRESETS[1].state,
+      actionParams: { totalLimit: 0 },
+    };
+    const result = validateWorkflowState(form);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("선착순 정원은 1명 이상이어야 합니다.");
+  });
+
+  it("조건이 활성화되었으나 조건 필드가 비어있으면 오류를 보고해야 한다", () => {
+    const form: WizardFormState = {
+      ...WORKFLOW_PRESETS[0].state,
+      conditionField: "   ",
+    };
+    const result = validateWorkflowState(form);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("조건 검사 필드를 입력해야 합니다.");
+  });
+
+  it("마인크래프트 명령어 액션에서 빈 명령어가 들어오면 오류를 보고해야 한다", () => {
+    const form: WizardFormState = {
+      workflowName: "명령어 실행",
+      description: "테스트",
+      triggerType: "MINECRAFT_LEVEL_UP",
+      triggerParams: {},
+      enableCondition: false,
+      conditionField: "",
+      conditionOperator: "EQUALS",
+      conditionValue: "",
+      actionType: "MINECRAFT_DISPATCH_COMMAND",
+      actionParams: { command: "" },
+    };
+    const result = validateWorkflowState(form);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain("실행할 Minecraft 명령어를 입력해야 합니다.");
+  });
 });

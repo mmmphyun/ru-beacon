@@ -20,6 +20,7 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.upsert
+import org.slf4j.LoggerFactory
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -59,6 +60,8 @@ data class TenantDetailDto(
     val authChannelId: String?,
     val instances: List<InstanceResponseDto>
 )
+
+private val logger = LoggerFactory.getLogger("TenantRoute")
 
 fun Route.tenantRoutes(authService: InstanceAuthService) {
     route("/api/v1/tenants") {
@@ -117,6 +120,7 @@ fun Route.tenantRoutes(authService: InstanceAuthService) {
                 }
             }
 
+            logger.info("[Tenant] Configured onboarding for tenantId={}, guildId={}", req.tenantId, req.discordGuildId)
             call.respond(HttpStatusCode.OK, mapOf(
                 "tenantId" to req.tenantId,
                 "status" to "CONFIGURED"
@@ -197,6 +201,7 @@ fun Route.tenantRoutes(authService: InstanceAuthService) {
                 }
             }
 
+            logger.info("[Tenant] Issued instance token for tenantId={}, instanceId={}", req.tenantId, req.instanceId)
             call.respond(HttpStatusCode.Created, mapOf(
                 "instanceId" to req.instanceId,
                 "tenantId" to req.tenantId,
