@@ -317,7 +317,7 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
   - *채택한 구조 및 포기한 가치*:
     - `WorkflowVersions.definition`에 불변(Immutable) JSON AST 스냅샷을 통째로 영속화.
     - 버전 생성, 배포(ACTIVE 전환), 롤백이 단 1회의 SQL UPDATE로 0ms에 완결되는 극단적 단순성과 원자성 확보.
-    - DB 레벨의 노드/외래키 제약조건과 부분 인덱싱을 포기하는 대신, Ktor `WorkflowRoute.kt`의 `detectCycle` DFS 알고리즘을 통해 배포 전 순환 참조 및 문법 결함을 애플리케이션 계층에서 엄격히 선제 차단.
+    - DB 레벨의 노드/외래키 제약조건과 부분 인덱싱을 포기하는 대신, Ktor `WorkflowRoute.kt`의 `detectCycle` DFS 알고리즘을 통해 배포 및 롤백 전 순환 참조 및 문법 결함을 애플리케이션 계층에서 엄격히 선제 차단.
 - **런타임 버전 배포 및 전파 메커니즘: RDBMS 원자적 포인터 스왑 + 워커 인메모리 Single-Flight TTL 캐싱**
   - *기각한 대안*: Redis Pub/Sub 즉시 핫 리로드 (Fire-and-Forget 브로드캐스트, 선택지 A).
   - *기각 이유*:
@@ -337,11 +337,11 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
   - UI 폼 상태에서 백엔드 표준 DAG AST로의 단방향 컴파일(`generateWorkflowAst`)을 단일 순수 함수로 일원화하여 불필요한 상태 관리 복잡도 제거.
 - **포니테일 강제 강령 (`/ponytail-review`) 준수**:
   - `web-dashboard` 내 무거운 전역 상태 라이브러리(Redux/Zustand 등)를 배제하고 React 기본 Hook(`useState`, `useMemo`) 및 단일 API 클라이언트(`api.ts`)로 완결.
-  - `api-service` 워크플로우 엔드포인트에서 불필요한 중간 Repository 인터페이스 없이 Exposed DSL 트랜잭션 블록으로 직결하여 최단 diff 확립.
+  - `api-service` 워크플로우 엔드포인트에서 불필요한 중간 Repository 인터페이스 없이 Exposed DSL 트랜잭션 블록으로 직결하고, 배포·롤백의 중복 상태 전이 쿼리를 `switchActiveWorkflowVersion` 단일 헬퍼로 통합(`shrink: -25 lines`)하여 최단 diff 확립.
 
 #### 3. 도출된 엣지케이스 & 방어 체계
-- **DAG 순환 참조(Cycle Loop) 사전 차단**:
-  - 배포(`POST /api/v1/workflows/{id}/deploy`) 호출 시 인메모리 DFS 그래프 탐색(`detectCycle`)을 강제 실행하여 사이클 감지 시 HTTP 400 `WORKFLOW_CYCLE_DETECTED`와 함께 순환 경로 노드 목록을 반환.
+- **DAG 순환 참조(Cycle Loop) 사전 차단 (배포 및 롤백)**:
+  - 배포(`POST /api/v1/workflows/{id}/deploy`) 및 롤백(`POST /api/v1/workflows/{id}/rollback`) 호출 시 인메모리 DFS 그래프 탐색(`detectCycle`)을 강제 실행하여 사이클 감지 시 HTTP 400 `WORKFLOW_CYCLE_DETECTED`와 함께 순환 경로 노드 목록을 반환하고 전이 차단.
 - **템플릿 변수 인젝션 방어**:
   - 위저드 폼 검증 단계에서 `{User_Nickname}`, `{Minecraft_UUID}` 등 `ALLOWED_VARIABLES` 화이트리스트 외의 변수 유입을 차단하여 워커 런타임 NullPointerException 및 포맷 스트링 오류 방지.
 - **워크플로우 불변 버전 관리 (Immutability)**:
@@ -349,7 +349,7 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 
 #### 4. 정량적 엔지니어링 지표
 - **테스트 커버리지**:
-  - Kotlin 백엔드: Ktor `WorkflowRoutesTest` (목록, 상세, 신규 버전 생성, 사이클 탐지 차단, 배포 상태 전이, 롤백 검증 등 6개 시나리오 100% 통과).
-  - TypeScript 프론트엔드: Vitest 기반 `workflow-generator.test.ts` (AST 컴파일, 화이트리스트 변수 검증, 사이클 탐지), `WorkflowWizard.test.tsx` (위저드 스텝 이동, 프리셋 로딩, 렌더링) 총 9개 테스트 100% 통과.
+  - Kotlin 백엔드: Ktor `WorkflowRoutesTest` (목록, 상세, 신규 버전 생성, 사이클 배포/롤백 차단, 깨진 JSON/미존재 테넌트 방어 등 7개 통합 테스트 100% 통과).
+  - TypeScript 프론트엔드: Vitest 기반 `workflow-generator.test.ts` (AST 컴파일, 변수/정원/조건 검증, 사이클 탐지), `WorkflowWizard.test.tsx` 총 12개 테스트 100% 통과.
 - **빌드 및 린트 속도**: Next.js App Router 빌드 및 TypeScript 정적 타입 검사 무결점 통과, Gradle 멀티모듈 통합 테스트 통과 시간 7초 이내.
 - **코드 규모**: 대시보드 UI 컴포넌트 14개, Ktor API 라우트 2개, 단위/통합 테스트 3개 클래스 구축 완료.
