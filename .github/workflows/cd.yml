@@ -1,4 +1,4 @@
-﻿name: Ru-Beacon CD Pipeline (Semantic Release)
+name: Ru-Beacon CD Pipeline (Semantic Release)
 
 on:
   push:
@@ -13,6 +13,7 @@ jobs:
   build-and-push-images:
     name: Build & Push GHCR Images
     runs-on: ubuntu-latest
+    environment: production
     strategy:
       matrix:
         service: [api-service, bot-service, workflow-worker]

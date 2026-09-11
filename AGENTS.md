@@ -79,7 +79,8 @@
 
 ### 3.5 Semantic Release Tagging Protocol (CD 배포 프로토콜)
 - `main` 브랜치 푸시만으로는 프로덕션 서버 배포(CD)를 실행하지 않는다.
-- 실서버 배포는 반드시 검증된 커밋에 대해 `git tag vX.Y.Z` 생성 및 `git push origin vX.Y.Z`를 수행하여 태그 기반 CD(`cd.yml`)로 격리 격발한다.
+- 마일스톤 검증 완료 후 릴리스 배포는 `git tag vX.Y.Z` 생성 및 `git push origin vX.Y.Z`를 수행하여 태그 기반 CD(`cd.yml`)로 격리 격발한다.
+- **GitHub Environment Protection Gate 준수**: 태그가 푸시되더라도 실제 GHCR 릴리스 및 배포 파이프라인은 `production` 환경 보호 규칙에 의해 일시 정지(`Waiting for review`)되므로, 에이전트의 독단적인 실서버 배포는 원천 차단되며 최종 승인은 인간 엔지니어의 GitHub UI 승인을 통해서만 진행된다.
 
 ### 3.6 Zero-Context CI Monitoring (컨텍스트 고갈 방지 및 비동기 관측)
 - `git push` 완료 후 터미널에서 `gh run watch` 등으로 장시간 스트리밍 로그를 폴링하는 행위를 엄격히 금지한다 (컨텍스트 토큰 낭비 차단).

@@ -1,4 +1,4 @@
-﻿# Ru-Beacon 격리 메커니즘 및 릴리스 아키텍처 (ISOLATION_AND_RELEASE_ARCHITECTURE.md)
+# Ru-Beacon 격리 메커니즘 및 릴리스 아키텍처 (ISOLATION_AND_RELEASE_ARCHITECTURE.md)
 
 이 문서는 Ru-Beacon 프로젝트의 **컨테이너 런타임 격리**, **CI/CD 파이프라인 화이트리스트 거버넌스**, **시맨틱 버전 태그 기반 릴리스 아키텍처**를 공식 정의한 기술 엔지니어링 명세서입니다.
 
@@ -53,6 +53,11 @@
   - GHCR은 GitHub Actions 내장 토큰(`GITHUB_TOKEN`)으로 무제한에 가까운 푸시/풀을 지원하여 고가용성 보장.
 - **저장소-패키지 1:1 결합**:
   - 릴리스 태그(`v1.0.0-beta.1`)와 GHCR 이미지 태그, Helm 차트 릴리스 버전이 완전히 동기화되어 추적성 극대화.
+
+### 3.3 GitHub Environment Protection Gate (에이전트 탈선 방어)
+- 에이전트가 자율적으로 태그를 생성/푸시하더라도, 실제 이미지 푸시 및 실서버 배포는 `cd.yml`의 `environment: production`에 의해 일시 정지(`Waiting for review`)됨.
+- 인간 엔지니어가 GitHub 웹 UI에서 직접 **[Review deployments -> Approve and deploy]** 버튼을 인가하기 전까지는 프로덕션 파이프라인이 격리 유지됨.
+- **효과**: 에이전트의 완전 자율 주행 자동화(태그 생성 및 릴리스 준비)의 생산성을 취하면서도, 실서버 오염 위험은 0%로 완벽 차단.
 
 ---
 
