@@ -6,7 +6,7 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
@@ -16,7 +16,19 @@ jobs:
     environment: production
     strategy:
       matrix:
-        service: [api-service, bot-service, workflow-worker]
+        include:
+          - name: api
+            context: .
+            file: ./api-service/Dockerfile
+          - name: bot
+            context: .
+            file: ./bot-service/Dockerfile
+          - name: worker
+            context: .
+            file: ./workflow-worker/Dockerfile
+          - name: web
+            context: ./web-dashboard
+            file: ./web-dashboard/Dockerfile
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -37,22 +49,52 @@ jobs:
         env:
           OWNER: ${{ github.repository_owner }}
 
-      - name: Build & Push Image (${{ matrix.service }})
+      - name: Build & Push Image (${{ matrix.name }})
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./${{ matrix.service }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: true
           tags: |
-            ghcr.io/${{ steps.repo_owner.outputs.owner }}/ru-beacon-${{ matrix.service }}:${{ github.ref_name }}
-            ghcr.io/${{ steps.repo_owner.outputs.owner }}/ru-beacon-${{ matrix.service }}:latest
+            ghcr.io/${{ steps.repo_owner.outputs.owner }}/ru-beacon-${{ matrix.name }}:${{ github.ref_name }}
+            ghcr.io/${{ steps.repo_owner.outputs.owner }}/ru-beacon-${{ matrix.name }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release-plugin:
+    name: Build & Release Minecraft Plugin
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Eclipse Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Build Plugin JAR
+        run: |
+          chmod +x gradlew
+          ./gradlew :minecraft-plugin:jar --no-daemon
+          mkdir -p release-artifacts
+          cp minecraft-plugin/build/libs/*.jar release-artifacts/ru-beacon-plugin.jar
+
+      - name: Upload Plugin to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/ru-beacon-plugin.jar
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   package-helm:
     name: Helm Chart Package & Validation
     runs-on: ubuntu-latest
-    needs: build-and-push-images
+    needs: [build-and-push-images, release-plugin]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -74,7 +116,7 @@ jobs:
   notify-discord:
     name: Discord CD Notification
     runs-on: ubuntu-latest
-    needs: [build-and-push-images, package-helm]
+    needs: [build-and-push-images, release-plugin, package-helm]
     if: always()
     steps:
       - name: Lowercase Repository Owner
@@ -92,8 +134,10 @@ jobs:
             **Release Tag**: `${{ github.ref_name }}`
             **Author**: ${{ github.actor }}
             **Registry**: `ghcr.io/${{ steps.repo_owner.outputs.owner }}`
-            - `ru-beacon-api-service:${{ github.ref_name }}`
-            - `ru-beacon-bot-service:${{ github.ref_name }}`
-            - `ru-beacon-workflow-worker:${{ github.ref_name }}`
+            - `ru-beacon-api:${{ github.ref_name }}`
+            - `ru-beacon-bot:${{ github.ref_name }}`
+            - `ru-beacon-worker:${{ github.ref_name }}`
+            - `ru-beacon-web:${{ github.ref_name }}`
+            **Plugin Release**: `ru-beacon-plugin.jar` 첨부 완료
             **Helm Chart**: `deploy/helm/ru-beacon` 패키징 완료
           nodetail: false

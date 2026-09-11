@@ -90,7 +90,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [api-service, bot-service, workflow-worker]
+        include:
+          - service: api-service
+            context: .
+            file: ./api-service/Dockerfile
+          - service: bot-service
+            context: .
+            file: ./bot-service/Dockerfile
+          - service: workflow-worker
+            context: .
+            file: ./workflow-worker/Dockerfile
+          - service: web-dashboard
+            context: ./web-dashboard
+            file: ./web-dashboard/Dockerfile
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -101,8 +113,8 @@ jobs:
       - name: Build Docker Image (${{ matrix.service }})
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./${{ matrix.service }}/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
           push: false
           tags: rubeacon/${{ matrix.service }}:ci-check
 

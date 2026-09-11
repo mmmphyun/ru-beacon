@@ -1,0 +1,59 @@
+{{- if .Values.webDashboard.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-web
+  labels:
+    app.kubernetes.io/name: ru-beacon-web
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: web-dashboard
+spec:
+  replicas: {{ .Values.webDashboard.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ru-beacon-web
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ru-beacon-web
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: web-dashboard
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: web-dashboard
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          image: "{{ .Values.webDashboard.image.repository }}:{{ .Values.webDashboard.image.tag }}"
+          imagePullPolicy: {{ .Values.webDashboard.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.webDashboard.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ .Values.webDashboard.port | quote }}
+            - name: NODE_ENV
+              value: "production"
+            - name: NEXT_PUBLIC_API_URL
+              value: {{ .Values.webDashboard.apiUrl | quote }}
+          resources:
+            {{- toYaml .Values.webDashboard.resources | nindent 12 }}
+          {{- with .Values.webDashboard.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.webDashboard.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

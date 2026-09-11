@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Key, Copy, Check, Server, RefreshCw } from "lucide-react";
+import { Shield, Key, Copy, Check, Server, RefreshCw, Download } from "lucide-react";
 
 interface OnboardingViewProps {
   tenantId: string;
@@ -161,14 +161,25 @@ export function OnboardingView({ tenantId }: OnboardingViewProps) {
 
       {/* 마인크래프트 인스턴스 및 인증 토큰 카드 */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Key className="w-5 h-5 text-emerald-400" />
-            <CardTitle>마인크래프트 인스턴스 인증 토큰 발급</CardTitle>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Key className="w-5 h-5 text-emerald-400" />
+              <CardTitle>마인크래프트 인스턴스 인증 토큰 발급</CardTitle>
+            </div>
+            <CardDescription className="mt-1">
+              Paper 플러그인이 API Service와 보안 WebSocket(WSS) 핸드셰이크를 수행할 때 사용하는 인증 토큰입니다.
+            </CardDescription>
           </div>
-          <CardDescription>
-            Paper 플러그인이 API Service와 보안 WebSocket(WSS) 핸드셰이크를 수행할 때 사용하는 인증 토큰입니다.
-          </CardDescription>
+          <a
+            href="/api/download/plugin"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 hover:bg-emerald-500 text-white shadow transition-colors shrink-0"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            최신 플러그인 다운로드 (.jar)
+          </a>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* 새 인스턴스 토큰 생성 폼 */}

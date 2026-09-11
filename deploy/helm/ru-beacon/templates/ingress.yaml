@@ -17,6 +17,7 @@ spec:
     {{- toYaml .Values.ingress.tls | nindent 4 }}
   {{- end }}
   rules:
+    {{- if .Values.apiService.enabled }}
     - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
@@ -27,4 +28,17 @@ spec:
                 name: {{ .Release.Name }}-api
                 port:
                   number: {{ .Values.apiService.port }}
+    {{- end }}
+    {{- if .Values.webDashboard.enabled }}
+    - host: {{ .Values.ingress.webHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}-web
+                port:
+                  number: {{ .Values.webDashboard.port }}
+    {{- end }}
 {{- end }}
