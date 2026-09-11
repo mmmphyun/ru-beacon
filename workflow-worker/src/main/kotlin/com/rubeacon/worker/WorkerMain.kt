@@ -33,6 +33,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.sql.Database
@@ -130,9 +133,19 @@ fun main() {
         workerMetricsModule(meterRegistry)
     }
 
+    // 스트림 컨슈머 백그라운드 기동
+    val streamKey = RedisNamespaces.eventsStream("default")
+    log.info("Streams 컨슈머 루프 시작: {}", streamKey)
+    val consumerJob = consumer.start(workerScope, stream = streamKey)
+
     Runtime.getRuntime().addShutdownHook(Thread {
-        log.info("Workflow Worker 안전 종료 중...")
-        workerScope.cancel()
+        log.info("Workflow Worker 안전 종료 중 (Graceful Drain)...")
+        runBlocking {
+            withTimeoutOrNull(20_000L) {
+                consumerJob.cancelAndJoin()
+            } ?: log.warn("컨슈머 작업 종료 대기 타임아웃(20s), 강제 취소 진행")
+            workerScope.cancel()
+        }
         server.stop(1000, 3000)
         jedis.close()
         (dataSource as? AutoCloseable)?.close()
@@ -141,11 +154,6 @@ fun main() {
 
     server.start(wait = false)
     log.info("Metrics 서버 기동 완료 (포트: {})", metricsPort)
-
-    // 스트림 컨슈머 백그라운드 기동
-    val streamKey = RedisNamespaces.eventsStream("default")
-    log.info("Streams 컨슈머 루프 시작: {}", streamKey)
-    consumer.start(workerScope, stream = streamKey)
 
     // 블로킹 대기
     Thread.currentThread().join()

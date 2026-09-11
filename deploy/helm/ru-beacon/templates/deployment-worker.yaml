@@ -20,6 +20,7 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: workflow-worker
     spec:
+      terminationGracePeriodSeconds: {{ .Values.workflowWorker.terminationGracePeriodSeconds | default 30 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
