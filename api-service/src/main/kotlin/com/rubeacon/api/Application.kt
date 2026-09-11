@@ -81,7 +81,9 @@ fun Application.module(
         JvmGcMetrics().bindTo(this)
         ProcessorMetrics().bindTo(this)
         JvmThreadMetrics().bindTo(this)
-    }
+    },
+    enableSimulation: Boolean = System.getenv("ENABLE_SIMULATION")?.toBooleanStrictOrNull()
+        ?: (!System.getenv("ENVIRONMENT").equals("production", ignoreCase = true))
 ) {
     org.jetbrains.exposed.sql.transactions.TransactionManager.defaultDatabase = database
 
@@ -109,7 +111,9 @@ fun Application.module(
         accountLinkRoutes(accountLinkService)
         workflowRoutes()
         tenantRoutes(authService)
-        eventSimulationRoutes(jedis, redisPublisher)
+        if (enableSimulation) {
+            eventSimulationRoutes(jedis, redisPublisher)
+        }
     }
 }
 
