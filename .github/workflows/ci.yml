@@ -121,17 +121,3 @@ jobs:
 
       - name: Lint Helm Chart
         run: helm lint deploy/helm/ru-beacon
-
-  notify:
-    name: Discord CI Notification
-    needs: [test, frontend-check, docker-build-check, helm-lint]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send Discord Notification
-        uses: sarisia/actions-status-discord@v1
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          title: "Ru-Beacon CI Pipeline 결과"
-          description: "Commit: `${{ github.sha }}` by **${{ github.actor }}**"
-          nodetail: false
