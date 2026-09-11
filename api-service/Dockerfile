@@ -7,7 +7,7 @@ COPY gradle gradle
 COPY common common
 COPY api-service api-service
 
-RUN ./gradlew :api-service:installDist --no-daemon -x test
+RUN chmod +x gradlew && ./gradlew :api-service:installDist --no-daemon -x test
 
 # Stage 2: Runtime
 FROM eclipse-temurin:21-jre-jammy

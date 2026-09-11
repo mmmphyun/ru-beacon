@@ -7,7 +7,7 @@ COPY gradle gradle
 COPY common common
 COPY workflow-worker workflow-worker
 
-RUN ./gradlew :workflow-worker:installDist --no-daemon -x test
+RUN chmod +x gradlew && ./gradlew :workflow-worker:installDist --no-daemon -x test
 
 # Stage 2: Runtime
 FROM eclipse-temurin:21-jre-jammy

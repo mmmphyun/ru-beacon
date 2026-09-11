@@ -7,7 +7,7 @@ COPY gradle gradle
 COPY common common
 COPY bot-service bot-service
 
-RUN ./gradlew :bot-service:installDist --no-daemon -x test
+RUN chmod +x gradlew && ./gradlew :bot-service:installDist --no-daemon -x test
 
 # Stage 2: Runtime
 FROM eclipse-temurin:21-jre-jammy
