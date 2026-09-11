@@ -394,4 +394,40 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 - **부하 성능 실측치**: k6 1,000 RPS 주입 시 초과 요청 Fast-Fail 평균 1.82ms / P99 4.12ms, Overselling Zero (정원 10개 엄격 준수).
 - **인프라 비용 효율**: AWS EKS 대비 클러스터 유지비 85% 이상 절감 (소형 단일 노드 구동 검증).
 
+---
+
+### [심층 트러블슈팅 & 프로세스 회고] CI/CD 환경 불일치(File Mode & Strict Pnpm) 및 피드백 루프 결함 극복
+
+#### 1. 문제 발생 배경 (왜 9개 커밋 동안 CI 실패가 누적되었는가?)
+- **로컬 검증 체계의 Green 확증 편향 (False Sense of Security)**:
+  - 프로젝트에는 `.githooks/pre-commit` 훅이 강제되어 있어, 로컬에서 `.\gradlew test` (70개 백엔드 단위/통합 테스트)가 100% 통과해야만 커밋이 생성되는 하드 가드가 동작 중이었음.
+  - 개발자 입장에서는 "로컬 테스트가 완벽히 통과했으므로 코드베이스는 Green-State"라는 확증 편향이 형성됨.
+- **로컬 vs 원격 CI 검증 레이어의 비대칭**:
+  - 로컬 `pre-commit`은 호스트 OS 상의 JVM 테스트만 수행했으나, 원격 CI(`ci.yml`)는 **멀티스테이지 Docker 빌드(`docker buildx`)**와 **Next.js 프론트엔드 pnpm 빌드**를 포함하는 비동기 통합 파이프라인이었음.
+  - 로컬에서는 성공하지만 원격 컨테이너 및 최신 패키지 매니저 환경에서만 터지는 **"환경 격리 레벨의 불일치"**가 발생.
+- **비동기 파이프라인 알림(Webhook) 부재로 인한 피드백 지연**:
+  - 원격 CI 러너는 회당 약 4분이 소요되는데, Trunk-based로 빠르게 로컬 Green 커밋을 쌓는 과정에서 CI 실패가 실시간 웹훅(Discord/Slack)으로 전달되지 않아 피드백 루프가 닫혀 있지 않았음.
+
+#### 2. 근본 기술 원인 분석 (Root Cause Analysis)
+1. **OS/FS 파일 모드 불일치 (`exit code 126: Permission Denied`)**:
+   - Windows 호스트에서 커밋된 `gradlew`의 Git Index 모드가 `100644`(비실행 일반 파일) 상태로 추적됨.
+   - CI 호스트 러너에서는 `run: chmod +x gradlew`로 우회했으나, Dockerfile 빌더 컨테이너 내부로 `COPY`된 `gradlew`는 여전히 `100644`였기에 Linux 컨테이너 빌드 시 `./gradlew` 실행이 즉시 거부됨.
+2. **패키지 매니저 보안 정책 브레이킹 체인지 (`ERR_PNPM_IGNORED_BUILDS`)**:
+   - CI 러너의 pnpm v12 환경에서 `package.json`의 `pnpm.onlyBuiltDependencies` 설정이 폐기(deprecated)되고 무시됨.
+   - 승인되지 않은 빌드 스크립트(`esbuild`) 실행이 차단되면서 프론트엔드 의존성 설치 단계에서 `exit code 1`로 즉시 중단됨.
+
+#### 3. 엔지니어링 해결 조치 (Resolution)
+- **Git Index 및 Dockerfile 권한 이중 하드닝**:
+  - `git update-index --chmod=+x gradlew`로 Git 추적 파일 모드를 `100755`로 공식 전환.
+  - `api-service`, `bot-service`, `workflow-worker` 3개 Dockerfile의 빌더 스테이지에 `RUN chmod +x gradlew`를 명시하여 Docker 빌드 컨텍스트 환경 격리 보장.
+- **pnpm v12 공식 워크스페이스 명세 표준화**:
+  - `web-dashboard/pnpm-workspace.yaml`을 신설하고 `allowBuilds: { esbuild: true }`를 선언하여 보안 빌드 정책 준수.
+  - `ci.yml`의 잘못된 CLI 플래그(`--frozen-lockfile=false`)를 `--no-frozen-lockfile`로 정정.
+- **최종 검증**:
+  - 커밋 `0907e51` 및 `edfcbb0`을 통해 GitHub Actions 파이프라인(Run 34546929374)의 Frontend(54s), Gradle(3m 54s), Helm(7s), Docker 3종 빌드(약 2m) 전수 Green-State(통과) 완료.
+
+#### 4. 프로세스 교훈 & 재발 방지 대책 (Lesson Learned)
+- **"로컬 테스트 통과가 환경 무결성을 증명하지 않는다"**: 호스트 OS 테스트와 컨테이너 빌드 환경은 엄격히 분리되어 있으며, 컨테이너 빌드 스모크 테스트 역시 로컬 프리-푸시 가드에 포함되어야 함.
+- **피드백 루프의 폐쇄성 보장**: CI 파이프라인의 결과는 개발자가 브라우저를 열어 확인하기 전에, 실패 즉시 개인 알림(Discord Webhook)으로 인입되도록 파이프라인 관측성(Observability)이 완비되어야 함.
+
 
