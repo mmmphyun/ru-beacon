@@ -1,7 +1,11 @@
 package com.rubeacon.api
 
+import com.rubeacon.api.auth.DiscordOAuthService
+import com.rubeacon.api.auth.UserSession
 import com.rubeacon.api.redis.RedisEventPublisher
 import com.rubeacon.api.routes.accountLinkRoutes
+import com.rubeacon.api.routes.auditLogRoutes
+import com.rubeacon.api.routes.authRoutes
 import com.rubeacon.api.routes.eventSimulationRoutes
 import com.rubeacon.api.routes.minecraftWebSocketRoutes
 import com.rubeacon.api.routes.tenantRoutes
@@ -12,6 +16,8 @@ import com.rubeacon.api.service.SessionRegistry
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.sessions.Sessions
+import io.ktor.server.sessions.cookie
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.install
@@ -75,6 +81,7 @@ fun Application.module(
     sessionRegistry: SessionRegistry = SessionRegistry(),
     accountLinkService: AccountLinkService = AccountLinkService(),
     redisPublisher: RedisEventPublisher = RedisEventPublisher(jedis),
+    oauthService: DiscordOAuthService = DiscordOAuthService(jedis),
     meterRegistry: PrometheusMeterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT).apply {
         ClassLoaderMetrics().bindTo(this)
         JvmMemoryMetrics().bindTo(this)
@@ -100,6 +107,16 @@ fun Application.module(
         })
     }
 
+    install(Sessions) {
+        cookie<UserSession>("RU_BEACON_SESSION") {
+            cookie.path = "/"
+            cookie.maxAgeInSeconds = 86400 * 7 // 7일
+            cookie.httpOnly = true
+            cookie.secure = System.getenv("ENVIRONMENT").equals("production", ignoreCase = true)
+            cookie.extensions["SameSite"] = "Lax"
+        }
+    }
+
     routing {
         get("/healthz") {
             call.respondText("OK")
@@ -107,10 +124,12 @@ fun Application.module(
         get("/metrics") {
             call.respond(meterRegistry.scrape())
         }
+        authRoutes(oauthService)
+        auditLogRoutes(oauthService)
         minecraftWebSocketRoutes(authService, sessionRegistry, redisPublisher)
         accountLinkRoutes(accountLinkService)
-        workflowRoutes()
-        tenantRoutes(authService)
+        workflowRoutes(oauthService)
+        tenantRoutes(authService, oauthService)
         if (enableSimulation) {
             eventSimulationRoutes(jedis, redisPublisher)
         }

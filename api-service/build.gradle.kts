@@ -29,6 +29,7 @@ dependencies {
     implementation("io.ktor:ktor-server-websockets:$ktorVersion")
     implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+    implementation("io.ktor:ktor-server-sessions:$ktorVersion")
 
     // Observability & Metrics
     implementation("io.ktor:ktor-server-metrics-micrometer:$ktorVersion")
@@ -69,4 +70,5 @@ tasks.withType<Test> {
     systemProperty("docker.version", "1.44")
     systemProperty("docker.api.version", "1.44")
     systemProperty("DOCKER_API_VERSION", "1.44")
+    systemProperty("DEV_MOCK_AUTH", "true")
 }

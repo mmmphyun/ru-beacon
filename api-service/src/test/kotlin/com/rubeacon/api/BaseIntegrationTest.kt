@@ -48,4 +48,9 @@ abstract class BaseIntegrationTest {
             jedis = JedisPooled(redis.host, redis.getMappedPort(6379))
         }
     }
+
+    @org.junit.jupiter.api.BeforeEach
+    fun resetDevMockAuthProperty() {
+        System.setProperty("DEV_MOCK_AUTH", "true")
+    }
 }

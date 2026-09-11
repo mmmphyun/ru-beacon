@@ -1,5 +1,8 @@
 package com.rubeacon.api.routes
 
+import com.rubeacon.api.auth.AuthConfig
+import com.rubeacon.api.auth.resolveUserSession
+import com.rubeacon.api.auth.withTenantAuth
 import com.rubeacon.api.db.Admin2faPolicies
 import com.rubeacon.api.db.MinecraftInstances
 import com.rubeacon.api.db.MinecraftNetworks
@@ -29,6 +32,7 @@ data class OnboardingRequest(
     val tenantId: String,
     val name: String,
     val discordGuildId: String,
+    val adminRoleId: String? = null,
     val authChannelId: String? = null,
     val policyMode: String = "MONITOR"
 )
@@ -56,6 +60,7 @@ data class TenantDetailDto(
     val id: String,
     val name: String,
     val discordGuildId: String,
+    val adminRoleId: String?,
     val policyMode: String,
     val authChannelId: String?,
     val instances: List<InstanceResponseDto>
@@ -63,12 +68,27 @@ data class TenantDetailDto(
 
 private val logger = LoggerFactory.getLogger("TenantRoute")
 
-fun Route.tenantRoutes(authService: InstanceAuthService) {
+fun Route.tenantRoutes(authService: InstanceAuthService, oauthService: com.rubeacon.api.auth.DiscordOAuthService) {
     route("/api/v1/tenants") {
         // 온보딩 (테넌트 초기 생성 및 2FA 정책, 기본 네트워크 설정)
         post("/onboarding") {
             val req = call.receive<OnboardingRequest>()
             val now = OffsetDateTime.now()
+
+            val session = call.resolveUserSession()
+            if (session == null && !AuthConfig.isDevMockAuth) {
+                call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "온보딩을 진행하려면 먼저 로그인이 필요합니다."))
+                return@post
+            }
+
+            if (!AuthConfig.isDevMockAuth && session != null) {
+                val cachedGuilds = oauthService.getCachedUserGuilds(session.discordUserId)
+                val guild = cachedGuilds.find { it.id == req.discordGuildId }
+                if (guild == null || !guild.isOwner) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to "Discord 서버의 소유자(Owner)만 온보딩을 진행할 수 있습니다."))
+                    return@post
+                }
+            }
 
             transaction {
                 val exists = Tenants.selectAll().where { Tenants.id eq req.tenantId }.count() > 0
@@ -77,6 +97,7 @@ fun Route.tenantRoutes(authService: InstanceAuthService) {
                         it[id] = req.tenantId
                         it[name] = req.name
                         it[discordGuildId] = req.discordGuildId
+                        it[adminRoleId] = req.adminRoleId
                         it[createdAt] = now
                         it[updatedAt] = now
                     }
@@ -84,6 +105,7 @@ fun Route.tenantRoutes(authService: InstanceAuthService) {
                     Tenants.update({ Tenants.id eq req.tenantId }) {
                         it[name] = req.name
                         it[discordGuildId] = req.discordGuildId
+                        it[adminRoleId] = req.adminRoleId
                         it[updatedAt] = now
                     }
                 }
@@ -128,47 +150,71 @@ fun Route.tenantRoutes(authService: InstanceAuthService) {
         }
 
         // 테넌트 상세 조회
-        get("/{id}") {
-            val tenantId = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+        withTenantAuth(oauthService, requireOwner = false) {
+            get("/{id}") {
+                val tenantId = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
 
-            val detail = transaction {
-                val t = Tenants.selectAll().where { Tenants.id eq tenantId }.singleOrNull()
-                    ?: return@transaction null
+                val detail = transaction {
+                    val t = Tenants.selectAll().where { Tenants.id eq tenantId }.singleOrNull()
+                        ?: return@transaction null
 
-                val policy = Admin2faPolicies.selectAll().where { Admin2faPolicies.tenantId eq tenantId }.singleOrNull()
-                val instances = MinecraftInstances.selectAll().where { MinecraftInstances.tenantId eq tenantId }
-                    .map {
-                        InstanceResponseDto(
-                            id = it[MinecraftInstances.id],
-                            name = it[MinecraftInstances.name],
-                            instanceType = it[MinecraftInstances.instanceType],
-                            status = it[MinecraftInstances.status],
-                            lastHeartbeatAt = it[MinecraftInstances.lastHeartbeatAt]?.toString()
-                        )
-                    }
+                    val policy = Admin2faPolicies.selectAll().where { Admin2faPolicies.tenantId eq tenantId }.singleOrNull()
+                    val instances = MinecraftInstances.selectAll().where { MinecraftInstances.tenantId eq tenantId }
+                        .map {
+                            InstanceResponseDto(
+                                id = it[MinecraftInstances.id],
+                                name = it[MinecraftInstances.name],
+                                instanceType = it[MinecraftInstances.instanceType],
+                                status = it[MinecraftInstances.status],
+                                lastHeartbeatAt = it[MinecraftInstances.lastHeartbeatAt]?.toString()
+                            )
+                        }
 
-                TenantDetailDto(
-                    id = t[Tenants.id],
-                    name = t[Tenants.name],
-                    discordGuildId = t[Tenants.discordGuildId],
-                    policyMode = policy?.get(Admin2faPolicies.policyMode) ?: "MONITOR",
-                    authChannelId = policy?.get(Admin2faPolicies.authChannelId),
-                    instances = instances
-                )
-            }
+                    TenantDetailDto(
+                        id = t[Tenants.id],
+                        name = t[Tenants.name],
+                        discordGuildId = t[Tenants.discordGuildId],
+                        adminRoleId = t[Tenants.adminRoleId],
+                        policyMode = policy?.get(Admin2faPolicies.policyMode) ?: "MONITOR",
+                        authChannelId = policy?.get(Admin2faPolicies.authChannelId),
+                        instances = instances
+                    )
+                }
 
-            if (detail == null) {
-                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Tenant not found"))
-            } else {
-                call.respond(HttpStatusCode.OK, detail)
+                if (detail == null) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "Tenant not found"))
+                } else {
+                    call.respond(HttpStatusCode.OK, detail)
+                }
             }
         }
     }
 
-    // 마인크래프트 인스턴스 토큰 발급/등록
+    // 마인크래프트 인스턴스 토큰 발급/등록 (서버장 전용)
     route("/api/v1/instances") {
         post("/token") {
             val req = call.receive<IssueInstanceTokenRequest>()
+
+            if (!AuthConfig.isDevMockAuth) {
+                val session = call.resolveUserSession()
+                if (session == null) {
+                    call.respond(HttpStatusCode.Unauthorized, mapOf("error" to "인증 세션이 필요합니다."))
+                    return@post
+                }
+                val tenantRow = transaction { Tenants.selectAll().where { Tenants.id eq req.tenantId }.singleOrNull() }
+                if (tenantRow == null) {
+                    call.respond(HttpStatusCode.NotFound, mapOf("error" to "존재하지 않는 테넌트입니다."))
+                    return@post
+                }
+                val guildId = tenantRow[Tenants.discordGuildId]
+                val cachedGuilds = oauthService.getCachedUserGuilds(session.discordUserId)
+                val guild = cachedGuilds.find { it.id == guildId }
+                if (guild == null || !guild.isOwner) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("error" to "인스턴스 토큰 발급은 서버장(소유자) 권한이 필요합니다."))
+                    return@post
+                }
+            }
+
             val plainToken = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "")
             val tokenHash = authService.hashToken(plainToken)
             val networkId = req.networkId ?: ("net_" + req.tenantId)

@@ -1,9 +1,13 @@
 package com.rubeacon.api.routes
 
+import com.rubeacon.api.auth.AuthConfig
+import com.rubeacon.api.auth.DiscordOAuthService
+import com.rubeacon.api.auth.resolveUserSession
 import com.rubeacon.api.db.Tenants
 import com.rubeacon.api.db.WorkflowVersions
 import com.rubeacon.api.db.Workflows
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -201,13 +205,31 @@ fun detectCycle(definitionJson: String): List<String>? {
     return null
 }
 
-fun Route.workflowRoutes() {
+private fun ApplicationCall.hasWorkflowTenantAccess(tenantId: String, oauthService: DiscordOAuthService): Boolean {
+    val session = resolveUserSession() ?: return false
+    if (AuthConfig.isDevMockAuth) return true
+    val tenantRow = transaction { Tenants.selectAll().where { Tenants.id eq tenantId }.singleOrNull() } ?: return false
+    val guildId: String = tenantRow[Tenants.discordGuildId]
+    val adminRoleId: String? = tenantRow[Tenants.adminRoleId]
+    val cachedGuilds: List<com.rubeacon.api.auth.DiscordGuildInfo> = oauthService.getCachedUserGuilds(session.discordUserId)
+    val guild = cachedGuilds.find { g -> g.id == guildId }
+    val isOwner = guild?.isOwner == true
+    val hasAdminRole = adminRoleId != null && guild?.roles?.contains(adminRoleId) == true
+    return isOwner || hasAdminRole
+}
+
+fun Route.workflowRoutes(oauthService: DiscordOAuthService) {
     route("/api/v1/workflows") {
         // 목록 조회
         get {
             val tenantId = call.request.queryParameters["tenantId"]
             if (tenantId.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("error" to "tenantId is required"))
+                return@get
+            }
+
+            if (!call.hasWorkflowTenantAccess(tenantId, oauthService)) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("error" to "해당 테넌트의 워크플로우를 열람할 권한이 없습니다."))
                 return@get
             }
 
@@ -234,10 +256,18 @@ fun Route.workflowRoutes() {
         get("/{id}") {
             val workflowId = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
 
-            val detail = transaction {
-                val wf = Workflows.selectAll().where { Workflows.id eq workflowId }.singleOrNull()
-                    ?: return@transaction null
+            val wf = transaction { Workflows.selectAll().where { Workflows.id eq workflowId }.singleOrNull() }
+            if (wf == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Workflow not found"))
+                return@get
+            }
 
+            if (!call.hasWorkflowTenantAccess(wf[Workflows.tenantId], oauthService)) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("error" to "해당 워크플로우에 대한 접근 권한이 없습니다."))
+                return@get
+            }
+
+            val detail = transaction {
                 val versions = WorkflowVersions.selectAll()
                     .where { WorkflowVersions.workflowId eq workflowId }
                     .orderBy(WorkflowVersions.version, SortOrder.DESC)
@@ -261,12 +291,7 @@ fun Route.workflowRoutes() {
                     versions = versions
                 )
             }
-
-            if (detail == null) {
-                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Workflow not found"))
-            } else {
-                call.respond(HttpStatusCode.OK, detail)
-            }
+            call.respond(HttpStatusCode.OK, detail)
         }
 
         // 워크플로우 생성 (버전 1 DRAFT)
@@ -279,6 +304,11 @@ fun Route.workflowRoutes() {
             }
             if (!tenantExists) {
                 call.respond(HttpStatusCode.NotFound, mapOf("error" to "Tenant '${req.tenantId}' not found"))
+                return@post
+            }
+
+            if (!call.hasWorkflowTenantAccess(req.tenantId, oauthService)) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("error" to "해당 테넌트에 워크플로우를 생성할 권한이 없습니다."))
                 return@post
             }
 
@@ -329,6 +359,18 @@ fun Route.workflowRoutes() {
         // 새 버전 DRAFT 등록
         post("/{id}/versions") {
             val workflowId = call.parameters["id"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+
+            val wf = transaction { Workflows.selectAll().where { Workflows.id eq workflowId }.singleOrNull() }
+            if (wf == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Workflow not found"))
+                return@post
+            }
+
+            if (!call.hasWorkflowTenantAccess(wf[Workflows.tenantId], oauthService)) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("error" to "해당 워크플로우에 대한 수정 권한이 없습니다."))
+                return@post
+            }
+
             val req = call.receive<CreateVersionRequest>()
 
             // 정의 JSON 유효성 사전 검증
@@ -386,6 +428,18 @@ fun Route.workflowRoutes() {
         // 워크플로우 배포 (PUBLISH / DEPLOY)
         post("/{id}/deploy") {
             val workflowId = call.parameters["id"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+
+            val wf = transaction { Workflows.selectAll().where { Workflows.id eq workflowId }.singleOrNull() }
+            if (wf == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Workflow not found"))
+                return@post
+            }
+
+            if (!call.hasWorkflowTenantAccess(wf[Workflows.tenantId], oauthService)) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("error" to "해당 워크플로우에 대한 배포 권한이 없습니다."))
+                return@post
+            }
+
             val req = try { call.receive<DeployWorkflowRequest>() } catch (_: Exception) { DeployWorkflowRequest() }
             val now = OffsetDateTime.now()
 
@@ -439,6 +493,18 @@ fun Route.workflowRoutes() {
         // 워크플로우 롤백 (ROLLBACK)
         post("/{id}/rollback") {
             val workflowId = call.parameters["id"] ?: return@post call.respond(HttpStatusCode.BadRequest)
+
+            val wf = transaction { Workflows.selectAll().where { Workflows.id eq workflowId }.singleOrNull() }
+            if (wf == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("error" to "Workflow not found"))
+                return@post
+            }
+
+            if (!call.hasWorkflowTenantAccess(wf[Workflows.tenantId], oauthService)) {
+                call.respond(HttpStatusCode.Forbidden, mapOf("error" to "해당 워크플로우에 대한 롤백 권한이 없습니다."))
+                return@post
+            }
+
             val req = call.receive<RollbackWorkflowRequest>()
             val now = OffsetDateTime.now()
 

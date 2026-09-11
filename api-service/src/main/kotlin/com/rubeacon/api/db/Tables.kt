@@ -15,6 +15,7 @@ object Tenants : Table("tenants") {
     val discordGuildId = varchar("discord_guild_id", 32).uniqueIndex()
     val timezone = varchar("timezone", 50).default("Asia/Seoul")
     val maxAccountLinksPerUser = integer("max_account_links_per_user").default(2)
+    val adminRoleId = varchar("admin_role_id", 32).nullable()
     val createdAt = timestampWithTimeZone("created_at").clientDefault { OffsetDateTime.now() }
     val updatedAt = timestampWithTimeZone("updated_at").clientDefault { OffsetDateTime.now() }
 
@@ -116,3 +117,38 @@ object Admin2faPolicies : Table("admin_2fa_policies") {
 
     override val primaryKey = PrimaryKey(tenantId)
 }
+
+/**
+ * 테넌트 비즈니스 및 관리자 보안 감사 로그 테이블.
+ */
+object AuditLogs : Table("audit_logs") {
+    val id = varchar("id", 64)
+    val tenantId = reference("tenant_id", Tenants.id, onDelete = ReferenceOption.CASCADE)
+    val correlationId = varchar("correlation_id", 64)
+    val actorType = varchar("actor_type", 32)
+    val actorId = varchar("actor_id", 64)
+    val action = varchar("action", 64)
+    val targetType = varchar("target_type", 32).nullable()
+    val targetId = varchar("target_id", 64).nullable()
+    val status = varchar("status", 20)
+    val details = jsonb<String>("details", { it }, { it })
+    val ipAddress = registerColumn<String>("ip_address", object : org.jetbrains.exposed.sql.ColumnType<String>() {
+        override fun sqlType(): String = "INET"
+        override fun setParameter(stmt: org.jetbrains.exposed.sql.statements.api.PreparedStatementApi, index: Int, value: Any?) {
+            if (value == null) {
+                stmt.setNull(index, this)
+            } else {
+                val obj = org.postgresql.util.PGobject().apply {
+                    type = "inet"
+                    this.value = value.toString()
+                }
+                stmt[index] = obj
+            }
+        }
+        override fun valueFromDB(value: Any): String = value.toString()
+    }).nullable()
+    val createdAt = timestampWithTimeZone("created_at").clientDefault { OffsetDateTime.now() }
+
+    override val primaryKey = PrimaryKey(id)
+}
+
