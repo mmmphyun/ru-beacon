@@ -3,8 +3,8 @@ FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN npm install -g pnpm@12.3.4 && pnpm install --frozen-lockfile
 
 # Stage 2: Build
 FROM node:20-alpine AS builder
@@ -14,7 +14,7 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV BUILD_STANDALONE=true
-RUN corepack enable && pnpm build
+RUN npm install -g pnpm@12.3.4 && pnpm build
 
 # Stage 3: Runtime
 FROM node:20-alpine AS runner
