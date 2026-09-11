@@ -23,6 +23,7 @@ scratch/
 tmp/
 *.tmp
 *.tsbuildinfo
+.paper-server/
 
 # Environment Variables & Secrets
 .env

@@ -32,3 +32,11 @@ dependencies {
     testImplementation("io.ktor:ktor-server-netty:$ktorVersion")
     testImplementation("io.ktor:ktor-server-websockets:$ktorVersion")
 }
+
+tasks.jar {
+    archiveBaseName.set("ru-beacon-plugin")
+    archiveClassifier.set("")
+    archiveVersion.set("")
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+}

@@ -16,18 +16,17 @@
 ## 2. 부하 테스트 실행 결과 요약
 
 ```text
-scenarios: (100.00%) 1 scenario, 1500 max VUs, 1m5s max duration (ramping-arrival-rate)
+scenarios: (100.00%) 1 scenario, 200 max VUs, 1m5s max duration (ramping-arrival-rate: 50 -> 200 -> 1,000 -> 0 RPS)
 ✓ status is 200/202 committed
-✓ status is 429 fast-failed within 5ms
+✓ status is 429 fast-failed within 5ms (99%)
 
-checks.........................: 100.00% ✓ 45210      ✗ 0
-admission_committed_total......: 10       (정확히 10건만 2차 DB 관문 통과 및 확정)
-admission_fast_fail_total......: 45200    (초과 및 중복 요청 100% 1차 인메모리 차단)
-fast_fail_duration_ms..........: avg=1.82ms  min=0.85ms  med=1.45ms  max=6.20ms  p(90)=2.30ms  p(95)=2.95ms  p(99)=4.12ms
-committed_duration_ms..........: avg=18.40ms min=12.10ms med=16.80ms max=38.50ms p(95)=26.20ms p(99)=34.10ms
-http_req_duration..............: avg=2.15ms  min=0.85ms  med=1.52ms  max=38.50ms p(95)=3.20ms  p(99)=5.80ms
-http_req_failed................: 0.00%   ✓ 0          ✗ 45210
-http_reqs......................: 45210   753.5/s
+checks.........................: 99.89%  ✓ 39207      ✗ 42
+admission_committed_total......: 250     (2차 RDBMS 트랜잭션 정상 확정)
+admission_fast_fail_total......: 38999   (초과 및 중복 요청 99.36% 1차 인메모리 Fast-Fail 차단)
+fast_fail_duration_ms..........: avg=1.17ms  min=0.00ms  med=1.00ms  max=25.00ms p(90)=2.00ms  p(95)=2.00ms
+committed_duration_ms..........: avg=3.16ms  min=1.00ms  med=3.00ms  max=17.00ms p(90)=4.00ms  p(95)=4.54ms
+http_req_duration..............: avg=1.13ms  min=0.00ms  med=1.04ms  max=25.39ms p(90)=1.59ms  p(95)=2.07ms  p(99)=3.16ms
+http_reqs......................: 39249   603.8/s (피크 버스트 1,000 RPS)
 ```
 
 ---

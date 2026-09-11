@@ -268,6 +268,75 @@ export function OnboardingView({ tenantId }: OnboardingViewProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* 플러그인 다운로드 및 퀵스타트 연동 가이드 */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Download className="w-5 h-5 text-emerald-400" />
+            <CardTitle>Paper 1.20.4 플러그인 다운로드 & 퀵스타트</CardTitle>
+          </div>
+          <CardDescription>
+            빌드된 Ru-Beacon Paper 전용 플러그인을 다운로드하고 서버의 <code>plugins/</code> 폴더에 배치하여 연동합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-lg bg-slate-900 border border-slate-800">
+            <div>
+              <div className="font-semibold text-white text-sm">ru-beacon-plugin.jar (v0.1.0)</div>
+              <div className="text-xs text-slate-400 mt-0.5">Paper 1.20.4 지원 / Ktor 비동기 WSS 클라이언트 / Fat JAR 번들링</div>
+            </div>
+            <a
+              href="https://github.com/mmmphyun/ru-beacon/releases"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" /> 플러그인 다운로드 (.jar)
+            </a>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-slate-400">
+                <code>plugins/RuBeaconPlugin/config.yml</code> 연동 설정 템플릿
+              </label>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  copyToClipboard(
+`server-url: "ws://api.127.0.0.1.nip.io/ws/minecraft/v1"
+tenant-id: "${config.tenantId}"
+network-id: "net_${config.tenantId}"
+instance-id: "${issuedToken?.instanceId || (instances[0]?.id || 'paper_main_01')}"
+instance-token: "${issuedToken?.token || '발급받은_보안_토큰'}"
+ping-interval-ms: 30000
+reconnect-initial-delay-ms: 1000
+reconnect-max-delay-ms: 60000
+enabled: true`
+                  )
+                }
+                className="h-7 text-xs"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                설정 복사
+              </Button>
+            </div>
+            <pre className="p-3 rounded-md bg-slate-950 font-mono text-xs text-slate-300 border border-slate-800 overflow-x-auto">
+{`server-url: "ws://api.127.0.0.1.nip.io/ws/minecraft/v1"
+tenant-id: "${config.tenantId}"
+network-id: "net_${config.tenantId}"
+instance-id: "${issuedToken?.instanceId || (instances[0]?.id || 'paper_main_01')}"
+instance-token: "${issuedToken?.token || '발급받은_보안_토큰'}"
+ping-interval-ms: 30000
+reconnect-initial-delay-ms: 1000
+reconnect-max-delay-ms: 60000
+enabled: true`}
+            </pre>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
