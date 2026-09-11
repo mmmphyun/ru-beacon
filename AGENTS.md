@@ -77,6 +77,15 @@
 - 1인 개발 자율 주행에서는 PR/브랜치 분기 오버헤드를 배제하고 `main` 브랜치에 직접 원자적 커밋(Green-State Commit)을 쌓는다.
 - 기능 마일스톤 완료 시 즉시 `git push origin main`으로 원격에 동기화한다.
 
+### 3.5 Semantic Release Tagging Protocol (CD 배포 프로토콜)
+- `main` 브랜치 푸시만으로는 프로덕션 서버 배포(CD)를 실행하지 않는다.
+- 실서버 배포는 반드시 검증된 커밋에 대해 `git tag vX.Y.Z` 생성 및 `git push origin vX.Y.Z`를 수행하여 태그 기반 CD(`cd.yml`)로 격리 격발한다.
+
+### 3.6 Zero-Context CI Monitoring (컨텍스트 고갈 방지 및 비동기 관측)
+- `git push` 완료 후 터미널에서 `gh run watch` 등으로 장시간 스트리밍 로그를 폴링하는 행위를 엄격히 금지한다 (컨텍스트 토큰 낭비 차단).
+- CI 결과는 디스코드 웹후크 비동기 알림을 1차 채널로 삼는다.
+- CI 실패 확인이 필요한 경우, `gh run view <ID> --log-failed` 등 실패 지점만 단일 명령으로 핀포인트 조회한다.
+
 ---
 
 

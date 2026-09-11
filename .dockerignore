@@ -8,3 +8,11 @@ build
 deploy
 web-dashboard/node_modules
 web-dashboard/.next
+
+# Governance, Harness & Documentation
+docs
+AGENTS.md
+.githooks
+.github
+*.md
+LICENSE

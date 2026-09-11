@@ -4,19 +4,33 @@ on:
   push:
     branches:
       - main
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '.gitignore'
-      - 'LICENSE'
+    paths:
+      - 'api-service/**'
+      - 'bot-service/**'
+      - 'workflow-worker/**'
+      - 'minecraft-plugin/**'
+      - 'common/**'
+      - 'web-dashboard/**'
+      - 'deploy/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - '.gitignore'
-      - 'LICENSE'
+    paths:
+      - 'api-service/**'
+      - 'bot-service/**'
+      - 'workflow-worker/**'
+      - 'minecraft-plugin/**'
+      - 'common/**'
+      - 'web-dashboard/**'
+      - 'deploy/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/ci.yml'
 
 jobs:
   test:
