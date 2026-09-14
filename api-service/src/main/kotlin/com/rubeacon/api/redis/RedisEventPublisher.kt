@@ -62,5 +62,25 @@ class RedisEventPublisher(private val jedis: JedisPooled) {
         val entryId = jedis.xadd(RedisNamespaces.STREAM_COMMANDS_RESULT, params, fields)
         entryId.toString()
     }
+
+    /**
+     * 마인크래프트 인스턴스의 실시간 생존 상태(Presence)를 Redis에 TTL 갱신으로 기록함.
+     * 고빈도 PING 수신 시 매번 PostgreSQL을 갱신하는 부하를 차단함 (결함 8 해결).
+     */
+    suspend fun recordHeartbeat(
+        instanceId: String,
+        ttlSeconds: Long = RedisNamespaces.HEARTBEAT_TTL_SECONDS
+    ): Unit = withContext(Dispatchers.IO) {
+        val key = RedisNamespaces.instanceHeartbeatKey(instanceId)
+        jedis.setex(key, ttlSeconds, System.currentTimeMillis().toString())
+    }
+
+    /**
+     * 세션 종료 시 인스턴스 생존 상태 키를 즉시 삭제함.
+     */
+    suspend fun clearHeartbeat(instanceId: String): Unit = withContext(Dispatchers.IO) {
+        val key = RedisNamespaces.instanceHeartbeatKey(instanceId)
+        jedis.del(key)
+    }
 }
 

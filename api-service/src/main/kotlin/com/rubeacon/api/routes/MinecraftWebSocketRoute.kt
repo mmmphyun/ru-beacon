@@ -49,6 +49,11 @@ fun Route.minecraftWebSocketRoutes(
         // 2. 인증 성공: 세션 등록 및 상태를 ONLINE으로 전이
         sessionRegistry.register(instanceId, this)
         authService.updateStatus(instanceId, "ONLINE", updateHeartbeat = true)
+        try {
+            redisPublisher.recordHeartbeat(instanceId)
+        } catch (_: Exception) {
+            // Redis 일시 장애 격리
+        }
 
         try {
             for (frame in incoming) {
@@ -62,7 +67,12 @@ fun Route.minecraftWebSocketRoutes(
 
                 when (wsFrame.op) {
                     Opcode.PING -> {
-                        authService.updateStatus(instanceId, "ONLINE", updateHeartbeat = true)
+                        // 결함 8 해결: 고빈도 PING 수신 시 PostgreSQL UPDATE를 제거하고 Redis TTL(60초) 갱신으로 RDB 부하 차단
+                        try {
+                            redisPublisher.recordHeartbeat(instanceId)
+                        } catch (_: Exception) {
+                            // 장애 격리
+                        }
                         val pong = WebSocketFrame.pong(wsFrame.traceId)
                         send(Frame.Text(RuBeaconJson.default.encodeToString(pong)))
                     }
@@ -103,6 +113,11 @@ fun Route.minecraftWebSocketRoutes(
             val removed = sessionRegistry.unregister(instanceId, this)
             if (removed) {
                 authService.updateStatus(instanceId, "OFFLINE")
+                try {
+                    redisPublisher.clearHeartbeat(instanceId)
+                } catch (_: Exception) {
+                    // 장애 격리
+                }
             }
         }
     }

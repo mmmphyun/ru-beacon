@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test
 import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
@@ -158,12 +159,21 @@ class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
                 assertEquals("ONLINE", inst[MinecraftInstances.status])
             }
 
+            // Redis Presence TTL(60초) 검증 (결함 8: 하트비트 Redis 격리)
+            val presenceKey = RedisNamespaces.instanceHeartbeatKey(instanceId)
+            val ttl = jedis.ttl(presenceKey)
+            assertTrue(ttl in 1..60, "하트비트 presence 키의 TTL이 1~60초 범위여야 함 (현재: $ttl)")
+
             // 세션 종료
             close()
         }
 
         // 연결 종료 후 OFFLINE 전이 검증 (비동기 완료 대기)
         awaitStatus(instanceId, "OFFLINE")
+
+        // 세션 종료 후 Redis presence 키 즉시 삭제 검증
+        val presenceKey = RedisNamespaces.instanceHeartbeatKey(instanceId)
+        assertNull(jedis.get(presenceKey), "세션 종료 후 presence 키가 삭제되어야 함")
     }
 
     @Test
@@ -333,5 +343,76 @@ class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
 
         // 모든 세션이 종료된 후에는 OFFLINE으로 정상 전이 (비동기 완료 대기)
         awaitStatus(instanceId, "OFFLINE")
+    }
+
+    @Test
+    fun `64KB 초과 대용량 프레임 인입 시 웹소켓 프레임 가드에 의해 세션이 차단되어야 한다`() = testApplication {
+        val tenantId = "tenant_dos_01"
+        val networkId = "net_dos_01"
+        val instanceId = "inst_dos_01"
+        val rawToken = "dos-test-token"
+
+        transaction(database) {
+            Tenants.insert {
+                it[id] = tenantId
+                it[name] = "보안 가드 테스트 테넌트"
+                it[discordGuildId] = "999888777666555444"
+            }
+            MinecraftNetworks.insert {
+                it[id] = networkId
+                it[this.tenantId] = tenantId
+                it[name] = "보안 네트워크"
+            }
+            MinecraftInstances.insert {
+                it[id] = instanceId
+                it[this.networkId] = networkId
+                it[this.tenantId] = tenantId
+                it[instanceType] = "BACKEND"
+                it[name] = "보안 검증 서버"
+                it[tokenHash] = authService.hashToken(rawToken)
+                it[status] = "OFFLINE"
+            }
+        }
+
+        application {
+            module(
+                database = database,
+                jedis = jedis,
+                authService = authService,
+                sessionRegistry = sessionRegistry
+            )
+        }
+
+        val client = createClient {
+            install(WebSockets) {
+                maxFrameSize = Long.MAX_VALUE // 클라이언트는 64KB 초과 전송 허용
+            }
+        }
+
+        // 70KB 크기의 비인가 대용량 페이로드 전송 시도
+        val hugePadding = "X".repeat(70 * 1024)
+        val hugeFrameText = """{"op":1,"t":"EVENT","d":{"msg":"$hugePadding"},"ts":${System.currentTimeMillis()},"trace_id":"trc_dos"}"""
+
+        runCatching {
+            withTimeout(2000) {
+                client.webSocket("/ws/minecraft/v1", request = {
+                    header(TransportConstants.HEADER_TENANT_ID, tenantId)
+                    header(TransportConstants.HEADER_INSTANCE_ID, instanceId)
+                    header(TransportConstants.HEADER_INSTANCE_TOKEN, rawToken)
+                }) {
+                    send(Frame.Text(hugeFrameText))
+                    try {
+                        incoming.receive()
+                    } catch (_: Exception) {
+                        // FrameTooBigException에 의한 세션 차단 정상 예외
+                    }
+                    close()
+                }
+            }
+        }
+
+        // 서버의 maxFrameSize(64KB) 제한으로 인해 세션이 즉시 종료되고 OFFLINE으로 전이되어야 함
+        awaitStatus(instanceId, "OFFLINE")
+        assertEquals(0, sessionRegistry.activeCount)
     }
 }

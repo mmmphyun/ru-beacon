@@ -101,7 +101,9 @@ fun Application.module(
         registry = meterRegistry
     }
 
-    install(WebSockets)
+    install(WebSockets) {
+        maxFrameSize = 64 * 1024 // 64KB (비인가 대용량 페이로드 DoS/OOM 방어)
+    }
 
     install(ContentNegotiation) {
         json(Json {
