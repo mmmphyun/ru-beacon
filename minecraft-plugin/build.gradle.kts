@@ -38,6 +38,7 @@ tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJ
     archiveBaseName.set("ru-beacon-plugin")
     archiveClassifier.set("")
     archiveVersion.set("")
+    mergeServiceFiles()
     relocate("io.ktor", "com.rubeacon.shadow.io.ktor")
     relocate("kotlinx.coroutines", "com.rubeacon.shadow.kotlinx.coroutines")
     relocate("kotlinx.serialization", "com.rubeacon.shadow.kotlinx.serialization")
