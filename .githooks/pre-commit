@@ -27,6 +27,49 @@ if [ "$ALLOW_DOCS_ONLY" != "true" ]; then
     fi
 fi
 
+# 2. 멀티모듈 동시 수정 차단 가드 (Single Module Scope Enforcer)
+if [ "$ALLOW_MULTI_MODULE" != "true" ]; then
+    STAGED_FILES=$(git diff --cached --name-only)
+    MODULE_COUNT=$(echo "$STAGED_FILES" | grep -oE "^(api-service|workflow-worker|bot-service|minecraft-plugin|web-dashboard|common)/" | cut -d'/' -f1 | sort -u | wc -l)
+    if [ "$MODULE_COUNT" -gt 1 ]; then
+        echo ""
+        echo "================================================================================"
+        echo "[COMMIT REJECTED BY HARD GUARD] 멀티모듈 동시 커밋 금지!"
+        echo "--------------------------------------------------------------------------------"
+        echo "스테이징된 모듈 목록:"
+        echo "$STAGED_FILES" | grep -oE "^(api-service|workflow-worker|bot-service|minecraft-plugin|web-dashboard|common)/" | cut -d'/' -f1 | sort -u
+        echo ""
+        echo "Ru-Beacon 하네스 정책: 빅뱅 커밋을 방지하기 위해 단일 커밋에는 1개의 서브모듈만 수정되어야 합니다."
+        echo "각 모듈 단위(예: common 먼저, 그 다음 worker)로 쪼개어 원자적으로 커밋하십시오."
+        echo "(불가피한 멀티모듈 결합 커밋 예외: ALLOW_MULTI_MODULE=true git commit ...)"
+        echo "================================================================================"
+        echo ""
+        exit 1
+    fi
+fi
+
+# 3. TDD 테스트 동시 커밋 강제 가드 (Test Co-location Enforcer)
+if [ "$ALLOW_NO_TEST" != "true" ]; then
+    STAGED_FILES=$(git diff --cached --name-only)
+    HAS_MAIN_CODE=$(echo "$STAGED_FILES" | grep -E "src/main/|web-dashboard/src/(app|components|lib)/")
+    HAS_TEST_CODE=$(echo "$STAGED_FILES" | grep -E "src/test/|.*\.test\.(ts|tsx|js)")
+    if [ -n "$HAS_MAIN_CODE" ] && [ -z "$HAS_TEST_CODE" ]; then
+        echo ""
+        echo "================================================================================"
+        echo "[COMMIT REJECTED BY HARD GUARD] TDD 위반: 테스트 코드 누락!"
+        echo "--------------------------------------------------------------------------------"
+        echo "스테이징된 소스 코드:"
+        echo "$HAS_MAIN_CODE"
+        echo ""
+        echo "Ru-Beacon 하네스 정책: 비즈니스 로직(src/main/) 추가/수정 시에는 반드시"
+        echo "해당 동작을 검증하는 단위/통합 테스트 코드(src/test/)가 동일 커밋에 포함되어야 합니다."
+        echo "(테스트가 필요 없는 순수 리팩터링/문구 수정 예외: ALLOW_NO_TEST=true git commit ...)"
+        echo "================================================================================"
+        echo ""
+        exit 1
+    fi
+fi
+
 echo "[PRE-COMMIT HOOK] 실행 전 단위/통합 테스트 자동 검증 수행 중..."
 
 if [ -f "./gradlew" ]; then
