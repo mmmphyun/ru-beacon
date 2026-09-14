@@ -50,7 +50,9 @@
 - **MODIFY**: `workflow-worker/src/main/kotlin/com/rubeacon/worker/engine/DagWorkflowDispatcher.kt`
   - DAG 실행 엔진에 In-Degree Barrier 알고리즘 도입하여 다이아몬드 합류 노드 1회 실행 보장.
 
-### [Batch 4] 인프라 부하 최적화 & K8s 배포 정합성 (결함 8, 10)
+### [Batch 4] 인프라 부하 최적화 & K8s 배포 정합성 (결함 8, 10 + 웹소켓 프레임 보안 가드) (완료)
+- **MODIFY**: `api-service/src/main/kotlin/com/rubeacon/api/Application.kt`
+  - WebSockets 플러그인에 `maxFrameSize = 64 * 1024` (64KB) 제한 추가 (비인가 거대 페이로드에 의한 OOM 방어).
 - **MODIFY**: `api-service/src/main/kotlin/com/rubeacon/api/routes/MinecraftWebSocketRoute.kt` & `InstanceAuthService.kt`
   - PING 수신 시 PostgreSQL `UPDATE` 제거 -> Redis TTL 갱신(60s)으로 전환.
 - **MODIFY**: `deploy/helm/ru-beacon/values.yaml`
