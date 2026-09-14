@@ -1,4 +1,4 @@
-﻿package com.rubeacon.common.redis
+package com.rubeacon.common.redis
 
 /**
  * Ru-Beacon 백엔드 내부 서비스 간 통신용 Redis Streams 및 Pub/Sub 네임스페이스 정의.
@@ -10,6 +10,7 @@ object RedisNamespaces {
     const val STREAM_DISCORD_ACTIONS = "stream:discord:actions"
 
     const val PUBSUB_HEARTBEAT = "pubsub:heartbeat"
+    const val PUBSUB_COMMANDS_BROADCAST = "pubsub:commands:broadcast"
 
     const val GROUP_WORKER = "worker-group"
     const val GROUP_API_INGRESS = "api-ingress-group"

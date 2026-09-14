@@ -154,3 +154,16 @@ data class CommandResponsePayload(
     val success: Boolean,
     val output: String = ""
 )
+
+/**
+ * 다중 API Service Pod 간 분산 세션 라우팅을 위해 Redis Pub/Sub으로 브로드캐스트하는 명령어 메시지.
+ */
+@Serializable
+data class CommandBroadcastMessage(
+    @SerialName("instance_id") val instanceId: String,
+    @SerialName("request_id") val requestId: String,
+    val command: String,
+    val args: List<String> = emptyList(),
+    @SerialName("correlation_id") val correlationId: String? = null
+)
+

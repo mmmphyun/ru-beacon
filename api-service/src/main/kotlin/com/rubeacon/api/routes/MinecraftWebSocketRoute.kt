@@ -4,6 +4,7 @@ import com.rubeacon.api.redis.RedisEventPublisher
 import com.rubeacon.api.service.InstanceAuthService
 import com.rubeacon.api.service.SessionRegistry
 import com.rubeacon.common.serialization.RuBeaconJson
+import com.rubeacon.common.transport.CommandResponsePayload
 import com.rubeacon.common.transport.Opcode
 import com.rubeacon.common.transport.TransportConstants
 import com.rubeacon.common.transport.WebSocketFrame
@@ -75,8 +76,24 @@ fun Route.minecraftWebSocketRoutes(
                         }
                     }
 
+                    Opcode.COMMAND_RES -> {
+                        // 수신된 명령어 실행 결과를 stream:commands:result 스트림으로 발행
+                        try {
+                            val resPayload = wsFrame.decodePayload<CommandResponsePayload>()
+                            redisPublisher.publishCommandResult(
+                                requestId = resPayload.requestId,
+                                success = resPayload.success,
+                                output = resPayload.output,
+                                traceId = wsFrame.traceId,
+                                instanceId = instanceId
+                            )
+                        } catch (_: Exception) {
+                            // 장애 격리: 세션 파괴 방지
+                        }
+                    }
+
                     else -> {
-                        // COMMAND_RES 또는 미지원 프레임 무시
+                        // 기타 미지원 프레임 무시
                     }
                 }
             }

@@ -2,6 +2,7 @@ package com.rubeacon.api
 
 import com.rubeacon.api.auth.DiscordOAuthService
 import com.rubeacon.api.auth.UserSession
+import com.rubeacon.api.redis.RedisCommandConsumer
 import com.rubeacon.api.redis.RedisEventPublisher
 import com.rubeacon.api.routes.accountLinkRoutes
 import com.rubeacon.api.routes.auditLogRoutes
@@ -19,6 +20,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.sessions.Sessions
 import io.ktor.server.sessions.cookie
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
@@ -90,7 +92,8 @@ fun Application.module(
         JvmThreadMetrics().bindTo(this)
     },
     enableSimulation: Boolean = System.getenv("ENABLE_SIMULATION")?.toBooleanStrictOrNull()
-        ?: (!System.getenv("ENVIRONMENT").equals("production", ignoreCase = true))
+        ?: (!System.getenv("ENVIRONMENT").equals("production", ignoreCase = true)),
+    startRedisCommandConsumer: Boolean = true
 ) {
     org.jetbrains.exposed.sql.transactions.TransactionManager.defaultDatabase = database
 
@@ -132,6 +135,17 @@ fun Application.module(
         tenantRoutes(authService, oauthService)
         if (enableSimulation) {
             eventSimulationRoutes(jedis, redisPublisher)
+        }
+    }
+
+    if (startRedisCommandConsumer) {
+        sessionRegistry.startBroadcastSubscriber(jedis, this)
+        val commandConsumer = RedisCommandConsumer(jedis, sessionRegistry)
+        val consumerJob = commandConsumer.start(this)
+
+        environment.monitor.subscribe(ApplicationStopped) {
+            sessionRegistry.stopBroadcastSubscriber()
+            consumerJob.cancel()
         }
     }
 }
