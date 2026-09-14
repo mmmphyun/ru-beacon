@@ -87,6 +87,11 @@
 - CI 결과는 디스코드 웹후크 비동기 알림을 1차 채널로 삼는다.
 - CI 실패 확인이 필요한 경우, `gh run view <ID> --log-failed` 등 실패 지점만 단일 명령으로 핀포인트 조회한다.
 
+### 3.7 원자적 결합 커밋 및 독립 docs 커밋 원천 금지 (Atomic Co-located Commit Protocol)
+- **독립 `docs` 커밋 원천 금지**: 체크리스트(`MILESTONES.md`), 엔지니어링 일지(`ENGINEERING_LOG.md`), 계획서(`REFACTORING_PLAN.md`) 등 문서만 단독으로 떼어내어 `docs(...)` 커밋을 생성하는 행위를 엄격히 금지한다.
+- **원자적 결합 (Co-located Commit)**: 문서 갱신은 반드시 기능 구현(`feat(...)`) 또는 점검/리팩터링(`refactor(...)`) 코드 및 테스트와 **동일한 커밋에 묶어서 원자적으로 커밋**해야 한다.
+- **하드 가드 연동**: 단독 문서 커밋 시 `.githooks/pre-commit` 및 `.githooks/commit-msg` 훅에 의해 커밋이 즉시 강제 거부(Exit 1)된다.
+
 ---
 
 
@@ -97,13 +102,12 @@
 - 하나의 마일스톤은 **[개발 세션: Builder]**과 **[점검 세션: Inspector]**의 독립된 2개 세션으로 분할하여 수행한다.
   1. **개발 세션 (Builder Session)**:
      - 마일스톤의 기능 구현 및 테스트 코드 작성.
-     - `./gradlew test` 통과 확인 후 `feat(...)` 커밋 생성 및 푸시.
+     - `./gradlew test` 통과 확인 후 `feat(...)` 커밋 생성 및 푸시. (관련 문서 변경 발생 시 동일 커밋에 결합)
   2. **점검 세션 (Inspector Session)**:
      - 깨끗한 새 세션에서 직전 개발 세션의 커밋 diff를 감사(Audit).
      - **`/ponytail-review` 실행 필수**: 불필요한 추상화, 팩토리, 1:1 매퍼 사냥 (`net: -N lines`).
      - **[docs/INSPECTION_CHECKLIST.md](docs/INSPECTION_CHECKLIST.md) 전수 점검**: 엣지 케이스(WSS 단절, 틱 렉, 동시성), 클라우드 포트폴리오 가치, 감사 로그 무결성 검증.
-     - 발견된 취약점 보강 및 테스트 통과 후 `refactor(...)` 커밋.
-     - **인터뷰 기반 엔지니어링 일지 작성**: [docs/ENGINEERING_LOG.md](docs/ENGINEERING_LOG.md) 프로토콜에 따라 엔지니어에게 핵심 결정/고민을 질문하고, 엔지니어의 답변을 바탕으로 포트폴리오 엔지니어링 일지를 기록한다.
+     - **인터뷰 기반 엔지니어링 일지 작성 및 체크리스트 갱신**: [docs/ENGINEERING_LOG.md](docs/ENGINEERING_LOG.md) 프로토콜에 따라 엔지니어에게 핵심 결정/고민을 질문하고 답변을 반영하되, 별도 `docs` 커밋으로 분리하지 않고 코드 취약점 보강 내역과 함께 `refactor(...)` 단일 커밋에 원자적으로 결합한다.
      - [docs/MILESTONES.md](docs/MILESTONES.md) 체크박스 `[x]` 완료 처리 후 `git push origin main`.
 
 
