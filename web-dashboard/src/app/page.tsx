@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { InteractiveSimulator } from "@/components/landing/InteractiveSimulator";
+import { RotatingHeadline } from "@/components/landing/RotatingHeadline";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -103,10 +104,7 @@ ring_buffer_size: 4096
             마인크래프트 & 디스코드 실시간 양방향 자동화 OS
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground leading-tight">
-            서버 렉 <span className="text-primary underline decoration-primary/40 underline-offset-8">0ms</span>로 완성하는<br />
-            마인크래프트 커뮤니티 생태계
-          </h1>
+          <RotatingHeadline />
 
           <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             복잡한 봇 호스팅이나 서버 틱(TPS) 급락 없이, 디스코드 활동과 인게임 플레이를
