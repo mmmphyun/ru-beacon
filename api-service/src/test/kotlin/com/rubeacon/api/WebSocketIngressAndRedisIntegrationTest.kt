@@ -53,6 +53,20 @@ class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
         }
     }
 
+    private fun awaitStatus(instanceId: String, expectedStatus: String, timeoutMs: Long = 3000) {
+        val start = System.currentTimeMillis()
+        var currentStatus = ""
+        while (System.currentTimeMillis() - start < timeoutMs) {
+            currentStatus = transaction(database) {
+                MinecraftInstances.selectAll().where { MinecraftInstances.id eq instanceId }
+                    .singleOrNull()?.get(MinecraftInstances.status) ?: ""
+            }
+            if (currentStatus == expectedStatus) return
+            Thread.sleep(50)
+        }
+        assertEquals(expectedStatus, currentStatus, "인스턴스 상태가 ${timeoutMs}ms 내에 $expectedStatus(으)로 전이되어야 함")
+    }
+
     @Test
     fun `유효하지 않은 토큰으로 접속 시 WebSocket Close 4003 코드로 차단되어야 한다`() = testApplication {
         application {
@@ -148,11 +162,8 @@ class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
             close()
         }
 
-        // 연결 종료 후 OFFLINE 전이 검증
-        transaction(database) {
-            val inst = MinecraftInstances.selectAll().where { MinecraftInstances.id eq instanceId }.single()
-            assertEquals("OFFLINE", inst[MinecraftInstances.status])
-        }
+        // 연결 종료 후 OFFLINE 전이 검증 (비동기 완료 대기)
+        awaitStatus(instanceId, "OFFLINE")
     }
 
     @Test
@@ -320,10 +331,7 @@ class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
             close()
         }
 
-        // 모든 세션이 종료된 후에는 OFFLINE으로 정상 전이
-        transaction(database) {
-            val inst = MinecraftInstances.selectAll().where { MinecraftInstances.id eq instanceId }.single()
-            assertEquals("OFFLINE", inst[MinecraftInstances.status])
-        }
+        // 모든 세션이 종료된 후에는 OFFLINE으로 정상 전이 (비동기 완료 대기)
+        awaitStatus(instanceId, "OFFLINE")
     }
 }
