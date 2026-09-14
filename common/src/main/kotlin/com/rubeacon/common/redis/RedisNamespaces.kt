@@ -28,4 +28,12 @@ object RedisNamespaces {
      * 특정 테넌트 전용 인게임-디스코드 양방향 채팅 Pub/Sub 채널 키 반환.
      */
     fun chatChannel(tenantId: String): String = "pubsub:chat:$tenantId"
+
+    const val HEARTBEAT_TTL_SECONDS = 60L
+
+    /**
+     * 마인크래프트 인스턴스의 실시간 생존 상태(Presence) 캐싱용 Redis Key 반환.
+     * PING 하트비트 수신 시 TTL(60초)을 갱신하여 RDB 커넥션 부하를 차단함.
+     */
+    fun instanceHeartbeatKey(instanceId: String): String = "presence:instance:$instanceId"
 }
