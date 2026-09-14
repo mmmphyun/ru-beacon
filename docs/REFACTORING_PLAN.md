@@ -44,7 +44,7 @@
 - **MODIFY**: `workflow-worker/src/main/kotlin/com/rubeacon/worker/consumer/RedisStreamsConsumer.kt`
   - `processEntry`의 무조건적 `xack` 제거. 성공 시에만 ACK, 장애 시 Pending 유지, Poison Pill만 DLQ(`stream:events:dlq`) 처리.
 
-### [Batch 3] 플러그인 충돌 방지 & DAG 정합성 (결함 5, 9)
+### [Batch 3] 플러그인 충돌 방지 & DAG 정합성 (결함 5, 9) (완료)
 - **MODIFY**: `minecraft-plugin/build.gradle.kts`
   - Shadow Jar 플러그인 적용 및 Ktor, Coroutines 리로케이션.
 - **MODIFY**: `workflow-worker/src/main/kotlin/com/rubeacon/worker/engine/DagWorkflowDispatcher.kt`
