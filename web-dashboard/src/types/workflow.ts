@@ -91,3 +91,38 @@ export interface InstanceItem {
   status: "ONLINE" | "OFFLINE" | "STALE";
   lastHeartbeatAt: string | null;
 }
+
+export interface TenantMemberItem {
+  tenantId: string;
+  guildName: string;
+  role: "OWNER" | "ADMIN";
+}
+
+export interface UserProfile {
+  discordUserId: string;
+  username: string;
+  avatar: string | null;
+  isPlatformSuperAdmin: boolean;
+  tenants: TenantMemberItem[];
+}
+
+export interface AuditLogItem {
+  id: string;
+  tenantId: string;
+  correlationId: string;
+  actorType: string;
+  actorId: string;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  status: string;
+  details: string;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
+export interface AuditLogPage {
+  items: AuditLogItem[];
+  nextCursor: string | null;
+}
+

@@ -231,4 +231,42 @@ export const WORKFLOW_PRESETS: { label: string; state: WizardFormState }[] = [
       },
     },
   },
+  {
+    label: "[양방향] Discord 버튼 클릭 → 인게임 다이아몬드 지급",
+    state: {
+      workflowName: "디스코드 출석체크 다이아 지급",
+      description: "Discord #출석 채널의 버튼 클릭 시 마인크래프트 서버에 접속 중인 플레이어에게 다이아몬드 3개를 지급합니다.",
+      triggerType: "DISCORD_BUTTON_CLICK",
+      triggerParams: {
+        customId: "btn_daily_diamond",
+      },
+      enableCondition: false,
+      conditionField: "",
+      conditionOperator: "EQUALS",
+      conditionValue: "",
+      actionType: "MINECRAFT_DISPATCH_COMMAND",
+      actionParams: {
+        command: "give {User_Nickname} diamond 3",
+      },
+    },
+  },
+  {
+    label: "[양방향] Discord 슬래시 커맨드 → 화이트리스트 자동 등록",
+    state: {
+      workflowName: "디스코드 인증 화이트리스트 등록",
+      description: "Discord에서 /인증 명령어를 실행하면 인게임 서버 화이트리스트에 즉시 플레이어를 등록합니다.",
+      triggerType: "DISCORD_SLASH_COMMAND",
+      triggerParams: {
+        customId: "/verify",
+      },
+      enableCondition: false,
+      conditionField: "",
+      conditionOperator: "EQUALS",
+      conditionValue: "",
+      actionType: "MINECRAFT_DISPATCH_COMMAND",
+      actionParams: {
+        command: "whitelist add {User_Nickname}",
+      },
+    },
+  },
 ];

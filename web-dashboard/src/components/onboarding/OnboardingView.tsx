@@ -11,9 +11,10 @@ import { Shield, Key, Copy, Check, Server, RefreshCw, Download } from "lucide-re
 
 interface OnboardingViewProps {
   tenantId: string;
+  isOwner?: boolean;
 }
 
-export function OnboardingView({ tenantId }: OnboardingViewProps) {
+export function OnboardingView({ tenantId, isOwner = true }: OnboardingViewProps) {
   const [config, setConfig] = useState<TenantConfig>({
     tenantId,
     name: "루비콘 마인크래프트 커뮤니티",
@@ -153,8 +154,8 @@ export function OnboardingView({ tenantId }: OnboardingViewProps) {
           <span className="text-xs text-emerald-400 font-medium">
             {savedMessage && "연동 설정이 저장되었습니다."}
           </span>
-          <Button size="sm" onClick={handleSaveConfig} disabled={loading}>
-            설정 저장
+          <Button size="sm" onClick={handleSaveConfig} disabled={loading || !isOwner}>
+            {isOwner ? "설정 저장" : "저장 권한 없음 (OWNER 전용)"}
           </Button>
         </CardFooter>
       </Card>
@@ -206,8 +207,12 @@ export function OnboardingView({ tenantId }: OnboardingViewProps) {
               </div>
             </div>
             <div className="flex justify-end pt-1">
-              <Button size="sm" onClick={handleIssueToken} disabled={loading || !newInstanceId || !newInstanceName}>
-                토큰 발급 (Issue Token)
+              <Button
+                size="sm"
+                onClick={handleIssueToken}
+                disabled={loading || !newInstanceId || !newInstanceName || !isOwner}
+              >
+                {isOwner ? "토큰 발급 (Issue Token)" : "발급 권한 없음 (OWNER 전용)"}
               </Button>
             </div>
           </div>
