@@ -562,6 +562,68 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 #### 3. 엔지니어링 성과
 - 인간 엔지니어의 중간 개입 없이도, Git 훅이 컴파일러처럼 에러를 뱉어 에이전트가 "최소 작업 단위 TDD 원자적 커밋"을 기계적으로 준수하도록 완벽히 통제.
 
+---
+
+### [테스트 엔지니어링] Ktor WebSocket 비동기 세션 종료와 DB 전이 간 레이스 컨디션(Flaky Test) 진단 및 박멸
+
+#### 1. 문제 발생 및 실패 분석 (Incident in CI Run 34813712159)
+- **현상**:
+  - 커밋 `dc47537` 푸시 후 GitHub Actions CI(`ci.yml`)에서 `:api-service:test`의 `WebSocketIngressAndRedisIntegrationTest` 중 `"동일 인스턴스 재연결 시 이전 세션의 종료 처리가 신규 세션의 ONLINE 상태를 덮어쓰지 않아야 한다()"` 테스트가 간헐적으로 실패(`AssertionFailedError at line 325`).
+- **근본 원인 (Root Cause)**:
+  - **비동기 이벤트 루프와 동기 assertion의 충돌**: Ktor WebSocket 클라이언트가 `close()`를 호출하면, 서버 측 핸들러 코루틴이 종료되면서 `finally` 블록에서 `authService.updateStatus(instanceId, "OFFLINE")`를 비동기 실행함.
+  - **테스트 코드의 동기식 즉시 조회 허점**: 테스트 코드가 `close()` 직후 0ms 만에 즉시 `transaction(database)`으로 `OFFLINE` 상태를 조회함.
+  - **환경 차이**: 로컬 고성능 PC에서는 우연히 수 ms 안에 DB UPDATE가 먼저 완료되었으나, GitHub Actions의 공유 2코어 Ubuntu VM에서는 컨테이너 부하로 인한 미세한 스케줄링 지연(수십 ms)으로 인해 DB UPDATE보다 테스트의 SELECT가 먼저 실행되는 타이밍 레이스 컨디션(Flaky Test)이 발생.
+
+#### 2. 엔지니어링 해결 조치 (Resolution)
+- **비동기 폴링 대기 헬퍼(`awaitStatus`) 도입 (`4a4fd61`)**:
+  - `close()` 후 단발성 동기 assertion을 제거하고, 최대 3,000ms 동안 50ms 간격으로 인스턴스 상태 전이를 검증하는 폴링 헬퍼 구현:
+    ```kotlin
+    private fun awaitStatus(instanceId: String, expectedStatus: String, timeoutMs: Long = 3000) {
+        val start = System.currentTimeMillis()
+        var currentStatus = ""
+        while (System.currentTimeMillis() - start < timeoutMs) {
+            currentStatus = transaction(database) {
+                MinecraftInstances.selectAll().where { MinecraftInstances.id eq instanceId }
+                    .singleOrNull()?.get(MinecraftInstances.status) ?: ""
+            }
+            if (currentStatus == expectedStatus) return
+            Thread.sleep(50)
+        }
+        assertEquals(expectedStatus, currentStatus)
+    }
+    ```
+  - 세션 종료 후 `OFFLINE` 전이를 검증하는 모든 테스트 케이스(단일 세션 종료, 재연결 세션 종료)에 `awaitStatus`를 일괄 적용하여 비결정론적 타이밍 실패를 영구 박멸.
+
+#### 3. 엔지니어링 교훈 (Lesson Learned)
+- **"비동기 시스템의 테스트는 반드시 상태 수렴(Eventual Consistency)을 전제해야 한다"**:
+  - 코루틴, 메시지 큐, 네트워크 소켓 등 비동기 바운더리를 넘나드는 통합 테스트에서는 단발성 동기 조회(`assertEquals`)를 지양하고, 적절한 타임아웃을 동반한 폴링 메커니즘을 적용해야 CI 클라우드 러너의 리소스 경합 환경에서도 무결한 결정론적(Deterministic) 테스트 스위트를 유지할 수 있음.
+
+---
+
+### [Batch 3] 플러그인 충돌 방지 & DAG 정합성 엔지니어링 인터뷰 일지
+
+#### 1. 아키텍처 트레이드오프 & 핵심 의사결정
+
+1. **DAG 합류 노드의 실패 내성 정책: 엄격한 Fail-Fast(All-or-Nothing) AND-Join 고수**
+   - *엔지니어의 판단*: 실무 워크플로우에 'Best-effort'나 '보조 데이터 수집'이 존재할 수 있으나, 마인크래프트 게임 서버 연동 특성상 "손상되거나 결손된 이벤트가 고객 서버에 부분 반영되어 경제 밸런스 붕괴나 보상 왜곡 책임을 지는 것보다, 파이프라인 전체가 즉시 실패(Fail-Fast)하는 것이 비즈니스적으로 압도적으로 안전한 방향"임.
+   - *아키텍처 결정*: 알파 단계에서는 단일 선행 노드라도 실패할 경우 후속 합류 노드의 진입을 차단하고 워크플로우를 `PARTIAL_FAILURE`로 종결하는 엄격한 AND-Join 정책을 유지함. 향후 고객의 명시적인 'Optional / Best-effort' 요구사항이 수집될 때 비로소 확장을 검토(YAGNI 원칙 준수).
+
+2. **조건 분기 후 Reconverge 합류 구조와 고객 자율성**
+   - *엔지니어의 판단*: 분기별 독립 종료 체인으로 강제하는 것은 아키텍처적 안티패턴이며, 디스코드 ↔ 마인크래프트 양방향 자동화 파이프라인에서 고객의 비즈니스 자율성을 보장하기 위해 다이아몬드 Reconverge(조건 분기 후 재합류) 지원은 필수적임.
+   - *아키텍처 결정*: 비선택 경로에 대한 연쇄 `prune` 감쇄 알고리즘을 도입하여 교착(Deadlock)을 방지하되, "모든 부모 평가 완료 AND 최소 1개 이상의 활성 부모 성공" 상태 전이를 보장함.
+
+3. **Paper 플러그인 격리 및 ServiceLoader SPI 무결성 확보**
+   - *엔지니어의 고민*: Paper 서버 런타임의 폐쇄성으로 인해 프로덕션 장애 시 원인 규명(디버깅)이 극도로 어려움. 고객 서버에서 무작정 상세 로그를 서버로 전송하는 것은 과도한 네트워크/I/O 리소스 압박을 유발.
+   - *아키텍처 결정*:
+     - `mergeServiceFiles()`를 ShadowJar에 필수 적용하여 `META-INF/services/` 내 FQCN 문자열이 리로케이션된 네임스페이스(`com.rubeacon.shadow.*`)로 정확히 매핑되도록 보장.
+     - 블랙박스 디버깅 완화를 위해 평소에는 네트워크 전송을 하지 않는 'In-Memory Ring Buffer 기반 장애 시점 Post-Mortem 단발 덤프' 및 '플러그인 `onEnable()` 시점의 Ktor CIO 엔진 사전 워밍업(Fail-Fast 헬스체크)' 전략을 설계에 반영.
+
+#### 2. 정량적 엔지니어링 지표
+- **패키지 격리**: Ktor Client CIO, Coroutines, Kotlinx Serialization 전 클래스를 `com.rubeacon.shadow.*` 네임스페이스로 100% 리로케이션 및 SPI 서비스 컨테이너 매핑 완료.
+- **DAG 무결성**: 다이아몬드 포크-합류 구조에서 합류 노드 실행 횟수 정확히 1회 보장 (중복 실행 결함 9 영구 해소).
+
+
+
 
 
 
