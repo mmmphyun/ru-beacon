@@ -22,7 +22,7 @@
 
 ## Batch별 세부 실행 계획
 
-### [Batch 1] 통신 파이프라인 복구 & 분산 세션 라우팅 (결함 1, 2, 6)
+### [Batch 1] 통신 파이프라인 복구 & 분산 세션 라우팅 (결함 1, 2, 6) (완료)
 - **NEW**: `api-service/src/main/kotlin/com/rubeacon/api/redis/RedisCommandConsumer.kt`
   - `stream:commands:request` 스트림을 Consumer Group(`api-ingress-group`)으로 폴링.
   - 로컬 `SessionRegistry`에 세션이 있으면 즉시 전송, 없으면 `pubsub:commands:broadcast` 채널로 브로드캐스트.
