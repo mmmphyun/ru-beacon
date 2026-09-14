@@ -76,6 +76,46 @@ if [ "$ALLOW_NO_TEST" != "true" ]; then
     fi
 fi
 
+# 4. 원자적 커밋 크기 및 파일 수 상한선 가드 (Atomic Commit Size & File Enforcer)
+if [ "$ALLOW_LARGE_COMMIT" != "true" ]; then
+    STAGED_FILES=$(git diff --cached --name-only)
+    FILE_COUNT=$(echo "$STAGED_FILES" | grep -vE "^(docs/|.*\.md$|LICENSE|\.githooks/)" | wc -l)
+    if [ "$FILE_COUNT" -gt 4 ]; then
+        echo ""
+        echo "================================================================================"
+        echo "[COMMIT REJECTED BY HARD GUARD] 원자적 커밋 파일 수 초과! ($FILE_COUNT개 파일)"
+        echo "--------------------------------------------------------------------------------"
+        echo "스테이징된 소스/테스트 파일 목록:"
+        echo "$STAGED_FILES" | grep -vE "^(docs/|.*\.md$|LICENSE|\.githooks/)"
+        echo ""
+        echo "Ru-Beacon 하네스 정책: 1-Task 1-Commit 원칙(atomic-commits)에 따라 단일 커밋은"
+        echo "최대 4개 소스/테스트 파일(기능 1~2개 + 테스트 1~2개)로 제한됩니다."
+        echo "작업을 원자 단위로 쪼개어 파일별로 분할 커밋(git add <file>)하십시오."
+        echo "(불가피한 대규모 파일 변경 예외: ALLOW_LARGE_COMMIT=true git commit ...)"
+        echo "================================================================================"
+        echo ""
+        exit 1
+    fi
+
+    CODE_STAT=$(git diff --cached --numstat | grep -vE "^[0-9-]+\s+[0-9-]+\s+(docs/|.*\.md$|LICENSE|\.githooks/)" || true)
+    if [ -n "$CODE_STAT" ]; then
+        TOTAL_LINES=$(echo "$CODE_STAT" | awk '{sum += $1 + $2} END {print sum}')
+        if [ "$TOTAL_LINES" -gt 250 ]; then
+            echo ""
+            echo "================================================================================"
+            echo "[COMMIT REJECTED BY HARD GUARD] 원자적 커밋 라인 수 초과! (코드 변경: $TOTAL_LINES 줄)"
+            echo "--------------------------------------------------------------------------------"
+            echo "Ru-Beacon 하네스 정책: 1-Task 1-Commit 원칙(atomic-commits)에 따라 단일 커밋의"
+            echo "순수 코드 변경량은 최대 250줄로 제한됩니다. (현재: $TOTAL_LINES 줄)"
+            echo "작업을 더 작은 단위로 쪼개어 분할 커밋하십시오."
+            echo "(불가피한 대규모 코드 변경 예외: ALLOW_LARGE_COMMIT=true git commit ...)"
+            echo "================================================================================"
+            echo ""
+            exit 1
+        fi
+    fi
+fi
+
 echo "[PRE-COMMIT HOOK] 실행 전 단위/통합 테스트 자동 검증 수행 중..."
 
 if [ -f "./gradlew" ]; then
