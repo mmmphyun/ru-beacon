@@ -42,6 +42,7 @@ class DagWorkflowDispatcher(
 
         val completedNodes = Collections.synchronizedList(mutableListOf<String>())
         val failedNodes = Collections.synchronizedList(mutableListOf<String>())
+        val prunedNodes = Collections.synchronizedSet(mutableSetOf<String>())
 
         // 2. DAG 각 노드의 In-degree (진입 차수) 계산하여 다이아몬드 합류 노드 1회 실행 보장
         val inDegreeMap = definition.nodes.associate { it.id to AtomicInteger(0) }
@@ -53,6 +54,7 @@ class DagWorkflowDispatcher(
 
         fun prune(nodeId: String) {
             if (inDegreeMap[nodeId]?.decrementAndGet() == 0) {
+                prunedNodes.add(nodeId)
                 val node = definition.nodes.find { it.id == nodeId } ?: return
                 node.nextNodeIds.forEach { prune(it) }
                 node.branches?.values?.flatten()?.forEach { prune(it) }
@@ -108,12 +110,24 @@ class DagWorkflowDispatcher(
                 is NodeResult.Failure -> {
                     log.warn("[{}] Node failed: id={}, reason={}, code={}", currentContext.correlationId, node.id, result.reason, result.errorCode)
                     failedNodes.add(node.id)
+
+                    // continueOnError 설정 시 실패를 기록하되 후속 파이프라인으로 In-degree 감쇄 및 진행 허용
+                    if (node.continueOnError && node.nextNodeIds.isNotEmpty()) {
+                        if (node.nextNodeIds.size > 1) {
+                            coroutineScope {
+                                node.nextNodeIds.map { nextId -> async { dispatchNode(nextId) } }.awaitAll()
+                            }
+                        } else {
+                            dispatchNode(node.nextNodeIds.first())
+                        }
+                    }
                 }
             }
         }
 
         dispatchNode = { nodeId ->
-            if (inDegreeMap[nodeId]?.decrementAndGet() == 0) {
+            val rem = inDegreeMap[nodeId]?.decrementAndGet()
+            if (rem == 0 && !prunedNodes.contains(nodeId)) {
                 executeNode(definition.findNode(nodeId))
             }
         }

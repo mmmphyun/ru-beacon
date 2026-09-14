@@ -117,4 +117,55 @@ class DagWorkflowDispatcherTest : BaseWorkerIntegrationTest() {
         assertNull(counts["c"])
         assertEquals(1, counts["d"]?.get(), "미선택 브랜치 prune 후 D 1회 실행")
     }
+
+    @Test
+    fun `continueOnError가 true인 노드가 실패하더라도 후속 노드는 정상 실행되어야 한다`() = runBlocking {
+        val tenant = "tenant_continue_on_err"
+        ensureTenant(tenant)
+        val dispatcher = DagWorkflowDispatcher(mapOf("TEST_NODE" to testExecutor(failNode = "b")), auditLogger)
+
+        // a -> b (fail, continueOnError=true) -> c
+        val wf = WorkflowDefinition(
+            trigger = WorkflowTrigger("trig", "test.event", listOf("a")),
+            nodes = listOf(
+                node("a", listOf("b")),
+                WorkflowNode("b", "TEST_NODE", inputs = mapOf("id" to JsonPrimitive("b")), nextNodeIds = listOf("c"), continueOnError = true),
+                node("c")
+            )
+        )
+        val res = dispatcher.run(wf, testEvent(tenant, "corr_continue"))
+
+        assertEquals("PARTIAL_FAILURE", res.status)
+        assertEquals(listOf("b"), res.failedNodes)
+        assertEquals(listOf("a", "c"), res.completedNodes)
+        assertEquals(1, counts["c"]?.get(), "b가 실패했으나 continueOnError로 인해 c가 정상 실행되어야 함")
+    }
+
+    @Test
+    fun `모든 부모가 prune된 합류 노드는 차수가 0이 되더라도 실행되지 않아야 한다`() = runBlocking {
+        val tenant = "tenant_all_pruned"
+        ensureTenant(tenant)
+        val executors = mapOf("CONDITION_BRANCH" to ConditionBranchExecutor(), "TEST_NODE" to testExecutor())
+        val dispatcher = DagWorkflowDispatcher(executors, auditLogger)
+
+        val wf = WorkflowDefinition(
+            trigger = WorkflowTrigger("trig", "test.event", listOf("cond")),
+            nodes = listOf(
+                WorkflowNode(
+                    id = "cond", nodeType = "CONDITION_BRANCH",
+                    inputs = mapOf("left" to JsonPrimitive("10"), "operator" to JsonPrimitive("GREATER_THAN"), "right" to JsonPrimitive("5")),
+                    branches = mapOf("on_true" to listOf("b"), "on_false" to listOf("c"))
+                ),
+                node("b"),
+                node("c", listOf("d")),
+                node("d")
+            )
+        )
+        val res = dispatcher.run(wf, testEvent(tenant, "corr_prune_guard"))
+
+        assertEquals("SUCCESS", res.status)
+        assertEquals(1, counts["b"]?.get())
+        assertNull(counts["c"], "c는 미선택으로 미실행")
+        assertNull(counts["d"], "c가 prune되어 d 역시 prunedNodes 가드에 의해 절대 실행되지 않아야 함")
+    }
 }

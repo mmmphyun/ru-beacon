@@ -18,7 +18,8 @@ data class WorkflowNode(
     @SerialName("node_type") val nodeType: String,
     val inputs: Map<String, JsonElement> = emptyMap(),
     val branches: Map<String, List<String>>? = null,
-    @SerialName("next_node_ids") val nextNodeIds: List<String> = emptyList()
+    @SerialName("next_node_ids") val nextNodeIds: List<String> = emptyList(),
+    @SerialName("continue_on_error") val continueOnError: Boolean = false
 )
 
 @Serializable
