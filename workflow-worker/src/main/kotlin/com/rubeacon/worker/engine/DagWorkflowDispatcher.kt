@@ -14,6 +14,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.slf4j.LoggerFactory
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 인메모리 DAG 기반 코루틴 병렬 워크플로우 디스패처.
@@ -42,6 +43,24 @@ class DagWorkflowDispatcher(
         val completedNodes = Collections.synchronizedList(mutableListOf<String>())
         val failedNodes = Collections.synchronizedList(mutableListOf<String>())
 
+        // 2. DAG 각 노드의 In-degree (진입 차수) 계산하여 다이아몬드 합류 노드 1회 실행 보장
+        val inDegreeMap = definition.nodes.associate { it.id to AtomicInteger(0) }
+        definition.trigger.nextNodeIds.forEach { inDegreeMap[it]?.incrementAndGet() }
+        for (node in definition.nodes) {
+            node.nextNodeIds.forEach { inDegreeMap[it]?.incrementAndGet() }
+            node.branches?.values?.flatten()?.forEach { inDegreeMap[it]?.incrementAndGet() }
+        }
+
+        fun prune(nodeId: String) {
+            if (inDegreeMap[nodeId]?.decrementAndGet() == 0) {
+                val node = definition.nodes.find { it.id == nodeId } ?: return
+                node.nextNodeIds.forEach { prune(it) }
+                node.branches?.values?.flatten()?.forEach { prune(it) }
+            }
+        }
+
+        lateinit var dispatchNode: suspend (String) -> Unit
+
         suspend fun executeNode(node: WorkflowNode) {
             log.info("[{}] Executing node: id={}, type={}", currentContext.correlationId, node.id, node.nodeType)
             val executor = executors[node.nodeType]
@@ -68,8 +87,11 @@ class DagWorkflowDispatcher(
                         }
                     }
 
-                    // 다음 분기 노드 결정
+                    // 다음 분기 노드 결정 및 In-degree Barrier 기반 디스패치
                     val nextIds = if (node.nodeType == "CONDITION_BRANCH") {
+                        node.branches?.forEach { (branch, targets) ->
+                            if (branch != result.branch) targets.forEach { prune(it) }
+                        }
                         node.branches?.get(result.branch) ?: emptyList()
                     } else {
                         node.nextNodeIds
@@ -77,26 +99,29 @@ class DagWorkflowDispatcher(
 
                     if (nextIds.size > 1) {
                         coroutineScope {
-                            nextIds.map { nextId ->
-                                async { executeNode(definition.findNode(nextId)) }
-                            }.awaitAll()
+                            nextIds.map { nextId -> async { dispatchNode(nextId) } }.awaitAll()
                         }
                     } else if (nextIds.size == 1) {
-                        executeNode(definition.findNode(nextIds.first()))
+                        dispatchNode(nextIds.first())
                     }
                 }
                 is NodeResult.Failure -> {
                     log.warn("[{}] Node failed: id={}, reason={}, code={}", currentContext.correlationId, node.id, result.reason, result.errorCode)
                     failedNodes.add(node.id)
-                    // 현재 브랜치 중단 (병렬로 실행 중인 다른 브랜치는 격리되어 계속 수행)
                 }
+            }
+        }
+
+        dispatchNode = { nodeId ->
+            if (inDegreeMap[nodeId]?.decrementAndGet() == 0) {
+                executeNode(definition.findNode(nodeId))
             }
         }
 
         // 트리거의 시작 노드 디스패치 (병렬 분기 지원)
         coroutineScope {
             definition.trigger.nextNodeIds.map { startId ->
-                async { executeNode(definition.findNode(startId)) }
+                async { dispatchNode(startId) }
             }.awaitAll()
         }
 
