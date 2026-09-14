@@ -4,25 +4,31 @@
 # Automatically runs test suite before allowing any commits
 # ==============================================================================
 
-# 1. 단독 문서(docs/ 또는 *.md) 커밋 차단 가드 (Atomic Co-located Commit Enforcer)
+# 1. 단독 문서(docs/ 또는 *.md) 커밋 가드 (Post-hoc Docs for feat/refactor Allowed)
 if [ "$ALLOW_DOCS_ONLY" != "true" ]; then
     STAGED_FILES=$(git diff --cached --name-only)
     if [ -n "$STAGED_FILES" ]; then
         NON_DOC_FILES=$(echo "$STAGED_FILES" | grep -vE "^(docs/|.*\.md$|LICENSE)")
         if [ -z "$NON_DOC_FILES" ]; then
-            echo ""
-            echo "================================================================================"
-            echo "[COMMIT REJECTED BY HARD GUARD] 단독 문서(docs/ 및 *.md) 커밋 금지!"
-            echo "--------------------------------------------------------------------------------"
-            echo "스테이징된 파일:"
-            echo "$STAGED_FILES"
-            echo ""
-            echo "Ru-Beacon 하네스 정책: 문서(일지, 체크리스트 등)는 독립 커밋으로 분리할 수 없으며,"
-            echo "반드시 기능 구현(feat) 또는 리팩터링(refactor) 코드/테스트와 함께 원자적으로 결합(Co-located)하여 커밋해야 합니다."
-            echo "(불가피한 단독 문서 커밋 예외 허용: ALLOW_DOCS_ONLY=true git commit ...)"
-            echo "================================================================================"
-            echo ""
-            exit 1
+            PREV_COMMIT_TYPE=$(git log -1 --pretty=format:"%s" 2>/dev/null | grep -oE "^[a-z]+" || true)
+            if [ "$PREV_COMMIT_TYPE" = "feat" ] || [ "$PREV_COMMIT_TYPE" = "refactor" ]; then
+                echo "[PRE-COMMIT HOOK] 직전 $PREV_COMMIT_TYPE 커밋에 연계된 정당한 사후 문서화(docs)가 승인되었습니다."
+            else
+                echo ""
+                echo "================================================================================"
+                echo "[COMMIT REJECTED BY HARD GUARD] 단독 문서(docs/ 및 *.md) 커밋 금지!"
+                echo "--------------------------------------------------------------------------------"
+                echo "스테이징된 파일:"
+                echo "$STAGED_FILES"
+                echo ""
+                echo "Ru-Beacon 하네스 정책: 직전 커밋이 feat 또는 refactor가 아닌 상태에서는 단독 문서 커밋이 거부됩니다."
+                echo "문서는 기능 구현(feat) 또는 리팩터링(refactor) 커밋과 원자적으로 결합하거나,"
+                echo "직전 feat/refactor 직후의 docs(log): 또는 docs(milestone): 사후 문서화여야 합니다."
+                echo "(불가피한 단독 문서 커밋 예외 허용: ALLOW_DOCS_ONLY=true git commit ...)"
+                echo "================================================================================"
+                echo ""
+                exit 1
+            fi
         fi
     fi
 fi

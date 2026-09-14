@@ -87,10 +87,10 @@
 - CI 결과는 디스코드 웹후크 비동기 알림을 1차 채널로 삼는다.
 - CI 실패 확인이 필요한 경우, `gh run view <ID> --log-failed` 등 실패 지점만 단일 명령으로 핀포인트 조회한다.
 
-### 3.7 원자적 결합 커밋 및 독립 docs 커밋 원천 금지 (Atomic Co-located Commit Protocol)
-- **독립 `docs` 커밋 원천 금지**: 체크리스트(`MILESTONES.md`), 엔지니어링 일지(`ENGINEERING_LOG.md`), 계획서(`REFACTORING_PLAN.md`) 등 문서만 단독으로 떼어내어 `docs(...)` 커밋을 생성하는 행위를 엄격히 금지한다.
-- **원자적 결합 (Co-located Commit)**: 문서 갱신은 반드시 기능 구현(`feat(...)`) 또는 점검/리팩터링(`refactor(...)`) 코드 및 테스트와 **동일한 커밋에 묶어서 원자적으로 커밋**해야 한다.
-- **하드 가드 연동**: 단독 문서 커밋 시 `.githooks/pre-commit` 및 `.githooks/commit-msg` 훅에 의해 커밋이 즉시 강제 거부(Exit 1)된다.
+### 3.7 원자적 결합 및 사후 docs 커밋 연계 승인 프로토콜 (Atomic Co-located & Post-hoc Docs Protocol)
+- **원칙적 원자적 결합 (Co-location)**: 계획서나 작업 내역 등 사전 문서는 반드시 기능 구현(`feat(...)`) 또는 리팩터링(`refactor(...)`) 코드/테스트와 동일한 커밋에 묶어서 원자적으로 커밋해야 한다.
+- **사후 docs 커밋 공식 예외 허용**: 직전 커밋이 `feat` 또는 `refactor`인 경우에 한해, 후속 엔지니어링 인터뷰 일지 기록(`docs(log):`) 및 마일스톤 체크리스트 갱신(`docs(milestone):`)의 단독 커밋 생성을 공식 허용한다. (하네스 우회를 위한 무의미한 사족 코드 날조 원천 차단)
+- **하드 가드 연동**: 직전 커밋이 `feat`/`refactor`가 아니거나 허용되지 않은 스코프의 임의 `docs` 커밋 시 `.githooks/pre-commit` 및 `.githooks/commit-msg` 훅에 의해 즉시 강제 거부(Exit 1)된다.
 
 ### 3.8 1-Task 1-Commit 원자적 분할 원칙 (Single Scope & TDD Co-location)
 - **빅뱅 커밋 원천 금지**: 여러 서브모듈을 동시에 수정하거나 전체 배치를 통째로 커밋하는 행위를 엄격히 금지한다.

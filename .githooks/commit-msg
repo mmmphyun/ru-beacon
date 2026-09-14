@@ -12,25 +12,41 @@ if echo "$COMMIT_MSG" | grep -qE "^(Merge |Revert |v[0-9])"; then
     exit 0
 fi
 
-# 0. docs 커밋 타입 단독 사용 차단 가드 (Atomic Co-located Commit Enforcer)
+# 0. docs 커밋 타입 단독 사용 가드 (Post-hoc docs(log|milestone) for feat/refactor Allowed)
 if [ "$ALLOW_DOCS_ONLY" != "true" ]; then
     if echo "$COMMIT_MSG" | grep -qE "^docs(\([a-z0-9_-]+\))?:"; then
-        echo ""
-        echo "================================================================================"
-        echo "[COMMIT REJECTED BY HARD GUARD] docs 커밋 타입 단독 사용 금지!"
-        echo "--------------------------------------------------------------------------------"
-        echo "입력된 커밋 메시지: $COMMIT_MSG"
-        echo ""
-        echo "Ru-Beacon 하네스 정책: 문서화는 독립 docs 커밋이 아닌, 기능 구현(feat) 또는"
-        echo "리팩터링(refactor) 커밋에 코드/테스트와 함께 원자적으로 결합되어야 합니다."
-        echo ""
-        echo "올바른 방식:"
-        echo "  - feat(worker): 워커 안정성 구현 및 엔지니어링 일지 기록"
-        echo "  - refactor(api): 분산 세션 라우팅 정리 및 체크리스트 갱신"
-        echo "(불가피한 단독 문서 커밋 예외 허용: ALLOW_DOCS_ONLY=true git commit ...)"
-        echo "================================================================================"
-        echo ""
-        exit 1
+        PREV_COMMIT_TYPE=$(git log -1 --pretty=format:"%s" 2>/dev/null | grep -oE "^[a-z]+" || true)
+        if [ "$PREV_COMMIT_TYPE" = "feat" ] || [ "$PREV_COMMIT_TYPE" = "refactor" ]; then
+            if echo "$COMMIT_MSG" | grep -qE "^docs\((log|milestone)\):"; then
+                echo "[COMMIT-MSG HOOK] 직전 $PREV_COMMIT_TYPE 커밋에 연계된 정당한 사후 문서화($COMMIT_MSG)가 승인되었습니다."
+            else
+                echo ""
+                echo "================================================================================"
+                echo "[COMMIT REJECTED BY HARD GUARD] 사후 docs 커밋 스코프 제한 위반!"
+                echo "--------------------------------------------------------------------------------"
+                echo "입력된 커밋 메시지: $COMMIT_MSG"
+                echo ""
+                echo "직전 feat/refactor 커밋에 연계된 단독 문서 커밋은 오직 아래 스코프만 허용됩니다:"
+                echo "  - docs(log): <한글 요약> (엔지니어링 일지 기록)"
+                echo "  - docs(milestone): <한글 요약> (마일스톤/체크리스트 갱신)"
+                echo "================================================================================"
+                echo ""
+                exit 1
+            fi
+        else
+            echo ""
+            echo "================================================================================"
+            echo "[COMMIT REJECTED BY HARD GUARD] docs 커밋 타입 단독 사용 금지!"
+            echo "--------------------------------------------------------------------------------"
+            echo "입력된 커밋 메시지: $COMMIT_MSG"
+            echo ""
+            echo "Ru-Beacon 하네스 정책: 직전 커밋이 feat 또는 refactor가 아닌 상태에서는 독립 docs 커밋을 생성할 수 없습니다."
+            echo "문서화는 기능 구현(feat) 또는 리팩터링(refactor) 커밋에 코드/테스트와 함께 원자적으로 결합되어야 합니다."
+            echo "(불가피한 단독 문서 커밋 예외 허용: ALLOW_DOCS_ONLY=true git commit ...)"
+            echo "================================================================================"
+            echo ""
+            exit 1
+        fi
     fi
 fi
 
