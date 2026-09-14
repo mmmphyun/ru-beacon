@@ -6,6 +6,8 @@ import com.rubeacon.common.serialization.RuBeaconJson
 import com.rubeacon.worker.engine.DagWorkflowDispatcher
 import com.rubeacon.worker.engine.WorkflowDefinition
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -22,6 +24,7 @@ import redis.clients.jedis.params.XReadGroupParams
 
 import java.util.concurrent.ConcurrentHashMap
 import redis.clients.jedis.params.XAddParams
+import com.rubeacon.worker.db.AuditLogger
 
 /**
  * Redis Streams 이벤트 안전 소비 및 복구(XAUTOCLAIM) 컨슈머.
@@ -34,7 +37,8 @@ class RedisStreamsConsumer(
     private val groupName: String = RedisNamespaces.GROUP_WORKER,
     private val consumerName: String = "worker_${java.util.UUID.randomUUID().toString().take(8)}",
     private val dlqStream: String = DEFAULT_DLQ_STREAM,
-    private val maxDeliveries: Long = 3
+    private val maxDeliveries: Long = 3,
+    private val auditLogger: AuditLogger? = null
 ) {
     companion object {
         const val DEFAULT_DLQ_STREAM = "stream:events:dlq"
@@ -134,9 +138,10 @@ class RedisStreamsConsumer(
      */
     private suspend fun processEntry(stream: String, entry: redis.clients.jedis.resps.StreamEntry): Boolean {
         val payloadJson = entry.fields["payload"] ?: entry.fields["data"]
+        val tenantFromStream = stream.removePrefix("stream:events:")
         if (payloadJson.isNullOrBlank()) {
             log.error("Stream entry {} in {} payload is null or blank -> routing to DLQ", entry.id, stream)
-            routeToDlqAndAck(stream, entry, payloadJson, "Payload is null or blank")
+            routeToDlqAndAck(stream, entry, payloadJson, "Payload is null or blank", "unknown", tenantFromStream)
             return false
         }
 
@@ -144,7 +149,7 @@ class RedisStreamsConsumer(
             RuBeaconJson.default.decodeFromString<EventEnvelope>(payloadJson)
         } catch (e: Exception) {
             log.error("Failed to parse EventEnvelope for entry {} in {} (Poison Pill) -> routing to DLQ: {}", entry.id, stream, e.message)
-            routeToDlqAndAck(stream, entry, payloadJson, "Deserialization failure: ${e.message}")
+            routeToDlqAndAck(stream, entry, payloadJson, "Deserialization failure: ${e.message}", "unknown", tenantFromStream)
             return false
         }
 
@@ -165,7 +170,7 @@ class RedisStreamsConsumer(
             val deliveries = getDeliveryCount(stream, entry.id)
             if (deliveries >= maxDeliveries) {
                 log.error("[{}] Entry {} exceeded max deliveries ({}) -> routing to DLQ", event.correlationId, entry.id, maxDeliveries)
-                routeToDlqAndAck(stream, entry, payloadJson, "Exceeded max deliveries ($deliveries): ${e.message}")
+                routeToDlqAndAck(stream, entry, payloadJson, "Exceeded max deliveries ($deliveries): ${e.message}", event.correlationId, event.tenantId)
             }
             // 일시적 장애는 ACK하지 않고 Pending 유지
             false
@@ -183,11 +188,13 @@ class RedisStreamsConsumer(
         }.getOrDefault(1L)
     }
 
-    private fun routeToDlqAndAck(
+    private suspend fun routeToDlqAndAck(
         stream: String,
         entry: redis.clients.jedis.resps.StreamEntry,
         payloadJson: String?,
-        reason: String
+        reason: String,
+        correlationId: String = "unknown",
+        tenantId: String = stream.removePrefix("stream:events:")
     ) {
         try {
             val dlqFields = mutableMapOf(
@@ -200,6 +207,31 @@ class RedisStreamsConsumer(
                 dlqFields["payload"] = payloadJson
             }
             jedis.xadd(dlqStream, XAddParams.xAddParams().maxLen(RedisNamespaces.STREAM_MAX_LEN).approximateTrimming(), dlqFields)
+
+            // 운영자 감사 로그 영속화 (JSONB 문법 및 외래키 정합성 보장)
+            val safeDetailsJson = buildJsonObject {
+                put("error_reason", reason)
+                put("failure_type", "PERMANENT_FAILURE")
+                put("original_stream", stream)
+                put("original_entry_id", entry.id.toString())
+                if (payloadJson != null) {
+                    try {
+                        put("payload", RuBeaconJson.default.parseToJsonElement(payloadJson))
+                    } catch (_: Exception) {
+                        put("raw_payload", payloadJson)
+                    }
+                }
+            }.toString()
+
+            auditLogger?.record(
+                tenantId = tenantId,
+                correlationId = correlationId,
+                actorType = "SYSTEM",
+                actorId = "worker_dlq",
+                action = "EVENT_ROUTED_TO_DLQ",
+                status = "FAILURE",
+                detailsJson = safeDetailsJson
+            )
         } catch (e: Exception) {
             log.error("Failed to write entry {} to DLQ {}: {}", entry.id, dlqStream, e.message, e)
         } finally {

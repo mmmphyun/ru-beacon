@@ -8,8 +8,10 @@ import com.rubeacon.worker.engine.WorkflowNode
 import com.rubeacon.worker.engine.WorkflowTrigger
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonPrimitive
+import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.insertIgnore
+import org.jetbrains.exposed.sql.update
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -130,5 +132,74 @@ class CachedWorkflowLookupTest : BaseWorkerIntegrationTest() {
         val second = lookup("non_existent_event", tenantId)
         assertNull(second)
         assertEquals(1, missCounter.get(), "존재하지 않는 이벤트도 캐싱되어 DB 재조회를 방지해야 함")
+    }
+
+    @Test
+    fun `버전 불일치 감지 시 캐시를 강제 무효화하고 최신 워크플로우 버전을 DB에서 갱신해야 한다`() {
+        val wfId = "wf_version_guard"
+        val eventType = "minecraft.player.death"
+
+        // 버전 1 삽입 및 캐싱
+        val defV1 = WorkflowDefinition(
+            version = 1,
+            trigger = WorkflowTrigger("trig_1", eventType, listOf("node_1")),
+            nodes = listOf(WorkflowNode("node_1", "MINECRAFT_DISPATCH_COMMAND", mapOf("cmd" to JsonPrimitive("v1"))))
+        )
+        transaction(database) {
+            Workflows.insertIgnore {
+                it[id] = wfId
+                it[tenantId] = this@CachedWorkflowLookupTest.tenantId
+                it[name] = "Version Test"
+                it[activeVersion] = 1
+            }
+            WorkflowVersions.insert {
+                it[id] = "${wfId}_v1"
+                it[workflowId] = wfId
+                it[tenantId] = this@CachedWorkflowLookupTest.tenantId
+                it[version] = 1
+                it[status] = "ACTIVE"
+                it[definition] = RuBeaconJson.default.encodeToString(defV1)
+            }
+        }
+
+        val missCounter = AtomicInteger(0)
+        val lookup = CachedWorkflowLookup(
+            database = database,
+            maxSize = 100,
+            expireDuration = Duration.ofMinutes(5),
+            onCacheMiss = { missCounter.incrementAndGet() }
+        )
+
+        // 1차 조회 -> v1 캐싱
+        val loadedV1 = lookup(eventType, tenantId)
+        assertNotNull(loadedV1)
+        assertEquals(1, loadedV1.version)
+        assertEquals(1, missCounter.get())
+
+        // DB에서 버전 2 활성화 (기존 v1은 INACTIVE로 변경)
+        val defV2 = WorkflowDefinition(
+            version = 2,
+            trigger = WorkflowTrigger("trig_1", eventType, listOf("node_1")),
+            nodes = listOf(WorkflowNode("node_1", "MINECRAFT_DISPATCH_COMMAND", mapOf("cmd" to JsonPrimitive("v2"))))
+        )
+        transaction(database) {
+            WorkflowVersions.update({ (WorkflowVersions.workflowId eq wfId) and (WorkflowVersions.version eq 1) }) {
+                it[status] = "INACTIVE"
+            }
+            WorkflowVersions.insert {
+                it[id] = "${wfId}_v2"
+                it[workflowId] = wfId
+                it[tenantId] = this@CachedWorkflowLookupTest.tenantId
+                it[version] = 2
+                it[status] = "ACTIVE"
+                it[definition] = RuBeaconJson.default.encodeToString(defV2)
+            }
+        }
+
+        // Pub/Sub Invalidation이 유실되었으나 이벤트 봉투에 expectedVersion=2가 명시된 상황 시뮬레이션
+        val guarded = lookup.getOrRefreshIfVersionMismatch(eventType, tenantId, expectedVersion = 2)
+        assertNotNull(guarded)
+        assertEquals(2, guarded.version, "버전 불일치 감지 후 v2로 정상 갱신되어야 함")
+        assertEquals(2, missCounter.get(), "불일치 시 캐시 무효화 후 DB 재조회가 발생해야 함")
     }
 }

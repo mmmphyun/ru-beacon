@@ -108,7 +108,7 @@ fun main() {
         expireDuration = java.time.Duration.ofMinutes(5)
     )
 
-    val consumer = RedisStreamsConsumer(jedis, dispatcher, cachedWorkflowLookup::invoke)
+    val consumer = RedisStreamsConsumer(jedis, dispatcher, cachedWorkflowLookup::invoke, auditLogger = auditLogger)
     val workerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     // Metrics & Health Server

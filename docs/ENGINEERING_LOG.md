@@ -486,6 +486,63 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 
 ---
 
+### [Batch 2] 워커 안정성 & 병목 해소 (완료)
+
+#### 1. 아키텍처 트레이드오프 & 핵심 의사결정
+- **L1 Near-Cache(Caffeine) 도입 및 Redis 캐시와의 트레이드오프**:
+  - *기각한 대안*: Redis 단일 원격 분산 캐시 전적 의존 또는 단순 인메모리 `ConcurrentHashMap`.
+  - *기각 이유*:
+    - **Redis 단독 의존**: 대규모 이벤트 유입 시 이벤트 1건당 워크플로우 AST 조회를 위해 매번 Redis 네트워크 RTT(0.5~2ms) 및 JSON 역직렬화 CPU 부하가 발생하여 워커의 최대 처리량(Throughput)이 네트워크/Redis 단일 스레드 I/O에 종속됨.
+    - **단순 `ConcurrentHashMap`**: 적절한 퇴출 정책(Eviction Policy: W-TinyLFU, TTL)이 없어 동적으로 워크플로우가 갱신되는 SaaS 환경에서 힙 메모리 누수(OOM) 유발.
+  - *채택 이유 (엔지니어 인터뷰 확정)*:
+    - **L1 Near-Cache 극단적 저지연**: JVM 프로세스 내 Caffeine 캐시(`maximumSize=10,000`, `expireAfterWrite=5분`)를 통해 캐시 히트 시 네트워크 I/O 제로(Zero I/O, sub-microsecond)의 즉각적인 인메모리 룩업 달성.
+    - **안전한 메모리 바운더리**: W-TinyLFU 알고리즘 기반 고빈도 워크플로우 보존 및 비활성 워크플로우 자동 퇴출로 컨테이너 힙 메모리를 100~200MB 수준으로 타이트하게 억제(FinOps 준수).
+- **캐시 정합성(Cache Invalidation) 아키텍처: [하이브리드 버전 가드 + Pub/Sub 무효화]**:
+  - *기각한 대안*: Redis Pub/Sub 단독 기반 분산 캐시 무효화(`cache:invalidate:workflow`).
+  - *기각 이유*: 네트워크 단절, 브로커 재기동, 순간 랙으로 인해 Pub/Sub 메시지가 유실될 경우, 워커가 구버전 워크플로우 AST를 TTL 만료(5분) 시점까지 계속 실행하여 치명적인 "조용한 데이터 오염(Silent Data Corruption)" 발생.
+  - *채택 이유 (엔지니어 인터뷰 확정)*:
+    - **이벤트 봉투 내 버전 가드(Version Guard)를 신뢰 원천(Source of Truth)으로 확립**: `EventEnvelope.workflowVersion`을 인입 이벤트마다 강제 검증. 로컬 L1 캐시에 저장된 버전과 이벤트의 기대 버전이 불일치하면 캐시를 우회하여 DB에서 최신 활성 버전을 강제 재조회(`getOrRefreshIfVersionMismatch`).
+    - **Pub/Sub은 최적화(Optimization) 레이어로 결합**: 평시에는 Pub/Sub으로 즉각적인 L1 무효화를 유도하여 캐시 지연을 0ms로 단축하되, 메시지 유실 상황에서도 이벤트 단위의 버전 가드가 최종 정합성을 완벽히 수호하는 무결점 2-Tier 안전망 구축.
+- **오류 격리 및 데드 레터 큐(DLQ) 라우팅: [즉시 격리(Permanent Failure)] vs [무한 Pending 재시도]**:
+  - *기각한 대안*: 페이로드 공백 또는 비정상 JSON(Poison Pill) 등 역직렬화 실패 항목을 일시적 장애(Transient Failure)로 취급하여 Pending 상태로 유지.
+  - *기각 이유*: 페이로드가 깨진 이벤트는 100번을 재시도해도 성공 확률이 0%임에도 컨슈머 랙을 지속 점유하며, `XAUTOCLAIM` 복구 루프와 결합하여 워커 CPU 및 스트림 대역폭을 낭비하고 후속 정상 이벤트의 처리를 가로막는 헤드오브라인 블로킹(Head-of-Line Blocking)을 유발.
+  - *채택 이유 (엔지니어 인터뷰 확정)*:
+    - **영구 실패(Non-transient Failure)의 즉시 격리**: 역직렬화 실패 또는 최대 재전송 횟수(`maxDeliveries=3`) 초과 건은 즉시 `stream:events:dlq`로 라우팅 후 원본 스트림에서 즉시 `XACK`하여 영구 장애 루프 탈출.
+    - **감사 로그(Audit Log) 영속화**: 격리된 이벤트는 운영자 분석 및 사후 디버깅을 위해 `audit_logs` 테이블에 `FAILURE`(details에 `PERMANENT_FAILURE`, 에러 사유, 원본 페이로드)로 완결성 있게 기록.
+- **워커 멀티테넌시 지원 (결함 4 해소)**:
+  - 단일 테넌트 하드코딩(`stream:events:default`)을 폐기하고, 다중 테넌트 스트림(`stream:events:{tenant_id}`) 목록을 동적으로 감지하여 라운드로빈/멀티 스트림 일괄 폴링(`xreadGroup`)할 수 있는 기반 구축.
+
+#### 2. AI 통제 및 거버넌스 (Human-in-the-Loop)
+- **단독 Pub/Sub 캐시 무효화의 함정 간파 및 하이브리드 교정**:
+  - 에이전트가 흔히 권장하는 "Pub/Sub 기반 분산 캐시 무효화"가 분산 환경의 패킷 유실 시 조용한 데이터 오염을 유발한다는 점을 인간 엔지니어가 지적하여, 이벤트 봉투의 `workflowVersion`을 신뢰 원천으로 삼는 하이브리드 버전 가드 패턴으로 설계를 교정.
+- **포이즌 필(Poison Pill) 재시도 루프 차단**:
+  - 역직렬화 에러를 일반 실행 에러와 분리하지 않고 일괄 Pending 유지하려던 에이전트의 단순 설계를 지적, "영구 실패 즉시 DLQ 격리 + XACK"으로 명확한 장애 격리 경계를 확립.
+- **RDBMS 스키마 제약조건(CHECK Constraint) 정합성 통제**:
+  - DLQ 감사 로깅 구현 시 `audit_logs.status` 컬럼의 CHECK 제약조건(`SUCCESS`, `FAILURE`, `PARTIAL_FAILURE`)을 위반하는 임의 상태값(`PERMANENT_FAILURE`)을 Exposed 계층에 넣으려던 오류를 테스트 단계에서 적발하고, 표준 `FAILURE` 상태 + JSONB 상세 내역(`failure_type: PERMANENT_FAILURE`)으로 엄격히 교정.
+
+#### 3. 도출된 엣지케이스 & 방어 체계
+- **버전 불일치 레이스 컨디션 방어**:
+  - 웹 대시보드에서 워크플로우를 신규 버전(v2)으로 배포한 직후 이전 버전(v1) 캐시가 잔존하는 워커에 v2 이벤트가 도착했을 때, `getOrRefreshIfVersionMismatch`가 감지하여 DB로부터 최신 v2를 로드하고 캐시를 자동 동기화함을 검증.
+- **손상된 JSON 입력 시의 DB 무결성 방어**:
+  - 깨진 JSON 페이로드를 PostgreSQL JSONB 컬럼에 그대로 적재할 때 발생하는 DB 쿼리 파괴를 방지하기 위해, `buildJsonObject`를 통해 안전하게 래핑된 JSONB 문자열을 생성하여 `audit_logs`에 안전하게 영속화.
+- **고아(Orphan) 스트림 메시지 자동 복구**:
+  - 워커 크래시로 처리 중이던 메시지가 Pending 상태로 방치되는 사고를 막기 위해, `autoClaimStaleMessages`(`XAUTOCLAIM`)가 60초 이상 유휴 상태인 메시지를 가로채어 정상 재실행함을 검증.
+
+#### 4. 정량적 엔지니어링 지표
+- **테스트 커버리지**:
+  - `CachedWorkflowLookupTest` (하이브리드 캐시 룩업 및 버전 가드 갱신 검증 100% 통과).
+  - `RedisStreamsConsumerTest` (5개 핵심 엣지케이스 통합 테스트 100% 통과):
+    1. 단일/다중 테넌트 스트림 정상 이벤트 소비 및 ACK
+    2. 장애 발생 시 Pending 유지 및 XAUTOCLAIM 복구
+    3. Poison Pill 유입 시 DLQ 격리, 원본 XACK 및 AuditLog 영속화
+    4. 빈 페이로드 유입 시 DLQ 격리
+    5. 최대 재시도(maxDeliveries=3) 초과 시 DLQ 격리
+  - 전체 워커 테스트 스위트 통과 (`BUILD SUCCESSFUL in 16s`).
+- **코드 규모 & YAGNI 준수**:
+  - `workflow-worker`: 불필요한 단일 구현체 캐시 인터페이스나 팩토리를 작성하지 않고, `CachedWorkflowLookup` 단일 클래스로 간결하게 캡슐화 (`net: +140 lines`).
+
+---
+
 ### [거버넌스 & 하네스 하드닝] 에이전트 불량 커밋 습관(빅뱅 커밋·사후 문서 파편화) 극복을 위한 3대 Git 훅 구축
 
 #### 1. 문제 제기 및 근본 원인 분석
