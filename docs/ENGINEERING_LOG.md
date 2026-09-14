@@ -470,5 +470,20 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
   - 전체 멀티모듈 24개 태스크 Green 통과 (`BUILD SUCCESSFUL in 9s`).
 - **코드 규모**: `net: +775 lines` (신규 파일 `RedisCommandConsumer.kt`, 통합 테스트 1개, 불필요한 단일 구현체 인터페이스/팩토리 0개 준수).
 
+#### 5. 심층 고찰 및 향후 아키텍처 진화 방향 (SaaS Tiering & Scalability Path)
+- **발단이 된 기술적 질문**:
+  - *"단일 봇 세션으로 여러 고객에게 서비스할 때 봇의 부하는 정말 문제가 없는가?"*
+  - *"길드 수(서버 수) 기준으로만 설계하면, 단 1개 길드에서 대규모 동시 이벤트(Burst TPS)가 터졌을 때 전체 서비스가 마비되지 않는가?"*
+- **사고의 전개 과정 및 근본 한계 도출**:
+  1. **길드 수 vs 피크 이벤트량(Burst TPS)의 불균형**: 길드 수는 단순 웹소켓 연결 유지 비용일 뿐이며, 실제 붕괴 지점은 "단일 대형 길드의 순간 피크 이벤트(초당 수백 건의 `/attend` 등)"와 "디스코드 전역(50 req/s) 및 채널별(5 req/s) REST API 레이트 리밋"의 충돌(Noisy Neighbor)임.
+  2. **아웃바운드 스트림의 단일 병목**: 인바운드 비즈니스 이벤트는 `stream:events:{tenant_id}`로 분리되어 있으나, 디스코드 아웃바운드 액션은 `stream:discord:actions` 단일 스트림에 집중되어 대형 서버 1곳의 429 지연이 소형 서버의 필수 인증 응답까지 가로막는 헤드오브라인 블로킹(Head-of-Line Blocking) 위험 적발.
+  3. **알파 vs 프로덕션 철학의 분리**: 현 알파 단계에서는 YAGNI/포니테일 원칙에 따라 단일 Kord 봇 인스턴스 + 단일 액션 스트림으로 초경량 FinOps(RAM 256MB)를 달성하되, 불특정 다수가 유입되는 오픈 베타/프로덕션 단계에서는 **비즈니스 구독 모델(Free/Pro/Enterprise)과 연계된 4단계 인프라 쿼터 제어 체계**로 반드시 진화해야 함을 도출.
+- **확정된 아키텍처 진화 로드맵 (SaaS Multi-Tiering Plan)**:
+  1. **Ingress Token Bucket (유입 제어)**: Redis 기반 테넌트별 초당 처리량(Free 10 TPS, Pro 50 TPS, Enterprise 200 TPS) 강제 및 초과 시 429 즉시 차단.
+  2. **Workflow Concurrent Slots (연산 제어)**: 테넌트당 활성 워크플로우 인스턴스 동시 실행 수 제약 (Free 2개, Pro 10개, Enterprise 50개).
+  3. **Egress Action Streams 파티셔닝 (출력 제어)**: `stream:discord:actions:{tier}:{tenant_id}` 분리를 통해 대형 테넌트의 디스코드 429 지연이 다른 테넌트에 전파되는 것을 원천 차단.
+  4. **BYOB (Bring Your Own Bot) 전용 격리**: 최상위 Enterprise 고객에게는 독자적인 디스코드 봇 토큰 등록 기능을 제공하여, 공용 봇의 50 req/s 레이트리밋 풀을 공유하지 않는 완전한 전용 인프라 격리 보장.
+
+
 
 
