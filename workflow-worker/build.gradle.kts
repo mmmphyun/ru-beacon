@@ -43,6 +43,9 @@ dependencies {
     // Redis
     implementation("redis.clients:jedis:5.1.2")
 
+    // In-Memory Cache (Caffeine)
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
+
     // Test
     testImplementation(kotlin("test"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")

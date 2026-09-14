@@ -3,6 +3,7 @@ package com.rubeacon.worker
 import com.rubeacon.common.redis.RedisNamespaces
 import com.rubeacon.worker.consumer.RedisStreamsConsumer
 import com.rubeacon.worker.db.AuditLogger
+import com.rubeacon.worker.db.Tenants
 import com.rubeacon.worker.db.WorkflowVersions
 import com.rubeacon.worker.engine.AttendanceReservationExecutor
 import com.rubeacon.worker.engine.ConditionBranchExecutor
@@ -100,24 +101,14 @@ fun main() {
     val dispatcher = DagWorkflowDispatcher(executors, auditLogger)
     val json = Json { ignoreUnknownKeys = true }
 
-    val workflowLookup: suspend (String, String) -> WorkflowDefinition? = { eventType, tenantId ->
-        transaction(database) {
-            WorkflowVersions.selectAll().where {
-                (WorkflowVersions.tenantId eq tenantId) and (WorkflowVersions.status eq "ACTIVE")
-            }.mapNotNull {
-                val defJson = it[WorkflowVersions.definition]
-                try {
-                    val def = json.decodeFromString<WorkflowDefinition>(defJson)
-                    if (def.trigger.eventType == eventType) def else null
-                } catch (e: Exception) {
-                    log.error("워크플로우 역직렬화 실패: {}", e.message)
-                    null
-                }
-            }.firstOrNull()
-        }
-    }
+    val cachedWorkflowLookup = CachedWorkflowLookup(
+        database = database,
+        json = json,
+        maxSize = 10_000,
+        expireDuration = java.time.Duration.ofMinutes(5)
+    )
 
-    val consumer = RedisStreamsConsumer(jedis, dispatcher, workflowLookup)
+    val consumer = RedisStreamsConsumer(jedis, dispatcher, cachedWorkflowLookup::invoke)
     val workerScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     // Metrics & Health Server
@@ -133,10 +124,22 @@ fun main() {
         workerMetricsModule(meterRegistry)
     }
 
-    // 스트림 컨슈머 백그라운드 기동
-    val streamKey = RedisNamespaces.eventsStream("default")
-    log.info("Streams 컨슈머 루프 시작: {}", streamKey)
-    val consumerJob = consumer.start(workerScope, stream = streamKey)
+    // 스트림 컨슈머 백그라운드 기동 (다중 테넌트 지원)
+    val streamsSupplier: () -> List<String> = {
+        val envTenants = System.getenv("TENANT_IDS")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
+        val tenantIds = if (!envTenants.isNullOrEmpty()) {
+            envTenants
+        } else {
+            val dbTenants = transaction(database) {
+                Tenants.selectAll().map { it[Tenants.id] }
+            }
+            if (dbTenants.isNotEmpty()) dbTenants else listOf("default")
+        }
+        tenantIds.map { RedisNamespaces.eventsStream(it) }
+    }
+
+    log.info("Streams 컨슈머 루프 시작 (다중 테넌트 동적 감지 지원)")
+    val consumerJob = consumer.start(workerScope, streamsSupplier = streamsSupplier)
 
     Runtime.getRuntime().addShutdownHook(Thread {
         log.info("Workflow Worker 안전 종료 중 (Graceful Drain)...")

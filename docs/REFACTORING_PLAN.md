@@ -35,7 +35,7 @@
 - **MODIFY**: `api-service/src/main/kotlin/com/rubeacon/api/Application.kt`
   - `RedisCommandConsumer` 라이프사이클 등록 및 코루틴 실행.
 
-### [Batch 2] 워커 안정성 & 병목 해소 (결함 3, 4, 7)
+### [Batch 2] 워커 안정성 & 병목 해소 (결함 3, 4, 7) (완료)
 - **MODIFY**: `workflow-worker/build.gradle.kts`
   - `com.github.ben-manes.caffeine:caffeine:3.1.8` 의존성 추가.
 - **MODIFY**: `workflow-worker/src/main/kotlin/com/rubeacon/worker/WorkerMain.kt`

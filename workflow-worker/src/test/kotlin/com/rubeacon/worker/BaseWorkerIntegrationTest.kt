@@ -4,6 +4,8 @@ import com.rubeacon.worker.db.AttendanceQuotas
 import com.rubeacon.worker.db.AuditLogs
 import com.rubeacon.worker.db.RewardReservations
 import com.rubeacon.worker.db.Tenants
+import com.rubeacon.worker.db.Workflows
+import com.rubeacon.worker.db.WorkflowVersions
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import org.flywaydb.core.Flyway
@@ -91,6 +93,8 @@ abstract class BaseWorkerIntegrationTest {
                 AuditLogs.deleteAll()
                 RewardReservations.deleteAll()
                 AttendanceQuotas.deleteAll()
+                WorkflowVersions.deleteAll()
+                Workflows.deleteAll()
                 Tenants.deleteAll()
             }
         }
