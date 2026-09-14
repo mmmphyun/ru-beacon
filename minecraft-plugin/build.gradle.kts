@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
+    id("com.gradleup.shadow") version "8.3.5"
 }
 
 repositories {
@@ -33,10 +34,20 @@ dependencies {
     testImplementation("io.ktor:ktor-server-websockets:$ktorVersion")
 }
 
-tasks.jar {
+tasks.named<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar>("shadowJar") {
     archiveBaseName.set("ru-beacon-plugin")
     archiveClassifier.set("")
     archiveVersion.set("")
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    relocate("io.ktor", "com.rubeacon.shadow.io.ktor")
+    relocate("kotlinx.coroutines", "com.rubeacon.shadow.kotlinx.coroutines")
+    relocate("kotlinx.serialization", "com.rubeacon.shadow.kotlinx.serialization")
 }
+
+tasks.jar {
+    enabled = false
+}
+
+tasks.build {
+    dependsOn(tasks.shadowJar)
+}
+
