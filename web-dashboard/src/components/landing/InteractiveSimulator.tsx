@@ -103,8 +103,8 @@ export function InteractiveSimulator() {
             </div>
 
             <div className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
-              <span>Admission latency:</span>
-              <span className="text-emerald-500 font-semibold">0.12ms (Fast-fail Cache)</span>
+              <span>이벤트 판정 지연:</span>
+              <span className="text-emerald-500 font-semibold">0.12ms (서버 렉 없음)</span>
             </div>
           </div>
 
@@ -139,8 +139,8 @@ export function InteractiveSimulator() {
             </div>
 
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>Main Thread TPS Impact:</span>
-              <span className="text-emerald-500 font-semibold font-mono">0.00% (Non-blocking WSS)</span>
+              <span>인게임 TPS 영향:</span>
+              <span className="text-emerald-500 font-semibold font-mono">0.00% (메인 스레드 멈춤 없음)</span>
             </div>
           </div>
         </div>
@@ -178,8 +178,8 @@ export function InteractiveSimulator() {
             </div>
 
             <div className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
-              <span>RingBuffer enqueue:</span>
-              <span className="text-emerald-500 font-semibold">0.03ms (Zero-allocation)</span>
+              <span>서버 이벤트 감지:</span>
+              <span className="text-emerald-500 font-semibold">0.03ms (메모리 누수 없음)</span>
             </div>
           </div>
 
@@ -223,8 +223,8 @@ export function InteractiveSimulator() {
             </div>
 
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>Discord Kord Dispatch:</span>
-              <span className="text-emerald-500 font-semibold font-mono">Complete</span>
+              <span>디스코드 알림 및 역할:</span>
+              <span className="text-emerald-500 font-semibold font-mono">실시간 지급 완료</span>
             </div>
           </div>
         </div>

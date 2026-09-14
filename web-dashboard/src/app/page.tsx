@@ -183,15 +183,15 @@ ring_buffer_size: 4096
               <ul className="space-y-2.5 text-xs text-foreground/90">
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 font-mono">✓</span>
-                  <span><strong>Fast-fail 0ms 판정:</strong> WSS 게이트웨이와 LMAX Disruptor 링버퍼로 메인 스레드 영향 0.00%.</span>
+                  <span><strong>동접 100명 몰려도 렉 0%:</strong> 메인 스레드를 멈추지 않는 비동기 처리로 인게임 TPS 20.0을 완벽히 방어합니다.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 font-mono">✓</span>
-                  <span><strong>멀티테넌트 단일 봇 네트워크:</strong> 호스팅 불필요, 토큰 발급 후 YAML 1줄 설정으로 즉시 온라인.</span>
+                  <span><strong>귀찮은 봇 호스팅/포트포워딩 0:</strong> 직접 봇을 띄울 필요 없이, 발급받은 토큰 1줄만 넣으면 3분 만에 즉시 연결됩니다.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-500 font-mono">✓</span>
-                  <span><strong>무중단 웹 위저드 배포:</strong> 웹 콘솔에서 클릭 한 번으로 자동화 규칙 배포 및 즉각 롤백.</span>
+                  <span><strong>서버 재부팅 없는 무중단 운영:</strong> 접속 중인 플레이어를 튕기게 하지 않고, 웹에서 클릭 한 번으로 룰 배포 및 1초 롤백이 가능합니다.</span>
                 </li>
               </ul>
             </div>
