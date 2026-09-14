@@ -72,22 +72,6 @@ class CachedWorkflowLookup(
     }
 
     /**
-     * 하이브리드 캐시 정합성 가드 (Safety Gate):
-     * 이벤트 봉투에 명시된 expectedVersion이 제공된 경우, 캐시된 정의의 버전과 비교하여
-     * 불일치 시(Pub/Sub Invalidation 유실 등) 즉시 캐시를 무효화하고 DB를 재조회함.
-     */
-    fun getOrRefreshIfVersionMismatch(eventType: String, tenantId: String, expectedVersion: Int?): WorkflowDefinition? {
-        val current = invoke(eventType, tenantId)
-        if (expectedVersion != null && current != null && current.version != expectedVersion) {
-            log.warn("워크플로우 버전 불일치 감지 (tenant: {}, event: {}, cachedVersion: {}, expectedVersion: {}). 캐시 강제 무효화 및 재조회",
-                tenantId, eventType, current.version, expectedVersion)
-            invalidate(tenantId, eventType)
-            return invoke(eventType, tenantId)
-        }
-        return current
-    }
-
-    /**
      * 현재 캐시된 항목 수 반환.
      */
     fun estimatedSize(): Long = cache.estimatedSize()

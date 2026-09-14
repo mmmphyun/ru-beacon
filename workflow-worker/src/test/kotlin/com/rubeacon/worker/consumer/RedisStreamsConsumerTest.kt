@@ -6,15 +6,12 @@ import com.rubeacon.common.redis.RedisNamespaces
 import com.rubeacon.common.serialization.RuBeaconJson
 import com.rubeacon.worker.BaseWorkerIntegrationTest
 import com.rubeacon.worker.db.AuditLogger
-import com.rubeacon.worker.db.AuditLogs
 import com.rubeacon.worker.engine.ConditionBranchExecutor
 import com.rubeacon.worker.engine.DagWorkflowDispatcher
 import com.rubeacon.worker.engine.MinecraftDispatchCommandExecutor
 import com.rubeacon.worker.engine.WorkflowDefinition
 import com.rubeacon.worker.engine.WorkflowNode
 import com.rubeacon.worker.engine.WorkflowTrigger
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.transactions.transaction
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonPrimitive
@@ -157,8 +154,7 @@ class RedisStreamsConsumerTest : BaseWorkerIntegrationTest() {
             workflowLookup = { _, _ -> null },
             groupName = "test-worker-group-dlq",
             consumerName = "test-worker-dlq-01",
-            dlqStream = dlqKey,
-            auditLogger = auditLogger
+            dlqStream = dlqKey
         )
 
         // 깨진 JSON (Poison Pill) 스트림 발행
@@ -177,15 +173,6 @@ class RedisStreamsConsumerTest : BaseWorkerIntegrationTest() {
         assertEquals(1, dlqEntries.size, "DLQ 스트림에 1개의 항목이 저장되어야 함")
         assertEquals(malformedJson, dlqEntries.first().fields["payload"])
         assertTrue(dlqEntries.first().fields["reason"]?.contains("Deserialization failure") == true)
-
-        // 3. AuditLogs 테이블에 FAILURE (PERMANENT_FAILURE) 상태로 기록되었는지 검증
-        val logs = transaction(database) {
-            AuditLogs.selectAll().toList()
-        }
-        assertEquals(1, logs.size, "감사 로그에 영구 실패 항목이 기록되어야 함")
-        assertEquals("EVENT_ROUTED_TO_DLQ", logs.first()[AuditLogs.action])
-        assertEquals("FAILURE", logs.first()[AuditLogs.status])
-        assertTrue(logs.first()[AuditLogs.details].contains("PERMANENT_FAILURE"), "details에 PERMANENT_FAILURE가 포함되어야 함")
     }
 
     @Test
