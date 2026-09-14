@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { InteractiveSimulator } from "@/components/landing/InteractiveSimulator";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fetchUserProfile } from "@/lib/api";
@@ -83,6 +84,7 @@ ring_buffer_size: 4096
             <Link href="#architecture" className="text-xs text-muted-foreground hover:text-foreground px-3 py-1.5 transition-colors">
               아키텍처
             </Link>
+            <ThemeToggle />
             <Link href="/app">
               <Button size="sm" className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1">
                 {user ? "내 대시보드로 이동" : "콘솔 시작하기"}

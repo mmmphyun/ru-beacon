@@ -6,6 +6,7 @@ import { AuditLogTable } from "@/components/audit/AuditLogTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import {
   ShieldAlert,
@@ -89,6 +90,8 @@ export function AdminConsoleClient() {
                 <Lock className="w-3 h-3" /> 2차 인증 필요
               </span>
             )}
+
+            <ThemeToggle />
 
             <Link href="/app">
               <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-border/60">

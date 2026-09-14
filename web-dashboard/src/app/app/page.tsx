@@ -8,6 +8,7 @@ import { OnboardingView } from "@/components/onboarding/OnboardingView";
 import { AuditLogTable } from "@/components/audit/AuditLogTable";
 import { fetchUserProfile, devMockLogin } from "@/lib/api";
 import { UserProfile } from "@/types/workflow";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -131,6 +132,8 @@ export default function TenantConsolePage() {
                 </Button>
               </Link>
             )}
+
+            <ThemeToggle />
           </div>
         </div>
       </header>
