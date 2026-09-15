@@ -389,8 +389,8 @@ class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
             }
         }
 
-        // 70KB 크기의 비인가 대용량 페이로드 전송 시도
-        val hugePadding = "X".repeat(70 * 1024)
+        // 300KB 크기의 비인가 대용량 페이로드 전송 시도 (256KB 제한 초과)
+        val hugePadding = "X".repeat(300 * 1024)
         val hugeFrameText = """{"op":1,"t":"EVENT","d":{"msg":"$hugePadding"},"ts":${System.currentTimeMillis()},"trace_id":"trc_dos"}"""
 
         runCatching {
@@ -411,8 +411,65 @@ class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
             }
         }
 
-        // 서버의 maxFrameSize(64KB) 제한으로 인해 세션이 즉시 종료되고 OFFLINE으로 전이되어야 함
+        // 서버의 maxFrameSize(256KB) 제한으로 인해 세션이 즉시 종료되고 OFFLINE으로 전이되어야 함
         awaitStatus(instanceId, "OFFLINE")
         assertEquals(0, sessionRegistry.activeCount)
+    }
+
+    @Test
+    fun `reapStaleInstances는 Redis presence 키가 없는 ONLINE 인스턴스를 STALE로 일괄 전이해야 한다`() {
+        val tenantId = "tenant_reap_01"
+        val networkId = "net_reap_01"
+        val deadInstanceId = "inst_dead_01"
+        val aliveInstanceId = "inst_alive_01"
+
+        transaction(database) {
+            Tenants.insert {
+                it[id] = tenantId
+                it[name] = "리퍼 테스트 테넌트"
+                it[discordGuildId] = "123123123123123123"
+            }
+            MinecraftNetworks.insert {
+                it[id] = networkId
+                it[this.tenantId] = tenantId
+                it[name] = "리퍼 네트워크"
+            }
+            MinecraftInstances.insert {
+                it[id] = deadInstanceId
+                it[this.networkId] = networkId
+                it[this.tenantId] = tenantId
+                it[instanceType] = "BACKEND"
+                it[name] = "고아 서버"
+                it[tokenHash] = authService.hashToken("token-dead")
+                it[status] = "ONLINE" // 비정상 종료로 남아있는 좀비
+            }
+            MinecraftInstances.insert {
+                it[id] = aliveInstanceId
+                it[this.networkId] = networkId
+                it[this.tenantId] = tenantId
+                it[instanceType] = "BACKEND"
+                it[name] = "살아있는 서버"
+                it[tokenHash] = authService.hashToken("token-alive")
+                it[status] = "ONLINE"
+            }
+        }
+
+        // aliveInstanceId만 Redis presence 등록 (deadInstanceId는 키 없음)
+        jedis.setex(RedisNamespaces.instanceHeartbeatKey(aliveInstanceId), 60, System.currentTimeMillis().toString())
+
+        // 리퍼 실행
+        val reaped = authService.reapStaleInstances(jedis)
+        assertEquals(1, reaped)
+
+        transaction(database) {
+            val dead = MinecraftInstances.selectAll().where { MinecraftInstances.id eq deadInstanceId }.single()
+            assertEquals("STALE", dead[MinecraftInstances.status])
+
+            val alive = MinecraftInstances.selectAll().where { MinecraftInstances.id eq aliveInstanceId }.single()
+            assertEquals("ONLINE", alive[MinecraftInstances.status])
+        }
+
+        // 정리
+        jedis.del(RedisNamespaces.instanceHeartbeatKey(aliveInstanceId))
     }
 }

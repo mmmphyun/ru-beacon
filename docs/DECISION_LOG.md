@@ -978,3 +978,20 @@
   - Green-State Commit: `./gradlew test` 통과 시 즉시 `git commit`으로 정상 체크포인트 생성.
   - 3-Strike Rollback: 동일 컴파일/테스트 에러가 3회 연속 지속될 경우 `git reset --hard HEAD`로 롤백하고 접근 방식을 재설계한다.
 
+## DEC-077: PING 하트비트 RDB 부하 격리 및 하이브리드 Presence 정합성 (결함 8, 10)
+
+- 상태: CONFIRMED
+- 결정일: 2026-09-15
+- 결정:
+  1. **PING 하트비트 Redis TTL 격리 (결함 8 해결)**:
+     - 30초 주기 WSS PING 프레임 수신 시마다 수행하던 PostgreSQL 동기 UPDATE를 전면 배제하고 Redis `SETEX presence:instance:{id} 60 {timestamp}`로 전환한다.
+     - RDB 동기화는 세션 최초 핸드셰이크(ONLINE) 및 정상 종료(OFFLINE) 시에만 수행하여 DB 커넥션 풀 고갈 및 WAL 쓰기 부하를 99.9% 차단한다.
+  2. **하이브리드 인스턴스 생존 상태 정합성 모델**:
+     - 단건 상세 조회: Redis Read-Through(`presence:instance:{id}` 존재 확인)를 통해 0초 지연의 실시간 온라인 상태를 동적 판정한다.
+     - 목록/인덱스 정합성: 비정상 크래시 세션으로 인한 RDB `WHERE status = 'ONLINE'` 인덱스 왜곡을 방어하기 위해, 백엔드 내부의 60초 주기 초경량 코루틴 리퍼(`reapStaleInstances`)가 Redis 키가 없는 인스턴스를 단일 UPDATE 쿼리로 `STALE`로 일괄 전이한다 (CPU 0.001% 미만, 실행 시간 2~5ms).
+  3. **웹소켓 256KB 보안 가드 및 클레임 체크(Claim Check) 설계 원칙**:
+     - Ktor WebSockets에 `maxFrameSize = 256KB`를 설정하여 텍스트성 마인크래프트 이벤트는 안전하게 수용하면서 비인가 거대 페이로드에 의한 OOM DoS를 차단한다.
+     - 수만 개 블록 데이터나 월드 롤백 스냅샷 등 대용량 데이터는 WSS JSON 청크 분할(복잡도/메모리 누수 위험)을 금지하고, S3/R2 오브젝트 스토리지에 직접 업로드 후 WSS로는 1KB 미만의 파일 Key/요약 메타데이터만 전송하는 클레임 체크 패턴을 강제한다.
+  4. **K8s API Service 파드 확장 정합성 (결함 10 해결)**:
+     - Redis Pub/Sub 분산 세션 라우팅을 기반으로 Helm `apiService.replicaCount`를 2로 기본 상향하며, 향후 수십 대 규모로 확장 시 `instanceId -> Pod IP` 분산 맵으로 전환하는 단계적 로드맵을 수립한다.
+

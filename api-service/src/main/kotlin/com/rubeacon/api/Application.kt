@@ -39,6 +39,10 @@ import io.micrometer.core.instrument.binder.jvm.JvmThreadMetrics
 import io.micrometer.core.instrument.binder.system.ProcessorMetrics
 import io.micrometer.prometheus.PrometheusConfig
 import io.micrometer.prometheus.PrometheusMeterRegistry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.sql.Database
@@ -93,7 +97,8 @@ fun Application.module(
     },
     enableSimulation: Boolean = System.getenv("ENABLE_SIMULATION")?.toBooleanStrictOrNull()
         ?: (!System.getenv("ENVIRONMENT").equals("production", ignoreCase = true)),
-    startRedisCommandConsumer: Boolean = true
+    startRedisCommandConsumer: Boolean = true,
+    startStaleReaper: Boolean = true
 ) {
     org.jetbrains.exposed.sql.transactions.TransactionManager.defaultDatabase = database
 
@@ -102,7 +107,7 @@ fun Application.module(
     }
 
     install(WebSockets) {
-        maxFrameSize = 64 * 1024 // 64KB (비인가 대용량 페이로드 DoS/OOM 방어)
+        maxFrameSize = 256 * 1024 // 256KB (일반 NBT/이벤트 수용 및 비인가 대용량 DoS 방어 안전 마진)
     }
 
     install(ContentNegotiation) {
@@ -148,6 +153,22 @@ fun Application.module(
         environment.monitor.subscribe(ApplicationStopped) {
             sessionRegistry.stopBroadcastSubscriber()
             consumerJob.cancel()
+        }
+    }
+
+    if (startStaleReaper) {
+        val reaperJob = launch(Dispatchers.IO) {
+            while (isActive) {
+                delay(60_000)
+                try {
+                    authService.reapStaleInstances(jedis)
+                } catch (_: Exception) {
+                    // 리퍼 예외 격리
+                }
+            }
+        }
+        environment.monitor.subscribe(ApplicationStopped) {
+            reaperJob.cancel()
         }
     }
 }

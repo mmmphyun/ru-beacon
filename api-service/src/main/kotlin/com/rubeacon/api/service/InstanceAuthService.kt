@@ -1,10 +1,12 @@
 package com.rubeacon.api.service
 
 import com.rubeacon.api.db.MinecraftInstances
+import com.rubeacon.common.redis.RedisNamespaces
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.update
+import redis.clients.jedis.JedisPooled
 import java.security.MessageDigest
 import java.time.OffsetDateTime
 
@@ -55,5 +57,30 @@ class InstanceAuthService {
                 it[MinecraftInstances.lastHeartbeatAt] = now
             }
         }
+    }
+
+    /**
+     * Redis Presence 키가 만료되었으나 RDB에 여전히 ONLINE으로 남아있는 고아 세션을 STALE로 일괄 정리함.
+     * 주기적(60초) 백그라운드 리퍼 루프에서 호출되어 목록 조회 및 인덱스 정합성을 보장함.
+     *
+     * @return STALE로 전이된 고아 인스턴스 수
+     */
+    fun reapStaleInstances(jedis: JedisPooled): Int = transaction {
+        val onlineIds = MinecraftInstances.select(MinecraftInstances.id)
+            .where { MinecraftInstances.status eq "ONLINE" }
+            .map { it[MinecraftInstances.id] }
+
+        var reaped = 0
+        for (id in onlineIds) {
+            val key = RedisNamespaces.instanceHeartbeatKey(id)
+            if (!jedis.exists(key)) {
+                MinecraftInstances.update({ MinecraftInstances.id eq id }) {
+                    it[status] = "STALE"
+                    it[updatedAt] = OffsetDateTime.now()
+                }
+                reaped++
+            }
+        }
+        reaped
     }
 }
