@@ -79,7 +79,7 @@ jobs:
       - name: Build Plugin JAR
         run: |
           chmod +x gradlew
-          ./gradlew :minecraft-plugin:jar --no-daemon
+          ./gradlew :minecraft-plugin:shadowJar --no-daemon
           mkdir -p release-artifacts
           cp minecraft-plugin/build/libs/*.jar release-artifacts/ru-beacon-plugin.jar
 
