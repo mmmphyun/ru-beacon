@@ -1,0 +1,100 @@
+﻿global:
+  environment: production
+  timezone: Asia/Seoul
+
+config:
+  databaseUrl: "jdbc:postgresql://postgres-postgresql.database.svc.cluster.local:5432/rubeacon"
+  databaseUser: "rubeacon_app"
+  redisHost: "redis-master.database.svc.cluster.local"
+  redisPort: "6379"
+
+secrets:
+  databasePassword: "change_me_prod_db_secret"
+  discordBotToken: "change_me_prod_bot_token"
+
+apiService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/mmmphyun/ru-beacon-api
+    tag: v1.0.0-alpha.1
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+botService:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ghcr.io/mmmphyun/ru-beacon-bot
+    tag: v1.0.0-alpha.1
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+workflowWorker:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/mmmphyun/ru-beacon-worker
+    tag: v1.0.0-alpha.1
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  keda:
+    enabled: true
+    minReplicaCount: 2
+    maxReplicaCount: 10
+    lagThreshold: 100
+    pollingInterval: 15
+    cooldownPeriod: 60
+
+webDashboard:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: ghcr.io/mmmphyun/ru-beacon-web
+    tag: v1.0.0-alpha.1
+    pullPolicy: IfNotPresent
+  apiUrl: "https://api.rubeacon.com"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "ru-beacon-api"
+  host: api.rubeacon.com
+  webHost: dashboard.rubeacon.com
+  tls:
+    - secretName: ru-beacon-api-tls
+      hosts:
+        - api.rubeacon.com
+    - secretName: ru-beacon-dashboard-tls
+      hosts:
+        - dashboard.rubeacon.com
