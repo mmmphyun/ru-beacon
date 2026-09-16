@@ -995,3 +995,20 @@
   4. **K8s API Service 파드 확장 정합성 (결함 10 해결)**:
      - Redis Pub/Sub 분산 세션 라우팅을 기반으로 Helm `apiService.replicaCount`를 2로 기본 상향하며, 향후 수십 대 규모로 확장 시 `instanceId -> Pod IP` 분산 맵으로 전환하는 단계적 로드맵을 수립한다.
 
+## DEC-078: 알파 릴리스 인프라 토폴로지 (OCI 2-Node K8s 집중 및 데모 서버 외부 격리)
+
+- 상태: CONFIRMED
+- 결정일: 2026-09-15
+- 결정:
+  1. **OCI 자원 100% K8s 멀티노드 클러스터 집중**:
+     - OCI Always Free Ampere A1 자원(4 OCPU, 24GB RAM) 전체를 백엔드 2-Node K8s 클러스터에 균등 배분한다.
+       - Node 1 (Master / Ingress / API 1): 2 OCPU, 12GB RAM
+       - Node 2 (Worker / Heavy Workload / DB / Redis / Worker / API 2): 2 OCPU, 12GB RAM
+     - Control Plane과 Ingress TLS 부하, DB/워커 부하를 2개 물리 코어(2 OCPU)씩 확보하여 k6 극한 부하 테스트(5,000+ RPS) 시 Control Plane Throttling을 원천 차단한다.
+  2. **마인크래프트 데모 서버의 물리적 외부 호스팅 격리**:
+     - 마인크래프트 쇼케이스 서버(PaperMC 모험 모드 로비)는 백엔드 클러스터와 동일 호스트에 두지 않고 외부 독립 호스팅(타사 저가 VPS 또는 독립 머신)으로 완전 분리한다.
+     - 게임 서버의 GC 렉 및 메모리 누수가 백엔드 클러스터에 노이즈 간섭을 주는 것을 100% 방지하고, 공용 인터넷(Public WAN)을 경유한 아웃바운드 WSS 터널링 통신을 실증한다.
+  3. **디스코드 관제 및 쇼케이스 연동**:
+     - 기존 구축된 공식 디스코드 관제 서버와 연동하여, 데모 서버의 접속/출석/발판 상호작용이 디스코드 채널로 실시간 브로드캐스트되는 인터랙티브 라이브 쇼케이스 파이프라인을 운영한다.
+
+
