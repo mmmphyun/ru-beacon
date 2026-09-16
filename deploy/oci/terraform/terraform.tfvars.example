@@ -1,0 +1,8 @@
+﻿tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaaxxxxx"
+user_ocid        = "ocid1.user.oc1..aaaaaaaaxxxxx"
+fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx"
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "ap-osaka-1"
+compartment_ocid = "ocid1.tenancy.oc1..aaaaaaaaxxxxx"
+ssh_public_key   = "ssh-ed25519 AAAA... user@host"
+alert_email      = "engineer@example.com"
