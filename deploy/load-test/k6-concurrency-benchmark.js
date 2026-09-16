@@ -7,8 +7,14 @@ const fastFailCount = new Counter('admission_fast_fail_total');
 const committedCount = new Counter('admission_committed_total');
 const fastFailDuration = new Trend('fast_fail_duration_ms', true);
 const committedDuration = new Trend('committed_duration_ms', true);
+const serverProcessingDuration = new Trend('server_processing_time_ms', true); // TTFB (Waiting time)
+
+const IS_CLOUD = (__ENV.NETWORK_ENV || 'local').toLowerCase() === 'cloud';
+const BASE_URL = __ENV.API_BASE_URL || 'http://localhost:8080';
+const TENANT_ID = __ENV.TENANT_ID || (`tenant_sre_${Date.now()}`);
 
 export const options = {
+  insecureSkipTLSVerify: __ENV.INSECURE_SKIP_TLS === 'true',
   scenarios: {
     concurrency_spike: {
       executor: 'ramping-arrival-rate',
@@ -24,15 +30,20 @@ export const options = {
       ],
     },
   },
-  thresholds: {
+  thresholds: IS_CLOUD ? {
+    // Cloud WAN thresholds (Physical RTT + TLS handshake overhead accounted)
+    http_req_duration: ['p(95)<250', 'p(99)<400'],
+    server_processing_time_ms: ['p(95)<15'], // Pure server admission computation TTFB
+    fast_fail_duration_ms: ['p(95)<150'],
+    checks: ['rate>0.95'],
+  } : {
+    // Local Loopback thresholds (sub-millisecond RTT)
     http_req_duration: ['p(95)<50', 'p(99)<100'],
+    server_processing_time_ms: ['p(95)<5'],
     fast_fail_duration_ms: ['p(95)<15'],
     checks: ['rate>0.95'],
   },
 };
-
-const BASE_URL = __ENV.API_BASE_URL || 'http://localhost:8080';
-const TENANT_ID = __ENV.TENANT_ID || (`tenant_sre_${Date.now()}`);
 
 export default function () {
   // Generate pseudo-random player UUID to simulate 10,000 distinct concurrent players
@@ -62,12 +73,15 @@ export default function () {
       'Content-Type': 'application/json',
       'X-Tenant-Id': TENANT_ID,
     },
-    timeout: '2s',
+    timeout: '3s',
   };
 
   const startTime = Date.now();
   const res = http.post(`${BASE_URL}/api/v1/events/simulate`, payload, params);
   const duration = Date.now() - startTime;
+  const ttfb = res.timings.waiting;
+
+  serverProcessingDuration.add(ttfb);
 
   if (res.status === 200 || res.status === 202) {
     committedCount.add(1);
@@ -79,7 +93,8 @@ export default function () {
     fastFailCount.add(1);
     fastFailDuration.add(duration);
     check(res, {
-      'status is 429 fast-failed within 5ms': (r) => duration < 10,
+      'status is 429 fast-failed': (r) => r.status === 429 || r.status === 409,
+      'fast-fail server computation under 15ms': (r) => ttfb < 15,
     });
   } else {
     check(res, {

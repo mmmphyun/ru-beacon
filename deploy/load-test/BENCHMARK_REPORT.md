@@ -45,3 +45,33 @@ http_reqs......................: 39249   603.8/s (피크 버스트 1,000 RPS)
 
 3. **FinOps & 인프라 비용 절감**:
    - 대규모 DB 인스턴스(r6g.4xlarge 등) 증설 없이 최소형 DB(db.t4g.small) 및 경량 Redis만으로도 수만 RPS의 선착순 스파이크를 완벽히 수용 가능함을 입증함.
+
+---
+
+## 4. 로컬(k3d) vs 클라우드(OCI 2-Node) 실측 비교 분석 매트릭스
+
+본 섹션은 로컬 루프백 가상화 환경(k3d)과 실제 퍼블릭 클라우드 분산 환경(OCI 2-Node K3s) 간의 물리적 네트워크 지연 및 가상화 오버헤드 차이를 1:1로 대조하기 위한 공식 비교 분석 프레임워크입니다.
+
+### 4.1 지표 비교 대조표 (Comparative Benchmark Matrix)
+
+| 지표 항목 (Metric) | 로컬 k3d (실측치 완료) | OCI 2-Node K3s (실측 대기) | 엔지니어링 분석 관점 (Engineering Analysis) |
+| :--- | :---: | :---: | :--- |
+| **테스트 시나리오** | 1,000 RPS 버스트 (65초) | 1,000 RPS 버스트 (65초) | 동일 k6 워크로드 프로파일 적용 |
+| **총 요청 수 (Total Requests)** | 39,249건 | *측정 예정* | WAN 패킷 드롭 및 클라이언트 소켓 고갈 여부 |
+| **1차 Fast-Fail 차단율** | 99.36% (38,999건) | *측정 예정* | 분산 Redis 인메모리 관문 차단 일관성 검증 |
+| **서버 내부 연산 지연 (TTFB)** | **평균 1.17ms / P95 2.0ms** | *측정 예정* | 물리 RTT를 제외한 순수 2-Tier Admission 처리 속도 |
+| **클라이언트 체감 P95 레이턴시** | **2.07ms (루프백)** | *측정 예정 (예상: 25~45ms)* | Public WAN RTT + Ingress-Nginx TLS 암복호화 오버헤드 |
+| **클라이언트 체감 P99 레이턴시** | **3.16ms (루프백)** | *측정 예정 (예상: 50~80ms)* | 인터넷 라우팅 지터 및 TCP 패킷 재전송 영향 |
+| **DB 커넥션 풀 사용률** | 최대 10개 풀 정상 유지 (고갈 0) | *측정 예정* | 원격 PostgreSQL 네트워크 RTT 증가 시 풀 점유율 |
+| **Overselling (초과 발급)** | **0건 (Zero)** | *측정 예정* | 분산 노드 간 동시성 경합 상태에서의 데이터 무결성 |
+| **KEDA Pod Scale-out** | N/A (단일 파드) | *측정 예정 (2 -> 10 Pods)* | Redis Streams Lag 기반 실시간 증설 반응 속도 |
+
+### 4.2 OCI 실측 시 즉시 실행 프로토콜
+
+OCI 인프라 해금 후 아래 단일 명령어로 WAN 전용 벤치마크를 격발하고 수치를 본 리포트에 기입합니다:
+
+```powershell
+# OCI 배포 도메인 대상 k6 WAN 모드 실행
+k6 run -e NETWORK_ENV=cloud -e API_BASE_URL="https://api.rubeacon.com" deploy/load-test/k6-concurrency-benchmark.js
+```
+
