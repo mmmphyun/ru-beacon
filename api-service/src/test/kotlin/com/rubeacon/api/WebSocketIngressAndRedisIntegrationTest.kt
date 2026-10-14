@@ -95,6 +95,28 @@ class WebSocketIngressAndRedisIntegrationTest : BaseIntegrationTest() {
     }
 
     @Test
+    fun `URL 쿼리 파라미터로 토큰 전송 시 헤더 누락으로 간주되어 WebSocket Close 4003 코드로 차단되어야 한다`() = testApplication {
+        application {
+            module(
+                database = database,
+                jedis = jedis,
+                authService = authService,
+                sessionRegistry = sessionRegistry
+            )
+        }
+
+        val client = createClient {
+            install(WebSockets)
+        }
+
+        client.webSocket("/ws/minecraft/v1?tenant_id=tenant_ws_01&instance_id=inst_ws_01&token=valid_secret_token") {
+            val closeReason = closeReason.await()
+            assertNotNull(closeReason)
+            assertEquals(TransportConstants.CLOSE_CODE_FORBIDDEN.toShort(), closeReason.code)
+        }
+    }
+
+    @Test
     fun `정상 토큰으로 접속 후 PING 프레임 전송 시 PONG 응답을 수신하고 상태가 ONLINE이어야 한다`() = testApplication {
         val tenantId = "tenant_ws_01"
         val networkId = "net_ws_01"

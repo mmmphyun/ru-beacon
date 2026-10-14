@@ -6,7 +6,9 @@ import com.rubeacon.common.transport.CommandBroadcastMessage
 import com.rubeacon.common.transport.CommandRequestPayload
 import com.rubeacon.common.transport.WebSocketFrame
 import io.ktor.server.websocket.DefaultWebSocketServerSession
+import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
+import io.ktor.websocket.close
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -33,7 +35,14 @@ class SessionRegistry {
      * 동일 인스턴스 ID로 기존 연결이 존재하는 경우 덮어씌움.
      */
     fun register(instanceId: String, session: DefaultWebSocketServerSession) {
-        sessions[instanceId] = session
+        val old = sessions.put(instanceId, session)
+        if (old != null && old != session) {
+            old.launch {
+                runCatching {
+                    old.close(CloseReason(4009.toShort(), "Superseded by new session"))
+                }
+            }
+        }
     }
 
     /**

@@ -35,14 +35,12 @@ class InstanceAuthService {
      */
     fun authenticate(tenantId: String, instanceId: String, token: String): Boolean = transaction {
         val expectedHash = hashToken(token)
-        MinecraftInstances
-            .selectAll()
-            .where {
-                (MinecraftInstances.id eq instanceId) and
-                        (MinecraftInstances.tenantId eq tenantId) and
-                        (MinecraftInstances.tokenHash eq expectedHash)
-            }
-            .count() > 0
+        val actualHash = MinecraftInstances
+            .select(MinecraftInstances.tokenHash)
+            .where { (MinecraftInstances.id eq instanceId) and (MinecraftInstances.tenantId eq tenantId) }
+            .singleOrNull()
+            ?.get(MinecraftInstances.tokenHash) ?: return@transaction false
+        MessageDigest.isEqual(actualHash.toByteArray(Charsets.UTF_8), expectedHash.toByteArray(Charsets.UTF_8))
     }
 
     /**

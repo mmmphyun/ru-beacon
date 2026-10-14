@@ -36,7 +36,6 @@ fun Route.minecraftWebSocketRoutes(
         val instanceId = call.request.headers[TransportConstants.HEADER_INSTANCE_ID]
             ?: call.parameters["instance_id"]
         val token = call.request.headers[TransportConstants.HEADER_INSTANCE_TOKEN]
-            ?: call.parameters["token"]
 
         // 1. 필수 헤더 누락 또는 인증 실패 시 즉시 세션 종료 (Close Code 4003)
         if (tenantId.isNullOrBlank() || instanceId.isNullOrBlank() || token.isNullOrBlank() ||
