@@ -23,6 +23,8 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   ipWhiteList:
+    ipStrategy:
+      depth: 1
     sourceRange:
       # Cloudflare Official IPv4 CIDRs
       - 173.245.48.0/20

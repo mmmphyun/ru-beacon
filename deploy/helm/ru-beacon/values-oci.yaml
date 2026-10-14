@@ -7,7 +7,7 @@ config:
   databaseUser: "rubeacon_app"
   redisHost: "redis-master.database.svc.cluster.local"
   redisPort: "6379"
-  enableSimulation: "true"
+  enableSimulation: "false"
 
 secrets:
   databasePassword: "change_me_prod_db_secret"
