@@ -12,3 +12,4 @@ data:
   DATABASE_USER: {{ .Values.config.databaseUser | quote }}
   REDIS_HOST: {{ .Values.config.redisHost | quote }}
   REDIS_PORT: {{ .Values.config.redisPort | quote }}
+  ENABLE_SIMULATION: {{ .Values.config.enableSimulation | default "false" | quote }}
