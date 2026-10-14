@@ -55,11 +55,19 @@ webDashboard:
 ingress:
   enabled: true
   className: traefik
+  redirectHttps: true
+  cloudflareOnly: true
   annotations:
     kubernetes.io/ingress.class: traefik
-  host: "api.rubeacon.internal"
-  webHost: "dashboard.rubeacon.internal"
-  tls: []
+  host: "api.rubeacon.com"
+  webHost: "dashboard.rubeacon.com"
+  tls:
+    - hosts:
+        - "api.rubeacon.com"
+      secretName: "rubeacon-api-tls"
+    - hosts:
+        - "dashboard.rubeacon.com"
+      secretName: "rubeacon-dashboard-tls"
 
 podDisruptionBudget:
   enabled: true

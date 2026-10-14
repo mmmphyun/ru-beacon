@@ -124,6 +124,8 @@ webDashboard:
 ingress:
   enabled: true
   className: nginx
+  redirectHttps: false
+  cloudflareOnly: false
   annotations:
     kubernetes.io/ingress.class: nginx
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"

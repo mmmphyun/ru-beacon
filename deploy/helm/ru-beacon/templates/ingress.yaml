@@ -6,10 +6,20 @@ metadata:
   labels:
     app.kubernetes.io/name: ru-beacon
     app.kubernetes.io/instance: {{ .Release.Name }}
-  {{- with .Values.ingress.annotations }}
   annotations:
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
+    {{- if and (eq .Values.ingress.className "traefik") (or .Values.ingress.redirectHttps .Values.ingress.cloudflareOnly) }}
+    {{- $middlewares := list }}
+    {{- if .Values.ingress.redirectHttps }}
+    {{- $middlewares = append $middlewares (printf "%s-%s-redirect-https@kubernetescrd" (default "default" .Release.Namespace) .Release.Name) }}
+    {{- end }}
+    {{- if .Values.ingress.cloudflareOnly }}
+    {{- $middlewares = append $middlewares (printf "%s-%s-cloudflare-shield@kubernetescrd" (default "default" .Release.Namespace) .Release.Name) }}
+    {{- end }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ join "," $middlewares | quote }}
+    {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   {{- if .Values.ingress.tls }}
