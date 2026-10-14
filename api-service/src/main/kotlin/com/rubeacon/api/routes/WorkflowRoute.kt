@@ -110,7 +110,10 @@ private val logger = LoggerFactory.getLogger("WorkflowRoute")
 fun parseWorkflowJson(definitionJson: String): JsonObject? {
     if (definitionJson.isBlank()) return null
     return try {
-        Json.parseToJsonElement(definitionJson).jsonObject
+        val obj = Json.parseToJsonElement(definitionJson).jsonObject
+        val nodeCount = obj["nodes"]?.jsonArray?.size ?: 0
+        if (nodeCount > 200) return null
+        obj
     } catch (_: Exception) {
         null
     }

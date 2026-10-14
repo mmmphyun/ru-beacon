@@ -380,4 +380,35 @@ class WorkflowRoutesTest : BaseIntegrationTest() {
         }
         assertEquals(HttpStatusCode.NotFound, invalidVerRollback.status)
     }
+
+    @Test
+    fun `노드 수가 200개를 초과하는 거대 DAG는 400 Bad Request로 거부되어야 한다`() = testApplication {
+        val tenantId = "tenant_dag_limits"
+        transaction(database) {
+            Tenants.insert {
+                it[id] = tenantId
+                it[name] = "DAG 한도 테스트 테넌트"
+                it[discordGuildId] = "guild_dag_limits"
+            }
+        }
+        application {
+            module(database = database, jedis = jedis)
+        }
+        val client = createClient {}
+
+        val nodesList = (1..201).joinToString(",") { i ->
+            """{"id":"node_$i","node_type":"DISCORD_SEND_MESSAGE","inputs":{},"next_node_ids":[]}"""
+        }
+        val hugeDagJson = """{"version":1,"trigger":{"id":"t1","event_type":"T"},"nodes":[$nodesList]}"""
+
+        val createRes = client.post("/api/v1/workflows") {
+            contentType(ContentType.Application.Json)
+            setBody(Json.encodeToString(CreateWorkflowRequest(
+                tenantId = tenantId,
+                name = "초거대 DAG",
+                definition = hugeDagJson
+            )))
+        }
+        assertEquals(HttpStatusCode.BadRequest, createRes.status)
+    }
 }
