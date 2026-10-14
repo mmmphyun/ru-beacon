@@ -111,11 +111,11 @@ class TokenBucketRateLimiter(private val jedis: JedisPooled) {
                 retryAfterSeconds = retryAfter
             )
         } catch (e: Exception) {
-            log.warn("Redis 레이트리미터 조회 실패 (Fail-Open 적용, Key: {}): {}", key, e.message)
+            log.warn("Redis 레이트리미터 조회 실패 (Fail-Closed 방어 적용, Key: {}): {}", key, e.message)
             RateLimitResult(
-                allowed = true,
-                remainingTokens = capacity,
-                retryAfterSeconds = 0
+                allowed = false,
+                remainingTokens = 0,
+                retryAfterSeconds = 5
             )
         }
     }

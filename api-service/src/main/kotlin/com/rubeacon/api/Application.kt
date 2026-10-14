@@ -148,15 +148,14 @@ fun Application.module(
 
         val tenantId = call.request.headers["X-Tenant-Id"]
         val userId = call.sessions.get<UserSession>()?.discordUserId
+        val clientIp = call.request.headers["CF-Connecting-IP"]
+            ?: call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
+            ?: call.request.origin.remoteHost
 
         val (key, capacity, refillRate) = when {
-            !tenantId.isNullOrBlank() -> Triple("ratelimit:tenant:$tenantId", tenantRateLimitCapacity, tenantRateLimitRefillRate)
             !userId.isNullOrBlank() -> Triple("ratelimit:user:$userId", tenantRateLimitCapacity, tenantRateLimitRefillRate)
-            else -> {
-                val clientIp = call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
-                    ?: call.request.origin.remoteHost
-                Triple("ratelimit:ip:$clientIp", ipRateLimitCapacity, ipRateLimitRefillRate)
-            }
+            !tenantId.isNullOrBlank() -> Triple("ratelimit:tenant:$tenantId:ip:$clientIp", tenantRateLimitCapacity, tenantRateLimitRefillRate)
+            else -> Triple("ratelimit:ip:$clientIp", ipRateLimitCapacity, ipRateLimitRefillRate)
         }
 
         val result = rateLimiter.check(key, capacity, refillRate)

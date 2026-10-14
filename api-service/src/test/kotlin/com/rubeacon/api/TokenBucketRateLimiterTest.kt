@@ -79,13 +79,13 @@ class TokenBucketRateLimiterTest : BaseIntegrationTest() {
     }
 
     @Test
-    fun `Redis 장애 시 Fail-Open으로 안전하게 통과한다`() {
+    fun `Redis 장애 시 Fail-Closed 정책에 따라 차단(allowed false) 및 5초 재시도가 반환되어야 한다`() {
         val deadJedis = JedisPooled("127.0.0.1", 59999)
         val fallbackLimiter = TokenBucketRateLimiter(deadJedis)
 
-        val res = fallbackLimiter.check("ratelimit:failopen:test", capacity = 10, refillRatePerSec = 5.0)
-        assertTrue(res.allowed)
-        assertEquals(10L, res.remainingTokens)
-        assertEquals(0L, res.retryAfterSeconds)
+        val res = fallbackLimiter.check("ratelimit:failclosed:test", capacity = 10, refillRatePerSec = 5.0)
+        assertFalse(res.allowed)
+        assertEquals(0L, res.remainingTokens)
+        assertEquals(5L, res.retryAfterSeconds)
     }
 }
