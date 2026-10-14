@@ -10,7 +10,7 @@ regex = '''\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'''
 tags = ["security", "network", "ip-leak"]
 
 [rules.allowlist]
-description = "Allow private RFC 1918, loopback, broadcast, and metadata IPv4 addresses"
+description = "Allow private RFC 1918, loopback, broadcast, metadata, and official Cloudflare WAF proxy IPs"
 regexes = [
     '''^10\.''',
     '''^172\.(1[6-9]|2[0-9]|3[01])\.''',
@@ -18,7 +18,8 @@ regexes = [
     '''^127\.''',
     '''^169\.254\.''',
     '''^0\.0\.0\.0$''',
-    '''^255\.255\.255\.255$'''
+    '''^255\.255\.255\.255$''',
+    '''^(173\.245\.|103\.(21|22|31)\.|141\.101\.|108\.162\.|190\.93\.|188\.114\.|197\.234\.|198\.41\.|162\.(158|159)\.|104\.(1[6-9]|2[0-7])\.|172\.(6[4-9]|7[01])\.|131\.0\.)'''
 ]
 
 [allowlist]
