@@ -6,7 +6,8 @@ useDefault = true
 [[rules]]
 id = "public-ipv4-leak"
 description = "Hardcoded Public IPv4 Address Leak"
-regex = '''\b([0-9]{1,3}\.){3}[0-9]{1,3}\b'''
+regex = '''\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b'''
+secretGroup = 0
 tags = ["security", "network", "ip-leak"]
 
 [rules.allowlist]

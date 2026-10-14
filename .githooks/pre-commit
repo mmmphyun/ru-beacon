@@ -38,6 +38,36 @@ if [ -f "scripts/check-public-ip.sh" ]; then
     sh scripts/check-public-ip.sh --cached
 fi
 
+# 1.6. Gitleaks 시크릿 및 공용 IP 정적 스캔 가드 (Local Gitleaks Guard)
+if [ -f ".gitleaks.toml" ]; then
+    echo "[LEAK-GUARD] Gitleaks 스테이징 diff 스캔 실행 중..."
+    export MSYS_NO_PATHCONV=1
+    if command -v gitleaks >/dev/null 2>&1; then
+        git diff --cached | gitleaks stdin --config=.gitleaks.toml --no-banner
+        GITLEAKS_EXIT=$?
+    elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+        CONFIG_DIR="$(pwd -W 2>/dev/null || pwd)"
+        git diff --cached | docker run --rm -i -v "${CONFIG_DIR}/.gitleaks.toml:/config.toml" zricethezav/gitleaks:latest stdin --config=/config.toml --no-banner
+        GITLEAKS_EXIT=$?
+    else
+        echo "[LEAK-GUARD] 로컬에 Gitleaks CLI 또는 Docker가 감지되지 않아 심층 시크릿 스캔을 건너뜁니다."
+        GITLEAKS_EXIT=0
+    fi
+
+    if [ "$GITLEAKS_EXIT" -ne 0 ]; then
+        echo ""
+        echo "================================================================================"
+        echo "[SECURITY REJECTED] Gitleaks 시크릿 또는 비인가 공용 IP 누출 감지!"
+        echo "--------------------------------------------------------------------------------"
+        echo "스테이징된 diff에서 비밀키, 인증 토큰 또는 비인가 공용 IP가 감지되었습니다."
+        echo "수정 후 다시 커밋하십시오. (정상 식별자일 경우 .gitleaks.toml allowlist 등록)"
+        echo "================================================================================"
+        echo ""
+        exit 1
+    fi
+    echo "[LEAK-GUARD] Gitleaks 검증 통과"
+fi
+
 # 2. 멀티모듈 동시 수정 차단 가드 (Single Module Scope Enforcer)
 if [ "$ALLOW_MULTI_MODULE" != "true" ]; then
     STAGED_FILES=$(git diff --cached --name-only)
