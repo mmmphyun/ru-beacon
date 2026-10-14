@@ -89,11 +89,13 @@
   - K3s Cert-Manager를 연동하고 Let's Encrypt를 통해 공식 와일드카드 인증서 발급 자동화.
   - 외부 통신을 전면 `https://` 및 `wss://`로 강제 전환.
 
-### 5.3 CI/CD 시크릿 및 공용 IP 누출 방지 하드 가드 표준화
+### 5.3 CI/CD 시크릿 및 공용 IP 누출 방지 하드 가드 표준화 [x] (완료)
 - **문제**: Gitleaks 기본 룰셋이 엔트로피 기반 Credential만 탐지하여 공용 IPv4 누출을 감지하지 못함.
-- **해결 방안**:
-  - `.githooks/pre-commit`에 탑재한 사설망 제외 공용 IPv4 감지 스크립트를 `.github/workflows/ci.yml` 파이프라인에도 필수 체크로 반영.
-  - 프로젝트 전용 `.gitleaks.toml` 커스텀 룰셋을 정의하여 정적 검사 커버리지 확장.
+- **해결 방안 및 조치 결과**:
+  - `scripts/check-public-ip.sh`: 사설망(RFC 1918)·루프백(127.x)·메타데이터(169.254.x) 제외 공용 IPv4 감지 스크립트 작성 완료.
+  - `.githooks/pre-commit`: 로컬 스테이징 diff 자동 검증을 `scripts/check-public-ip.sh`로 일원화 완료.
+  - `.github/workflows/ci.yml`: `security-check` 잡을 추가하여 PR 및 Push 시 공용 IP 검사 및 Gitleaks v2 연동 완료.
+  - `.gitleaks.toml`: Gitleaks v8 커스텀 룰셋(`public-ipv4-leak`) 및 사설 대역 allowlist 등록 완료.
 
 ### 5.4 실유저 보호를 위한 테넌트별 동적 Rate Limiting
 - **문제**: 다수 게임 서버 및 사용자가 유입될 때 특정 테넌트의 트래픽 폭주가 전체 클러스터 장애로 전이될 수 있음.
