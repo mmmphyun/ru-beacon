@@ -7,6 +7,23 @@
 remote="$1"
 url="$2"
 
+# 0. 사용자 명시적 푸시 승인 게이트 (User Approval Gate)
+if [ "$USER_CONFIRMED_PUSH" != "true" ]; then
+    echo ""
+    echo "================================================================================"
+    echo "[PUSH REJECTED BY HARD GUARD] 사용자 푸시 승인(User Approval Gate) 누락!"
+    echo "--------------------------------------------------------------------------------"
+    echo "Ru-Beacon 거버넌스 정책: 에이전트의 단독 git push는 엄격히 금지됩니다."
+    echo "원격 저장소 푸시는 사용자의 명시적 승인을 확인한 후에만 실행할 수 있습니다."
+    echo ""
+    echo "승인 확인 후 푸시 실행 방법:"
+    echo "  PowerShell: \$env:USER_CONFIRMED_PUSH='true'; git push origin main"
+    echo "  Bash/Sh:    USER_CONFIRMED_PUSH=true git push origin main"
+    echo "================================================================================"
+    echo ""
+    exit 1
+fi
+
 zero_oid="0000000000000000000000000000000000000000"
 
 FORMAT_PATTERN="^(feat|fix|refactor|docs|test|chore|style|perf|ci)(\([a-z0-9_-]+\))?: .*[^.]$"

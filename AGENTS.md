@@ -73,9 +73,11 @@
 - 원격 히스토리를 덮어쓰는 `git push --force` 사용을 엄격히 금지한다.
 - 훅에서 거부당하면 커밋 메시지를 컨벤션에 맞게 수정하여 정상 재시도한다.
 
-### 3.4 1인 개발 트렁크 기반 운용 (Trunk-Based Commit & Push)
+### 3.4 1인 개발 트렁크 기반 운용 및 사용자 푸시 승인 게이트 (User-Gated Trunk-Based Push)
 - 1인 개발 자율 주행에서는 PR/브랜치 분기 오버헤드를 배제하고 `main` 브랜치에 직접 원자적 커밋(Green-State Commit)을 쌓는다.
-- 기능 마일스톤 완료 시 즉시 `git push origin main`으로 원격에 동기화한다.
+- **에이전트 단독 푸시 전면 금지**: 에이전트는 어떠한 경우에도 사용자의 명시적 push 승인 없이 원격 저장소(`git push`)에 임의로 푸시할 수 없다.
+- 기능 마일스톤 또는 작업 완료 시 변경 내역을 사용자에게 브리핑하고, 사용자가 명시적으로 푸시를 승인(`진행해`, `푸시해` 등)한 직후의 단일 턴에서만 `git push`를 수행한다.
+- 하드 가드(`.githooks/pre-push`): 환경변수 `USER_CONFIRMED_PUSH=true` 없이 실행되는 모든 `git push`는 훅 레벨에서 즉시 차단(Exit 1)된다.
 
 ### 3.5 Semantic Release Tagging Protocol (CD 배포 프로토콜)
 - `main` 브랜치 푸시만으로는 프로덕션 서버 배포(CD)를 실행하지 않는다.
