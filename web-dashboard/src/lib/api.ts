@@ -44,7 +44,7 @@ const mockUserProfile: UserProfile = {
   discordUserId: "dev_user_999",
   username: "RuBeaconOwner",
   avatar: null,
-  isPlatformSuperAdmin: true,
+  isPlatformSuperAdmin: false,
   tenants: [
     {
       tenantId: "tenant_default",
