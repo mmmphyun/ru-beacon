@@ -430,7 +430,7 @@ class AttendanceReservationExecutor(
         playerUuid: UUID,
         correlationId: String
     ): NodeResult = newSuspendedTransaction(Dispatchers.IO) {
-        RewardReservations.update({
+        val updated = RewardReservations.update({
             (RewardReservations.tenantId eq tenantId) and
             (RewardReservations.rewardDate eq date) and
             (RewardReservations.playerUuid eq playerUuid) and
@@ -440,11 +440,13 @@ class AttendanceReservationExecutor(
             it[updatedAt] = OffsetDateTime.now()
         }
 
-        AttendanceQuotas.update({
-            (AttendanceQuotas.tenantId eq tenantId) and (AttendanceQuotas.rewardDate eq date)
-        }) {
-            it.update(committedCount, committedCount + 1)
-            it[updatedAt] = OffsetDateTime.now()
+        if (updated > 0) {
+            AttendanceQuotas.update({
+                (AttendanceQuotas.tenantId eq tenantId) and (AttendanceQuotas.rewardDate eq date)
+            }) {
+                it.update(committedCount, committedCount + 1)
+                it[updatedAt] = OffsetDateTime.now()
+            }
         }
 
         log.info("[{}] Attendance reward reservation committed: tenant={}, player={}, date={}", correlationId, tenantId, playerUuid, date)

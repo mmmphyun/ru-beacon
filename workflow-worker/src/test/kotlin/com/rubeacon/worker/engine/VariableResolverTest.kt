@@ -67,4 +67,21 @@ class VariableResolverTest {
 
         assertTrue(ex.message!!.contains("Undefined_Item"))
     }
+
+    @Test
+    fun `치환 대상 변수 값에 포함된 개행 문자가 공백으로 정제되어 명령어 인젝션이 차단되어야 한다`() {
+        val maliciousNick = "Steve\nop Hacker\n"
+        val context = WorkflowContext(
+            tenantId = "tenant_test",
+            correlationId = "corr_01",
+            initialEvent = sampleEvent,
+            variables = mapOf("User_Nickname" to maliciousNick)
+        )
+
+        val template = "give {User_Nickname} diamond 1"
+        val resolved = VariableResolver.resolve(template, context)
+
+        assertEquals("give Steve op Hacker diamond 1", resolved)
+        assertTrue(!resolved.contains("\n") && !resolved.contains("\r"))
+    }
 }

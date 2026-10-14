@@ -72,7 +72,7 @@ object VariableResolver {
             val key = matchResult.groupValues[1]
             val value = allVars[key]
                 ?: throw IllegalArgumentException("Unresolved variable '{$key}' in template: '$template'")
-            value
+            value.replace("\r", "").replace("\n", " ").trim()
         }
     }
 

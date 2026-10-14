@@ -290,4 +290,36 @@ class AttendanceConcurrencyIntegrationTest : BaseWorkerIntegrationTest() {
 
         deadJedis.close()
     }
+
+    @Test
+    fun `이미 COMMITTED 상태인 예약에 대해 중복 COMMIT 호출 시 committedCount가 중복 증가되지 않아야 한다`() = runBlocking {
+        val executor = AttendanceReservationExecutor(jedis)
+        val playerUuid = UUID.randomUUID()
+        val reserveInputs = mapOf(
+            "action" to JsonPrimitive("RESERVE"),
+            "total_limit" to JsonPrimitive("10")
+        )
+        val commitInputs = mapOf(
+            "action" to JsonPrimitive("COMMIT")
+        )
+
+        // 1. 정상 예약 및 1차 커밋
+        val rReserve = executor.execute(createTestContext(playerUuid, "corr_commit_1"), reserveInputs)
+        assertTrue(rReserve is NodeResult.Success)
+
+        val rCommit1 = executor.execute(createTestContext(playerUuid, "corr_commit_2"), commitInputs)
+        assertTrue(rCommit1 is NodeResult.Success)
+
+        // 2. 동일 유저에게 2차 커밋 재시도
+        val rCommit2 = executor.execute(createTestContext(playerUuid, "corr_commit_3"), commitInputs)
+        assertTrue(rCommit2 is NodeResult.Success)
+
+        // 3. committedCount는 1이어야 하며 2로 부풀려지지 않아야 함
+        transaction(database) {
+            val quota = AttendanceQuotas.selectAll().where {
+                (AttendanceQuotas.tenantId eq tenantId) and (AttendanceQuotas.rewardDate eq rewardDate)
+            }.single()
+            assertEquals(1, quota[AttendanceQuotas.committedCount], "중복 COMMIT에도 committedCount는 1로 유지되어야 함")
+        }
+    }
 }
