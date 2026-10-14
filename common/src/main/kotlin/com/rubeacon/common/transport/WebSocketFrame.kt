@@ -161,6 +161,7 @@ data class CommandResponsePayload(
 @Serializable
 data class CommandBroadcastMessage(
     @SerialName("instance_id") val instanceId: String,
+    @SerialName("tenant_id") val tenantId: String? = null,
     @SerialName("request_id") val requestId: String,
     val command: String,
     val args: List<String> = emptyList(),

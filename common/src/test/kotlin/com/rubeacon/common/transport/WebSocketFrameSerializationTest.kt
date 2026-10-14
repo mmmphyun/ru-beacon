@@ -159,5 +159,23 @@ class WebSocketFrameSerializationTest {
             invalidTimeFrame.validate()
         }
     }
+
+    @Test
+    fun `CommandBroadcastMessage 직렬화 시 tenantId가 보존되고 역직렬화된다`() {
+        val msg = CommandBroadcastMessage(
+            instanceId = "all",
+            tenantId = "tenant_alpha",
+            requestId = "req_123",
+            command = "say Hello",
+            correlationId = "corr_123"
+        )
+        val serialized = json.encodeToString(msg)
+        val deserialized = json.decodeFromString<CommandBroadcastMessage>(serialized)
+
+        assertEquals("all", deserialized.instanceId)
+        assertEquals("tenant_alpha", deserialized.tenantId)
+        assertEquals("req_123", deserialized.requestId)
+        assertEquals("say Hello", deserialized.command)
+    }
 }
 
