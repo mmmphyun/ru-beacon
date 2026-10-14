@@ -1,6 +1,7 @@
 package com.rubeacon.api.auth
 
 import com.rubeacon.api.db.Tenants
+import java.security.MessageDigest
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.createRouteScopedPlugin
@@ -35,7 +36,7 @@ object AuthConfig {
             .toSet()
 
     val platformAdminSecret: String
-        get() = System.getenv("PLATFORM_ADMIN_SECRET") ?: System.getProperty("PLATFORM_ADMIN_SECRET") ?: "dev-secret-platform-key"
+        get() = System.getenv("PLATFORM_ADMIN_SECRET") ?: System.getProperty("PLATFORM_ADMIN_SECRET") ?: ""
 }
 
 /**
@@ -166,7 +167,10 @@ val PlatformSuperAdminPlugin = createRouteScopedPlugin(name = "PlatformSuperAdmi
 
         // 2차 검증: 비밀키 헤더 검증
         val secretHeader = call.request.headers["X-Platform-Admin-Secret"]
-        if (secretHeader.isNullOrBlank() || secretHeader != AuthConfig.platformAdminSecret) {
+        val secretMatches = !secretHeader.isNullOrBlank() &&
+                AuthConfig.platformAdminSecret.isNotBlank() &&
+                MessageDigest.isEqual(secretHeader.toByteArray(Charsets.UTF_8), AuthConfig.platformAdminSecret.toByteArray(Charsets.UTF_8))
+        if (!secretMatches) {
             logger.warn("[Security] 플랫폼 운영자 2차 시크릿 검증 실패: userId={}", session.discordUserId)
             call.respond(HttpStatusCode.Forbidden, mapOf("error" to "플랫폼 2차 인증 보안 키가 일치하지 않습니다."))
             return@onCall

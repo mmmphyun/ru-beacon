@@ -1,4 +1,4 @@
-﻿package com.rubeacon.api
+package com.rubeacon.api
 
 import com.rubeacon.api.auth.DevMockLoginRequest
 import com.rubeacon.api.auth.DiscordGuildInfo
@@ -184,5 +184,27 @@ class AuditLogAndSuperAdminTest : BaseIntegrationTest() {
         assertEquals(HttpStatusCode.OK, successRes.status)
         val page = Json.decodeFromString<AuditLogPageResponse>(successRes.bodyAsText())
         assertEquals(4, page.items.size)
+    }
+
+    @Test
+    fun `Discord OAuth2 콜백 시 state 파라미터가 쿠키와 불일치하면 400 Bad Request 반환되어야 한다`() = testApplication {
+        val oauthService = DiscordOAuthService(jedis)
+
+        application {
+            module(database = database, jedis = jedis, oauthService = oauthService)
+        }
+
+        val client = createClient {
+            install(HttpCookies)
+            followRedirects = false
+        }
+
+        // 1. /discord/login 호출 시 state 쿠키 발급 및 리다이렉트
+        val loginRes = client.get("/api/v1/auth/discord/login")
+        assertEquals(HttpStatusCode.Found, loginRes.status)
+
+        // 2. 가짜 state 값으로 콜백 시도 -> 400 Bad Request (OAuth CSRF 차단)
+        val callbackRes = client.get("/api/v1/auth/discord/callback?code=mock_code&state=forged_state")
+        assertEquals(HttpStatusCode.BadRequest, callbackRes.status)
     }
 }

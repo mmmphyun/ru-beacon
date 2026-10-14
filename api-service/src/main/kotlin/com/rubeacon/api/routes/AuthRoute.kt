@@ -32,6 +32,7 @@ fun Route.authRoutes(oauthService: DiscordOAuthService) {
         // Discord OAuth2 로그인 URL 리다이렉트
         get("/discord/login") {
             val state = UUID.randomUUID().toString()
+            call.response.cookies.append("RU_BEACON_OAUTH_STATE", state, path = "/", httpOnly = true, maxAge = 300L)
             val authUrl = oauthService.buildAuthorizationUrl(state)
             call.respondRedirect(authUrl)
         }
@@ -39,10 +40,20 @@ fun Route.authRoutes(oauthService: DiscordOAuthService) {
         // Discord OAuth2 콜백
         get("/discord/callback") {
             val code = call.request.queryParameters["code"]
+            val state = call.request.queryParameters["state"]
+            val expectedState = call.request.cookies["RU_BEACON_OAUTH_STATE"]
+
             if (code.isNullOrBlank()) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("error" to "인증 코드가 누락되었습니다."))
                 return@get
             }
+
+            if (state.isNullOrBlank() || expectedState.isNullOrBlank() || state != expectedState) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "유효하지 않은 OAuth2 state 값입니다."))
+                return@get
+            }
+
+            call.response.cookies.appendExpired("RU_BEACON_OAUTH_STATE", path = "/")
 
             val token = oauthService.exchangeCodeForToken(code)
             if (token == null) {

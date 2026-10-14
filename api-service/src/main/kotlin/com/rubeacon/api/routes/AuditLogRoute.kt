@@ -3,6 +3,7 @@ package com.rubeacon.api.routes
 import com.rubeacon.api.auth.AuthConfig
 import com.rubeacon.api.auth.DiscordOAuthService
 import com.rubeacon.api.auth.resolveUserSession
+import java.security.MessageDigest
 import com.rubeacon.api.db.AuditLogs
 import com.rubeacon.api.db.Tenants
 import io.ktor.http.HttpStatusCode
@@ -90,8 +91,11 @@ fun Route.auditLogRoutes(oauthService: DiscordOAuthService) {
                 val isSuperAdmin = AuthConfig.superAdminUserIds.contains(session.discordUserId) ||
                         (AuthConfig.isDevMockAuth && call.request.headers["X-Dev-Mock-Super-Admin"] == "true")
                 val secretHeader = call.request.headers["X-Platform-Admin-Secret"]
+                val secretMatches = !secretHeader.isNullOrBlank() &&
+                        AuthConfig.platformAdminSecret.isNotBlank() &&
+                        MessageDigest.isEqual(secretHeader.toByteArray(Charsets.UTF_8), AuthConfig.platformAdminSecret.toByteArray(Charsets.UTF_8))
 
-                if (!isSuperAdmin || secretHeader != AuthConfig.platformAdminSecret) {
+                if (!isSuperAdmin || !secretMatches) {
                     call.respond(HttpStatusCode.Forbidden, mapOf("error" to "전체 감사 로그 전수 조회는 플랫폼 운영자 이중 검증 통과가 필수입니다."))
                     return@get
                 }
