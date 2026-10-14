@@ -60,11 +60,18 @@ class TokenBucketRateLimiter(private val jedis: JedisPooled) {
                 allowed = 0
                 remaining = 0
                 local needed = cost - tokens
-                retry_after = math.ceil(needed / refill_rate)
+                if refill_rate > 0 then
+                    retry_after = math.ceil(needed / refill_rate)
+                else
+                    retry_after = 60
+                end
             end
 
             redis.call('HMSET', key, 'tokens', tokens, 'last_updated', last_updated)
-            local ttl = math.max(10, math.ceil((capacity / refill_rate) + 10))
+            local ttl = 60
+            if refill_rate > 0 then
+                ttl = math.max(10, math.ceil((capacity / refill_rate) + 10))
+            end
             redis.call('EXPIRE', key, ttl)
 
             return { allowed, remaining, retry_after }

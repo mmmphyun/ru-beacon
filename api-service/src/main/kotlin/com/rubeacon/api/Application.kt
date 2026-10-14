@@ -16,9 +16,17 @@ import com.rubeacon.api.service.InstanceAuthService
 import com.rubeacon.api.service.SessionRegistry
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import com.rubeacon.api.service.TokenBucketRateLimiter
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.ApplicationCallPipeline
+import io.ktor.server.plugins.origin
+import io.ktor.server.request.path
+import io.ktor.server.response.header
 import io.ktor.server.sessions.Sessions
 import io.ktor.server.sessions.cookie
+import io.ktor.server.sessions.get
+import io.ktor.server.sessions.sessions
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.call
@@ -88,6 +96,11 @@ fun Application.module(
     accountLinkService: AccountLinkService = AccountLinkService(),
     redisPublisher: RedisEventPublisher = RedisEventPublisher(jedis),
     oauthService: DiscordOAuthService = DiscordOAuthService(jedis),
+    rateLimiter: TokenBucketRateLimiter = TokenBucketRateLimiter(jedis),
+    tenantRateLimitCapacity: Long = 50L,
+    tenantRateLimitRefillRate: Double = 20.0,
+    ipRateLimitCapacity: Long = 20L,
+    ipRateLimitRefillRate: Double = 10.0,
     meterRegistry: PrometheusMeterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT).apply {
         ClassLoaderMetrics().bindTo(this)
         JvmMemoryMetrics().bindTo(this)
@@ -124,6 +137,39 @@ fun Application.module(
             cookie.httpOnly = true
             cookie.secure = System.getenv("ENVIRONMENT").equals("production", ignoreCase = true)
             cookie.extensions["SameSite"] = "Lax"
+        }
+    }
+
+    intercept(ApplicationCallPipeline.Plugins) {
+        val path = call.request.path()
+        if (path == "/healthz" || path == "/metrics") {
+            return@intercept
+        }
+
+        val tenantId = call.request.headers["X-Tenant-Id"]
+        val userId = call.sessions.get<UserSession>()?.discordUserId
+
+        val (key, capacity, refillRate) = when {
+            !tenantId.isNullOrBlank() -> Triple("ratelimit:tenant:$tenantId", tenantRateLimitCapacity, tenantRateLimitRefillRate)
+            !userId.isNullOrBlank() -> Triple("ratelimit:user:$userId", tenantRateLimitCapacity, tenantRateLimitRefillRate)
+            else -> {
+                val clientIp = call.request.headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
+                    ?: call.request.origin.remoteHost
+                Triple("ratelimit:ip:$clientIp", ipRateLimitCapacity, ipRateLimitRefillRate)
+            }
+        }
+
+        val result = rateLimiter.check(key, capacity, refillRate)
+        call.response.header("X-RateLimit-Limit", capacity.toString())
+        call.response.header("X-RateLimit-Remaining", result.remainingTokens.toString())
+
+        if (!result.allowed) {
+            call.response.header("Retry-After", result.retryAfterSeconds.toString())
+            call.respondText(
+                text = "Too Many Requests: Rate limit exceeded. Try again in ${result.retryAfterSeconds}s",
+                status = HttpStatusCode.TooManyRequests
+            )
+            finish()
         }
     }
 
