@@ -97,8 +97,10 @@
   - `.github/workflows/ci.yml`: `security-check` 잡을 추가하여 PR 및 Push 시 공용 IP 검사 및 Gitleaks v2 연동 완료.
   - `.gitleaks.toml`: Gitleaks v8 커스텀 룰셋(`public-ipv4-leak`) 및 사설 대역 allowlist 등록 완료.
 
-### 5.4 실유저 보호를 위한 테넌트별 동적 Rate Limiting
+### 5.4 실유저 보호를 위한 테넌트별 동적 Rate Limiting [x] (완료)
 - **문제**: 다수 게임 서버 및 사용자가 유입될 때 특정 테넌트의 트래픽 폭주가 전체 클러스터 장애로 전이될 수 있음.
-- **해결 방안**:
-  - Redis 기반 슬라이딩 윈도우 또는 토큰 버킷 알고리즘을 Ktor 라우트에 적용.
-  - 테넌트별/IP별 초당 허용 요청량(RPS) 상한을 강제하고 초과 시 429 Too Many Requests 조기 차단.
+- **해결 방안 및 조치 결과**:
+  - `TokenBucketRateLimiter`: Redis Lua 스크립트 기반 원자적 토큰 버킷 알고리즘 구현 완료 ($O(1)$ 공간/시간 복잡도, 경계면 2배 버스트 및 저트래픽 위양성 차단).
+  - `Application.kt`: Ktor 요청 파이프라인 인터셉터에 테넌트(`X-Tenant-Id`)·유저(`discordUserId`)·비인증 IP(`X-Forwarded-For`/`remoteHost`) 3단계 동적 가드 연동 완료.
+  - 한도 초과 시 `HTTP 429 Too Many Requests` 및 표준 헤더(`Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`) 반환 및 Fail-Open 고가용성 보장.
+  - `RateLimitingIntegrationTest`: Testcontainers Redis 7 환경에서 단위 및 E2E 통합 테스트 100% 통과 확인.
