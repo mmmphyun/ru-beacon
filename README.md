@@ -19,8 +19,8 @@ Ru-Beacon은 마인크래프트 게임 서버의 인게임 이벤트(출석, 도
 1인 개발 환경에서 클라우드 비용을 0원으로 통제하면서도 대규모 동시 접속 상황을 안정적으로 처리하고자 저비용 인프라 최적화와 2단계 진입 제어 아키텍처를 적용했다.
 
 - 배포 환경: 오라클 클라우드 Always Free 2노드 K3s 분산 클러스터
-- 공개 API 엔드포인트: http://api.161.33.21.119.sslip.io
-- 웹 대시보드 엔드포인트: http://dashboard.161.33.21.119.sslip.io
+- 공개 API 규격: http://api.<NODE_IP>.sslip.io (WSS / REST)
+- 웹 대시보드 규격: http://dashboard.<NODE_IP>.sslip.io
 - 버전: v0.1.0-alpha.1
 
 <picture>

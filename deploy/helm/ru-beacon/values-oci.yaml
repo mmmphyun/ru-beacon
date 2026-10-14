@@ -50,15 +50,15 @@ webDashboard:
     tag: latest
     pullPolicy: Always
   port: 3000
-  apiUrl: "http://api.161.33.21.119.sslip.io"
+  apiUrl: "http://api.rubeacon.internal"
 
 ingress:
   enabled: true
   className: traefik
   annotations:
     kubernetes.io/ingress.class: traefik
-  host: "api.161.33.21.119.sslip.io"
-  webHost: "dashboard.161.33.21.119.sslip.io"
+  host: "api.rubeacon.internal"
+  webHost: "dashboard.rubeacon.internal"
   tls: []
 
 podDisruptionBudget:
