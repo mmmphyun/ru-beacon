@@ -46,7 +46,7 @@ fun Route.minecraftWebSocketRoutes(
         }
 
         // 2. 인증 성공: 세션 등록 및 상태를 ONLINE으로 전이
-        sessionRegistry.register(instanceId, this)
+        sessionRegistry.register(instanceId, tenantId, this)
         authService.updateStatus(instanceId, "ONLINE", updateHeartbeat = true)
         try {
             redisPublisher.recordHeartbeat(instanceId)

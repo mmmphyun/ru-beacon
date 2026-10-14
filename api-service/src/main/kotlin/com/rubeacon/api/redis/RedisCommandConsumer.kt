@@ -105,6 +105,7 @@ class RedisCommandConsumer(
                 // 2. 로컬에 미존재하거나 "all" 전체 대상: Pub/Sub 브로드캐스트
                 val broadcast = CommandBroadcastMessage(
                     instanceId = instanceId,
+                    tenantId = fields["tenant_id"],
                     requestId = requestId,
                     command = command,
                     correlationId = correlationId

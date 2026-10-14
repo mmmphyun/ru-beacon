@@ -242,7 +242,7 @@ class DistributedSessionAndCommandRoutingIntegrationTest : BaseIntegrationTest()
             val wsSession = podASessionRegistry.getSession(remoteInstanceId)
             assertNotNull(wsSession)
             podASessionRegistry.unregister(remoteInstanceId)
-            podBSessionRegistry.register(remoteInstanceId, wsSession)
+            podBSessionRegistry.register(remoteInstanceId, tenantId, wsSession)
 
             assertFalse(podASessionRegistry.hasSession(remoteInstanceId))
             assertTrue(podBSessionRegistry.hasSession(remoteInstanceId))

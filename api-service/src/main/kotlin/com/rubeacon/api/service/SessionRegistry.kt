@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap
 class SessionRegistry {
     private val log = LoggerFactory.getLogger(SessionRegistry::class.java)
     private val sessions = ConcurrentHashMap<String, DefaultWebSocketServerSession>()
+    private val instanceTenants = ConcurrentHashMap<String, String>()
 
     @Volatile
     private var pubSub: JedisPubSub? = null
@@ -34,7 +35,8 @@ class SessionRegistry {
      * 신규 인스턴스 세션을 등록함.
      * 동일 인스턴스 ID로 기존 연결이 존재하는 경우 덮어씌움.
      */
-    fun register(instanceId: String, session: DefaultWebSocketServerSession) {
+    fun register(instanceId: String, tenantId: String, session: DefaultWebSocketServerSession) {
+        instanceTenants[instanceId] = tenantId
         val old = sessions.put(instanceId, session)
         if (old != null && old != session) {
             old.launch {
@@ -43,6 +45,10 @@ class SessionRegistry {
                 }
             }
         }
+    }
+
+    fun register(instanceId: String, session: DefaultWebSocketServerSession) {
+        register(instanceId, "", session)
     }
 
     /**
@@ -62,11 +68,15 @@ class SessionRegistry {
      * @return 실제로 세션이 레지스트리에서 제거되었으면 true
      */
     fun unregister(instanceId: String, session: DefaultWebSocketServerSession? = null): Boolean {
-        return if (session != null) {
+        val removed = if (session != null) {
             sessions.remove(instanceId, session)
         } else {
             sessions.remove(instanceId) != null
         }
+        if (removed) {
+            instanceTenants.remove(instanceId)
+        }
+        return removed
     }
 
     /**
@@ -116,10 +126,14 @@ class SessionRegistry {
                         )
                         if (broadcast.instanceId == "all") {
                             for (id in sessions.keys) {
-                                send(id, frame)
+                                if (broadcast.tenantId == null || instanceTenants[id] == broadcast.tenantId) {
+                                    send(id, frame)
+                                }
                             }
                         } else if (sessions.containsKey(broadcast.instanceId)) {
-                            send(broadcast.instanceId, frame)
+                            if (broadcast.tenantId == null || instanceTenants[broadcast.instanceId] == broadcast.tenantId) {
+                                send(broadcast.instanceId, frame)
+                            }
                         }
                     } catch (e: Exception) {
                         log.warn("브로드캐스트 명령 수신 처리 실패: {}", e.message)
