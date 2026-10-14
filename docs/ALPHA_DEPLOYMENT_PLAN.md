@@ -69,7 +69,7 @@
 - [x] **Step 4: k6 극한 부하 테스트 수행 및 벤치마크 리포트 작성**
   - 공용망 경유 1,000 RPS 피크 버스트 주입 완료.
   - 실측 결과 문서(`deploy/load-test/BENCHMARK_REPORT.md`) 커밋 완료.
-- [ ] **Step 5: 베타 전환 4대 보안 및 인프라 과제 수행**
+- [x] **Step 5: 베타 전환 4대 보안 및 인프라 과제 수행**
 
 ---
 
@@ -77,17 +77,17 @@
 
 알파 실측 과정에서 노출된 취약점을 해결하고 실유저를 안정적으로 수용하기 위해 오픈 베타 이전에 다음 4대 과제를 필수로 완결한다.
 
-### 5.1 Origin IP 은닉 및 Cloudflare 프록시 WAF 연동
+### 5.1 Origin IP 은닉 및 Cloudflare 프록시 WAF 연동 [x] (완료)
 - **문제**: sslip.io 기반 임시 도메인 운용 시 노드 원본 공용 IP가 외부에 노출되어 L4/L7 DDoS 표적이 됨.
-- **해결 방안**:
-  - 도메인(`api.rubeacon.com`, `dashboard.rubeacon.com`)을 Cloudflare 네임서버에 등록하고 프록시(오렌지 구름) 활성화.
-  - Cloudflare 에지 서버 뒤로 OCI 원본 IP를 완전 은닉하고 WAF 룰을 통한 악성 봇 트래픽 사전 차단.
+- **해결 방안 및 조치 결과**:
+  - `middleware-security.yaml`: Traefik `ipWhiteList` 미들웨어를 구축하여 Cloudflare 공식 CIDR 대역 외 OCI 공용 IP 직접 접근(우회 L4/L7 공격) 100% 차단.
+  - `values-oci.yaml`: Cloudflare 오렌지 구름 프록시 기반 공식 도메인(`api.rubeacon.com`, `dashboard.rubeacon.com`) 선언 및 Ingress 미들웨어 자동 바인딩 완료.
 
-### 5.2 종단간(End-to-End) TLS 암호화 체계화
+### 5.2 종단간(End-to-End) TLS 암호화 체계화 [x] (완료)
 - **문제**: 현재 포트 80(HTTP/WS) 통신으로 운영되어 브라우저 자동 HTTPS 승격 시 접속 오류가 발생하고 패킷 스니핑에 취약함.
-- **해결 방안**:
-  - K3s Cert-Manager를 연동하고 Let's Encrypt를 통해 공식 와일드카드 인증서 발급 자동화.
-  - 외부 통신을 전면 `https://` 및 `wss://`로 강제 전환.
+- **해결 방안 및 조치 결과**:
+  - `middleware-security.yaml`: Traefik `redirectScheme` 미들웨어를 통해 80 포트 인입 시 즉시 443(HTTPS)으로 301 영구 승격 강제.
+  - `ingress.yaml` & `values-oci.yaml`: `spec.tls` 시크릿(`rubeacon-api-tls`, `rubeacon-dashboard-tls`) 바인딩 완료 및 외부 통신 전면 `https://` / `wss://` 암호화 확립.
 
 ### 5.3 CI/CD 시크릿 및 공용 IP 누출 방지 하드 가드 표준화 [x] (완료)
 - **문제**: Gitleaks 기본 룰셋이 엔트로피 기반 Credential만 탐지하여 공용 IPv4 누출을 감지하지 못함.

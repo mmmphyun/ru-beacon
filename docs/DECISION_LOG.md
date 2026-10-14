@@ -1028,4 +1028,16 @@
      - 경계면 2배 버스트 및 저트래픽 위양성을 100% 원천 차단.
      - Redis 일시 단절 시 비즈니스 연속성을 위해 Fail-Open(통과) 전략 적용.
 
+## DEC-080: Cloudflare 프록시 WAF 기반 Origin IP 은닉 및 Traefik TLS 종단 체계화
+
+- 상태: CONFIRMED
+- 결정일: 2026-10-14
+- 결정:
+  1. **Cloudflare WAF 프록시 및 Origin Shielding**:
+     - 임시 IP 도메인(sslip.io)을 폐기하고, 공식 도메인(`api.rubeacon.com`, `dashboard.rubeacon.com`)을 Cloudflare 에지 프록시 뒤로 배치하여 OCI 원본 공용 IP를 100% 은닉한다.
+     - K3s Ingress 계층에 Traefik `ipWhiteList` 미들웨어를 연동하여, Cloudflare 공식 CIDR 대역이 아닌 OCI 노드 IP 직접 접근 패킷을 인그레스 단에서 즉시 403 차단한다.
+  2. **종단간 TLS 암호화 및 HTTP to HTTPS 강제 승격**:
+     - 80 포트로 유입되는 모든 비인가 평문 트래픽을 Traefik `redirectScheme` 미들웨어로 443(HTTPS) 영구 리다이렉트(301)한다.
+     - Ingress TLS 시크릿(`rubeacon-api-tls`, `rubeacon-dashboard-tls`)을 통해 외부 웹소켓(`wss://`) 및 API 통신의 전송 계층 스니핑을 원천 차단한다.
+
 

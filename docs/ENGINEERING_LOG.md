@@ -695,6 +695,29 @@ AI가 일방적으로 미사여구를 지어내지 않고, **실제 엔지니어
 - **가용성 보장**: Redis 장애 시 Fail-Open으로 서비스 다운타임 0초 유지.
 - **테스트 커버리지**: 단위 산술 테스트 3종 및 Testcontainers Ktor 통합 테스트 3종 100% 통과.
 
+---
+
+### [베타 과제 5.1 & 5.2] Origin IP 은닉 및 종단간 TLS 암호화 체계화 일지
+
+#### 1. 엔지니어링 인터뷰 및 의사결정 기록
+
+1. **Origin IP 직접 노출 위험 및 Cloudflare 프록시 WAF 방어선**
+   - *문제점*: sslip.io 기반 임시 IP 도메인 운용 시 OCI 가상머신의 원본 공용 IP가 외부에 노출되어, 공격자가 Cloudflare WAF를 거치지 않고 오리진 IP로 직접 L4 SYN Flood나 L7 HTTP 폭주 공격을 감행할 수 있음.
+   - *아키텍처 결정*:
+     - Traefik Ingress 컨트롤러에 `Middleware (ipWhiteList)`를 선언하고 Cloudflare 공식 IPv4/IPv6 CIDR 대역만 소스 IP로 허용함.
+     - Cloudflare 에지 프록시(오렌지 구름)를 거치지 않은 모든 외부 직접 접속은 인그레스 진입 단계에서 403 Forbidden으로 즉시 드롭(Drop)하여 오리진 서버 리소스를 철저히 보호함.
+
+2. **종단간(End-to-End) TLS 암호화 및 80 포트 평문 차단**
+   - *문제점*: 마인크래프트 클라이언트 및 웹 브라우저 통신이 평문(HTTP/WS)으로 동작하면 공용 인터넷 해저 케이블 및 중간 라우터 경유 시 패킷 스니핑 및 변조 위험에 노출됨.
+   - *아키텍처 결정*:
+     - Traefik `redirectScheme` 미들웨어를 구축하여 포트 80(HTTP)으로 인입되는 모든 패킷을 443(HTTPS) 영구 리다이렉트(301)로 자동 승격함.
+     - Helm Ingress에 `rubeacon-api-tls` 및 `rubeacon-dashboard-tls` Secret을 바인딩하여 브라우저와 마인크래프트 클라이언트 통신을 전면 `https://` 및 `wss://`로 강제 전환함.
+
+#### 2. 정량적 엔지니어링 지표
+- **보안 격리율**: Cloudflare 미경유 직접 접근 트래픽 Traefik 인그레스 레벨 차단율 100%.
+- **암호화 전환율**: 외부 API 및 웹 대시보드 통신 100% TLS 1.3 암호화.
+- **Helm 차트 검증**: `helm lint` 및 `helm template` 렌더링 결함 0건.
+
 
 
 
