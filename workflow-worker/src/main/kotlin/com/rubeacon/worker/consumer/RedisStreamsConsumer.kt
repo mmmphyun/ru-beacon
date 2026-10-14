@@ -149,8 +149,8 @@ class RedisStreamsConsumer(
             return false
         }
 
+        val idempKey = "idemp:event:${event.idempotencyKey}"
         return try {
-            val idempKey = "idemp:event:${event.idempotencyKey}"
             val acquired = jedis.set(idempKey, "1", SetParams.setParams().nx().ex(86400L))
             if (acquired == null) {
                 log.warn("[{}] Duplicate event detected: entryId={}, idempotencyKey={}, acking", event.correlationId, entry.id, event.idempotencyKey)
@@ -168,6 +168,7 @@ class RedisStreamsConsumer(
             jedis.xack(stream, groupName, entry.id)
             true
         } catch (e: CancellationException) {
+            runCatching { jedis.del(idempKey) }
             throw e
         } catch (e: Exception) {
             log.error("[{}] Workflow execution failed for entry {} in {}: {}", event.correlationId, entry.id, stream, e.message, e)
@@ -175,8 +176,10 @@ class RedisStreamsConsumer(
             if (deliveries >= maxDeliveries) {
                 log.error("[{}] Entry {} exceeded max deliveries ({}) -> routing to DLQ", event.correlationId, entry.id, maxDeliveries)
                 routeToDlqAndAck(stream, entry, payloadJson, "Exceeded max deliveries ($deliveries): ${e.message}")
+            } else {
+                // 일시적 장애인 경우 재시도를 위해 멱등성 락을 해제하고 Pending 유지
+                runCatching { jedis.del(idempKey) }
             }
-            // 일시적 장애는 ACK하지 않고 Pending 유지
             false
         }
     }

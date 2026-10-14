@@ -286,4 +286,57 @@ class RedisStreamsConsumerTest : BaseWorkerIntegrationTest() {
         assertEquals(2, processed, "두 테넌트의 이벤트가 모두 처리되어야 함")
         assertEquals(2, executedWorkflows.size)
     }
+
+    @Test
+    fun `워크플로우 실행 실패 시 멱등 락이 해제되어 재시도 가능해야 한다`() = runBlocking {
+        val tenantId = "tenant_retry_01"
+        ensureTenant(tenantId)
+        val streamKey = RedisNamespaces.eventsStream(tenantId)
+        var shouldFail = true
+
+        val failingConsumer = RedisStreamsConsumer(
+            jedis = jedis,
+            dispatcher = dispatcher,
+            workflowLookup = { _, _ ->
+                if (shouldFail) {
+                    throw RuntimeException("Transient failure")
+                }
+                WorkflowDefinition(
+                    version = 1,
+                    trigger = WorkflowTrigger("trig", "minecraft.player.level_up", listOf()),
+                    nodes = emptyList()
+                )
+            },
+            groupName = "retry-group",
+            consumerName = "retry-worker"
+        )
+
+        val event = EventEnvelope(
+            eventId = "evt_retry_01",
+            eventType = "minecraft.player.level_up",
+            source = "minecraft",
+            sourceInstanceId = "inst_01",
+            tenantId = tenantId,
+            occurredAt = "2026-09-09T12:00:00Z",
+            receivedAt = "2026-09-09T12:00:01Z",
+            correlationId = "corr_retry_01",
+            idempotencyKey = "idemp_retry_01",
+            actor = EventEntity("minecraft_player", "Steve")
+        )
+
+        jedis.xadd(streamKey, XAddParams.xAddParams(), mapOf("payload" to RuBeaconJson.default.encodeToString(event)))
+
+        // 1회차 시도 (실패)
+        val processedFirst = failingConsumer.processBatch(streamKey, count = 1, blockMs = 1000)
+        assertEquals(0, processedFirst)
+        // 멱등 락이 해제되었는지 확인
+        val idempKey = "idemp:event:${event.idempotencyKey}"
+        assertEquals(null, jedis.get(idempKey), "실패 후 멱등 락은 해제되어야 함")
+
+        // 2회차 재시도 (복구)
+        shouldFail = false
+        val recovered = failingConsumer.autoClaimStaleMessages(streamKey, minIdleMs = 0, count = 10)
+        assertEquals(1, recovered, "고아 메시지가 재시도 시 정상 소비되어야 함")
+        assertEquals("1", jedis.get(idempKey), "성공 후 멱등 락이 설정되어야 함")
+    }
 }
