@@ -24,8 +24,8 @@ Ru-Beacon은 마인크래프트 게임 서버의 인게임 이벤트(출석, 도
 - 버전: v0.1.0-alpha.1
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/rubeacon-architecture-dark.svg">
-  <img alt="Ru-Beacon Architecture Blueprint" src="docs/rubeacon-architecture-light.svg" width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/specs/rubeacon-architecture-dark.svg">
+  <img alt="Ru-Beacon Architecture Blueprint" src="docs/specs/rubeacon-architecture-light.svg" width="100%">
 </picture>
 
 ---
@@ -87,17 +87,40 @@ Ru-Beacon은 마인크래프트 게임 서버의 인게임 이벤트(출석, 도
 
 ---
 
-## 6. 공식 기술 문서 목록
+## 6. 공식 기술 문서 체계 (`docs/`)
 
-프로젝트 아키텍처와 엔지니어링 의사결정 내역은 [`docs/`](docs/) 디렉토리에 전수 기록되어 있습니다.
+프로젝트 아키텍처와 엔지니어링 의사결정 내역은 [`docs/`](docs/) 디렉토리의 4대 영역에 체계적으로 기록되어 있습니다.
 
-- [ALPHA_DEPLOYMENT_PLAN.md](docs/ALPHA_DEPLOYMENT_PLAN.md): OCI Always Free 2-Node 배포 및 라이브 쇼케이스 공식 로드맵
-- [DECISION_LOG.md](docs/DECISION_LOG.md): 10대 아키텍처 의사결정(ADR DEC-066-078) 원천 기록
+### 핵심 거버넌스 및 로드맵 (루트)
+- [MILESTONES.md](docs/MILESTONES.md): 자율 주행 마일스톤 공식 로드맵 및 실행 체크리스트
+- [ALPHA_DEPLOYMENT_PLAN.md](docs/ALPHA_DEPLOYMENT_PLAN.md): OCI Always Free 2-Node 배포 및 라이브 쇼케이스 로드맵
+- [DECISION_LOG.md](docs/DECISION_LOG.md): 10대 아키텍처 의사결정(ADR DEC-066-079) 원천 기록
 - [ENGINEERING_LOG.md](docs/ENGINEERING_LOG.md): 마일스톤 0-7 아키텍처 트레이드오프 및 10대 결함 리팩터링 기록
+- [INSPECTION_CHECKLIST.md](docs/INSPECTION_CHECKLIST.md): 점검 세션 전수 감사 체크리스트
 - [BENCHMARK_REPORT.md](deploy/load-test/BENCHMARK_REPORT.md): k6 1,000 RPS 분산 동시성 벤치마크 상세 리포트
-- [DATABASE_SCHEMA.sql](docs/DATABASE_SCHEMA.sql): PostgreSQL 16 Flyway V1 공식 DDL 명세
-- [TRANSPORT_PROTOCOL_SPEC.md](docs/TRANSPORT_PROTOCOL_SPEC.md): WSS 인바운드/아웃바운드 프레임 규격 및 Redis Streams 네임스페이스
-- [WORKFLOW_ENGINE_SPEC.md](docs/WORKFLOW_ENGINE_SPEC.md): 워크플로우 DAG AST 파서, Tarjan 사이클 감지 엔진 명세
+
+### 기술 명세 및 프로토콜 계약 (`docs/specs/`)
+- [REENGINEERING_ARCHITECTURE_BLUEPRINT.md](docs/specs/REENGINEERING_ARCHITECTURE_BLUEPRINT.md): 전체 시스템 구조 및 비기능 요구사항
+- [EVENT_CONTRACTS.md](docs/specs/EVENT_CONTRACTS.md): 이벤트 봉투 계약 및 페이로드 명세
+- [TRANSPORT_PROTOCOL_SPEC.md](docs/specs/TRANSPORT_PROTOCOL_SPEC.md): WSS 프레임 규격 및 Redis Streams 통신 상세
+- [WORKFLOW_ENGINE_SPEC.md](docs/specs/WORKFLOW_ENGINE_SPEC.md): 워크플로우 DAG AST 파서 및 사이클 감지 엔진 명세
+- [DATABASE_SCHEMA.sql](docs/specs/DATABASE_SCHEMA.sql): PostgreSQL 16 Flyway V1 공식 DDL 명세
+
+### 제품 기획 및 요구사항 (`docs/product/`)
+- [PRODUCT_REQUIREMENTS.md](docs/product/PRODUCT_REQUIREMENTS.md): 사용자 페르소나 및 기능 요구사항 (PRD)
+- [PROJECT_ANALYSIS_REPORT.md](docs/product/PROJECT_ANALYSIS_REPORT.md): 문제 정의 및 재설계 배경 보고서
+- [PORTFOLIO_EVIDENCE_PLAN.md](docs/product/PORTFOLIO_EVIDENCE_PLAN.md): 클라우드/DevSecOps 역량 증명 계획
+
+### 인프라 운영 및 런북 (`docs/ops/`)
+- [OPERATIONS_RUNBOOK.md](docs/ops/OPERATIONS_RUNBOOK.md): 배포·장애 복구 및 24/7 운영 절차서
+- [LOCAL_K3S_E2E_SESSION.md](docs/ops/LOCAL_K3S_E2E_SESSION.md): 로컬 K3s E2E 실측 검증 세션 기록
+- [ISOLATION_AND_RELEASE_ARCHITECTURE.md](docs/ops/ISOLATION_AND_RELEASE_ARCHITECTURE.md): 컨테이너 경량화 및 릴리스 격리 아키텍처
+
+### 개발 표준 및 컨벤션 (`docs/dev/`)
+- [DEVELOPMENT_CONVENTIONS.md](docs/dev/DEVELOPMENT_CONVENTIONS.md): 코드·Git·보안 개발 규칙
+- [TESTING_STRATEGY.md](docs/dev/TESTING_STRATEGY.md): MockBukkit 및 Testcontainers 하네스 전략
+- [DOCUMENT_CLASSIFICATION_MATRIX.md](docs/dev/DOCUMENT_CLASSIFICATION_MATRIX.md): 문서 역할 및 교차검증표
+- [REFACTORING_PLAN.md](docs/dev/REFACTORING_PLAN.md): 레거시 부채 10대 결함 리팩터링 배치 계획
 
 ---
 
