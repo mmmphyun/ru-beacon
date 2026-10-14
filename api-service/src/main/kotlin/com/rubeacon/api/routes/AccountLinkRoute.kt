@@ -1,5 +1,7 @@
 package com.rubeacon.api.routes
 
+import com.rubeacon.api.auth.AuthConfig
+import com.rubeacon.api.auth.resolveUserSession
 import com.rubeacon.api.service.AccountLinkService
 import com.rubeacon.api.service.LinkResult
 import com.rubeacon.api.service.VerifyResult
@@ -43,10 +45,21 @@ data class ApiResponse(
 fun Route.accountLinkRoutes(accountLinkService: AccountLinkService) {
     route("/api/v1/accounts/link") {
         post("/request") {
+            val session = call.resolveUserSession()
+            if (session == null && !AuthConfig.isDevMockAuth) {
+                call.respond(HttpStatusCode.Unauthorized, ApiResponse(success = false, message = "인증 세션이 필요합니다"))
+                return@post
+            }
+
             val req = try {
                 call.receive<LinkRequestDto>()
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadRequest, ApiResponse(success = false, message = "잘못된 요청 형식입니다"))
+                return@post
+            }
+
+            if (session != null && session.discordUserId != req.discordUserId && !AuthConfig.isDevMockAuth) {
+                call.respond(HttpStatusCode.Forbidden, ApiResponse(success = false, message = "본인의 디스코드 계정에 대해서만 연동 코드를 요청할 수 있습니다"))
                 return@post
             }
 

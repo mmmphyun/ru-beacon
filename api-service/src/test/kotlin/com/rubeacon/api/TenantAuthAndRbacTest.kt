@@ -183,4 +183,47 @@ class TenantAuthAndRbacTest : BaseIntegrationTest() {
         val res = client.get("/api/v1/tenants/" + tenantB)
         assertEquals(HttpStatusCode.Forbidden, res.status)
     }
+
+    @Test
+    fun `타 테넌트가 소유한 인스턴스 ID로 토큰 발급 시도 시 409 Conflict 발생해야 한다`() = testApplication {
+        val oauthService = DiscordOAuthService(jedis)
+        val ownerB = "user_owner_beta"
+        jedis.setex("rubeacon:discord:user:$ownerB:guilds", 300, Json.encodeToString(listOf(
+            DiscordGuildInfo(id = guildB, name = "베타 서버", isOwner = true)
+        )))
+
+        transaction(database) {
+            MinecraftInstances.insert {
+                it[id] = "inst_owned_by_alpha"
+                it[tenantId] = tenantA
+                it[networkId] = "net_" + tenantA
+                it[name] = "알파 서버 1"
+                it[instanceType] = "BACKEND"
+                it[tokenHash] = "hash_alpha"
+                it[status] = "OFFLINE"
+            }
+        }
+
+        application {
+            module(database = database, jedis = jedis, oauthService = oauthService)
+        }
+
+        val client = createClient { install(HttpCookies) }
+        System.setProperty("DEV_MOCK_AUTH", "true")
+        client.post("/api/v1/auth/dev-mock-login") {
+            contentType(ContentType.Application.Json)
+            setBody(Json.encodeToString(DevMockLoginRequest(discordUserId = ownerB, username = "OwnerB")))
+        }
+        System.setProperty("DEV_MOCK_AUTH", "false")
+
+        val res = client.post("/api/v1/instances/token") {
+            contentType(ContentType.Application.Json)
+            setBody(Json.encodeToString(IssueInstanceTokenRequest(
+                tenantId = tenantB,
+                instanceId = "inst_owned_by_alpha",
+                name = "하이재킹 시도"
+            )))
+        }
+        assertEquals(HttpStatusCode.Conflict, res.status)
+    }
 }

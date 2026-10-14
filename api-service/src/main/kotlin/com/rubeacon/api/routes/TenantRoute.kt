@@ -220,31 +220,41 @@ fun Route.tenantRoutes(authService: InstanceAuthService, oauthService: com.rubea
             val networkId = req.networkId ?: ("net_" + req.tenantId)
             val now = OffsetDateTime.now()
 
-            transaction {
-                val exists = MinecraftInstances.selectAll().where { MinecraftInstances.id eq req.instanceId }.count() > 0
-                if (exists) {
-                    MinecraftInstances.update({ MinecraftInstances.id eq req.instanceId }) {
-                        it[tenantId] = req.tenantId
-                        it[this.networkId] = networkId
-                        it[name] = req.name
-                        it[instanceType] = req.instanceType
-                        it[this.tokenHash] = tokenHash
-                        it[status] = "OFFLINE"
-                        it[updatedAt] = now
-                    }
+            val isConflict = transaction {
+                val existing = MinecraftInstances.selectAll().where { MinecraftInstances.id eq req.instanceId }.singleOrNull()
+                if (existing != null && existing[MinecraftInstances.tenantId] != req.tenantId) {
+                    true
                 } else {
-                    MinecraftInstances.insert {
-                        it[id] = req.instanceId
-                        it[tenantId] = req.tenantId
-                        it[this.networkId] = networkId
-                        it[name] = req.name
-                        it[instanceType] = req.instanceType
-                        it[this.tokenHash] = tokenHash
-                        it[status] = "OFFLINE"
-                        it[createdAt] = now
-                        it[updatedAt] = now
+                    if (existing != null) {
+                        MinecraftInstances.update({ MinecraftInstances.id eq req.instanceId }) {
+                            it[tenantId] = req.tenantId
+                            it[this.networkId] = networkId
+                            it[name] = req.name
+                            it[instanceType] = req.instanceType
+                            it[this.tokenHash] = tokenHash
+                            it[status] = "OFFLINE"
+                            it[updatedAt] = now
+                        }
+                    } else {
+                        MinecraftInstances.insert {
+                            it[id] = req.instanceId
+                            it[tenantId] = req.tenantId
+                            it[this.networkId] = networkId
+                            it[name] = req.name
+                            it[instanceType] = req.instanceType
+                            it[this.tokenHash] = tokenHash
+                            it[status] = "OFFLINE"
+                            it[createdAt] = now
+                            it[updatedAt] = now
+                        }
                     }
+                    false
                 }
+            }
+
+            if (isConflict) {
+                call.respond(HttpStatusCode.Conflict, mapOf("error" to "해당 인스턴스 ID는 이미 다른 테넌트에서 사용 중입니다."))
+                return@post
             }
 
             logger.info("[Tenant] Issued instance token for tenantId={}, instanceId={}", req.tenantId, req.instanceId)
