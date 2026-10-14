@@ -29,7 +29,7 @@ spec:
         - name: web-dashboard
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
@@ -46,6 +46,9 @@ spec:
               value: "production"
             - name: NEXT_PUBLIC_API_URL
               value: {{ .Values.webDashboard.apiUrl | quote }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             {{- toYaml .Values.webDashboard.resources | nindent 12 }}
           {{- with .Values.webDashboard.livenessProbe }}
@@ -56,4 +59,7 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
 {{- end }}

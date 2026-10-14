@@ -30,7 +30,7 @@ spec:
         - name: workflow-worker
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
@@ -51,6 +51,9 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-secrets
                   key: DATABASE_PASSWORD
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             {{- toYaml .Values.workflowWorker.resources | nindent 12 }}
           {{- with .Values.workflowWorker.livenessProbe }}
@@ -61,4 +64,7 @@ spec:
           readinessProbe:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
 {{- end }}

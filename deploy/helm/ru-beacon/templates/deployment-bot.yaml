@@ -29,12 +29,15 @@ spec:
         - name: bot-service
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
           image: "{{ .Values.botService.image.repository }}:{{ .Values.botService.image.tag }}"
           imagePullPolicy: {{ .Values.botService.image.pullPolicy }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           envFrom:
             - configMapRef:
                 name: {{ .Release.Name }}-config
@@ -46,4 +49,7 @@ spec:
                   key: DISCORD_BOT_TOKEN
           resources:
             {{- toYaml .Values.botService.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
 {{- end }}
