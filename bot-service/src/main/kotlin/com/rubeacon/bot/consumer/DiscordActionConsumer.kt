@@ -119,7 +119,16 @@ class DiscordActionConsumer(
         for (entry in entries) {
             val entryId = entry.id
             val fields = entry.fields
-            val correlationId = fields["correlation_id"] ?: "unknown"
+            val correlationId = fields["correlation_id"] ?: entryId.toString()
+            val idempKey = "idemp:discord:action:$correlationId"
+
+            val acquired = jedis.set(idempKey, "1", redis.clients.jedis.params.SetParams.setParams().nx().ex(86400L))
+            if (acquired == null) {
+                log.warn("[{}] 이미 발송 처리된 Discord 액션 감지. 중복 발송을 차단하고 ACK 처리합니다: entryId={}", correlationId, entryId)
+                jedis.xack(streamKey, groupName, entryId)
+                continue
+            }
+
             try {
                 processSingleAction(fields)
                 jedis.xack(streamKey, groupName, entryId)
@@ -129,6 +138,7 @@ class DiscordActionConsumer(
                 jedis.xack(streamKey, groupName, entryId)
             } catch (e: Exception) {
                 log.error("[{}] 액션 메시지 일시적 처리 실패 (entryId={}): {}", correlationId, entryId, e.message, e)
+                runCatching { jedis.del(idempKey) }
             }
         }
     }
