@@ -21,6 +21,7 @@ import redis.clients.jedis.params.XPendingParams
 import redis.clients.jedis.params.XReadGroupParams
 
 import java.util.concurrent.ConcurrentHashMap
+import redis.clients.jedis.params.SetParams
 import redis.clients.jedis.params.XAddParams
 
 /**
@@ -149,6 +150,14 @@ class RedisStreamsConsumer(
         }
 
         return try {
+            val idempKey = "idemp:event:${event.idempotencyKey}"
+            val acquired = jedis.set(idempKey, "1", SetParams.setParams().nx().ex(86400L))
+            if (acquired == null) {
+                log.warn("[{}] Duplicate event detected: entryId={}, idempotencyKey={}, acking", event.correlationId, entry.id, event.idempotencyKey)
+                jedis.xack(stream, groupName, entry.id)
+                return true
+            }
+
             log.info("[{}] Processing stream event: type={}, tenant={}, entryId={}", event.correlationId, event.eventType, event.tenantId, entry.id)
             val workflow = workflowLookup(event.eventType, event.tenantId)
             if (workflow != null) {

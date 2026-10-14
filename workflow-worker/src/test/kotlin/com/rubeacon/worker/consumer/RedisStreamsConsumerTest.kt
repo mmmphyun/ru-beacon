@@ -100,6 +100,44 @@ class RedisStreamsConsumerTest : BaseWorkerIntegrationTest() {
     }
 
     @Test
+    fun `동일한 idempotencyKey를 가진 이벤트가 재전송되면 워크플로우를 중복 실행하지 않고 XACK되어야 한다`() = runBlocking {
+        val tenantId = "tenant_stream_idemp_01"
+        ensureTenant(tenantId)
+        val streamKey = RedisNamespaces.eventsStream(tenantId)
+
+        val event = EventEnvelope(
+            eventId = "evt_stream_idemp_01",
+            eventType = "minecraft.player.level_up",
+            source = "minecraft",
+            sourceInstanceId = "inst_01",
+            tenantId = tenantId,
+            occurredAt = "2026-09-09T12:00:00Z",
+            receivedAt = "2026-09-09T12:00:01Z",
+            correlationId = "corr_stream_idemp_01",
+            idempotencyKey = "idemp_same_key_01",
+            actor = EventEntity("minecraft_player", "Steve")
+        )
+
+        val eventJson = RuBeaconJson.default.encodeToString(event)
+        jedis.xadd(streamKey, XAddParams.xAddParams(), mapOf("payload" to eventJson))
+
+        val p1 = consumer.processBatch(streamKey, count = 10, blockMs = 1000)
+        assertEquals(1, p1)
+        assertEquals(1, executedWorkflows.size)
+
+        val secondEvent = event.copy(eventId = "evt_stream_idemp_02")
+        val secondJson = RuBeaconJson.default.encodeToString(secondEvent)
+        jedis.xadd(streamKey, XAddParams.xAddParams(), mapOf("payload" to secondJson))
+
+        val p2 = consumer.processBatch(streamKey, count = 10, blockMs = 1000)
+        assertEquals(1, p2)
+        assertEquals(1, executedWorkflows.size, "중복 재전송 시 워크플로우가 2회 실행되지 않아야 함")
+
+        val pending = jedis.xpending(streamKey, "test-worker-group", XPendingParams.xPendingParams().count(10))
+        assertTrue(pending.isEmpty(), "중복 이벤트도 XACK되어 Pending에 남지 않아야 함")
+    }
+
+    @Test
     fun `런타임 장애 시 XACK되지 않고 Pending 상태가 유지되어야 한다`() = runBlocking {
         val tenantId = "tenant_failure_01"
         ensureTenant(tenantId)
