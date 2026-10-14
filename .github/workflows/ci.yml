@@ -16,6 +16,8 @@ on:
       - 'settings.gradle.kts'
       - 'gradle/**'
       - '.github/workflows/ci.yml'
+      - 'scripts/**'
+      - '.gitleaks.toml'
   pull_request:
     branches:
       - main
@@ -31,8 +33,41 @@ on:
       - 'settings.gradle.kts'
       - 'gradle/**'
       - '.github/workflows/ci.yml'
+      - 'scripts/**'
+      - '.gitleaks.toml'
 
 jobs:
+  security-check:
+    name: Secrets & Public IP Leak Guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Grant execute permission for scripts
+        run: chmod +x scripts/*.sh
+
+      - name: Public IPv4 Leak Guard
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            DIFF_TARGET="origin/${{ github.base_ref }}...HEAD"
+          else
+            if [ -z "${{ github.event.before }}" ] || [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+              DIFF_TARGET="HEAD~1...HEAD"
+            else
+              DIFF_TARGET="${{ github.event.before }}...${{ github.sha }}"
+            fi
+          fi
+          ./scripts/check-public-ip.sh "$DIFF_TARGET"
+
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
   test:
     name: Gradle Unit & Integration Tests
     runs-on: ubuntu-latest

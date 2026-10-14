@@ -34,23 +34,8 @@ if [ "$ALLOW_DOCS_ONLY" != "true" ]; then
 fi
 
 # 1.5. 공용 IPv4 하드코딩 누출 차단 가드 (Public IP Leak Guard)
-if [ "$ALLOW_PUBLIC_IP" != "true" ]; then
-    LEAKED_IPS=$(git diff --cached -U0 | grep -E "^\+[^\+]" | grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" | grep -vE "^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.|0\.0\.0\.0)" || true)
-    if [ -n "$LEAKED_IPS" ]; then
-        echo ""
-        echo "================================================================================"
-        echo "[COMMIT REJECTED BY HARD GUARD] 공용 IP(Public IPv4) 누출 감지!"
-        echo "--------------------------------------------------------------------------------"
-        echo "스테이징된 diff에 아래의 공용 IP가 포함되어 있습니다:"
-        echo "$LEAKED_IPS"
-        echo ""
-        echo "Ru-Beacon 하네스 정책: 보안 및 Origin IP 은닉을 위해 실제 공용 IP의 커밋을 엄격히 금지합니다."
-        echo "환경 변수 또는 도메인 추상화 표기(예: <NODE_IP>)를 사용하십시오."
-        echo "(불가피한 예외 커밋: ALLOW_PUBLIC_IP=true git commit ...)"
-        echo "================================================================================"
-        echo ""
-        exit 1
-    fi
+if [ -f "scripts/check-public-ip.sh" ]; then
+    sh scripts/check-public-ip.sh --cached
 fi
 
 # 2. 멀티모듈 동시 수정 차단 가드 (Single Module Scope Enforcer)
