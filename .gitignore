@@ -24,6 +24,7 @@ tmp/
 *.tmp
 *.tsbuildinfo
 .paper-server/
+_workspace/
 
 # Environment Variables & Secrets
 .env
