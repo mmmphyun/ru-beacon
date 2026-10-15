@@ -24,8 +24,13 @@ regexes = [
 ]
 
 [allowlist]
-description = "Global allowlist for lock files and build cache"
+description = "Global allowlist for lock files, build cache, and dummy test snowflake IDs"
 paths = [
     '''pnpm-lock\.yaml$''',
     '''gradle-wrapper\.jar$'''
 ]
+regexes = [
+    '''987654321098765432''',
+    '''123456789012345678'''
+]
+

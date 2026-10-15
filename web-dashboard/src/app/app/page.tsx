@@ -234,7 +234,11 @@ export default function TenantConsolePage() {
                 </span>
               </div>
             )}
-            <OnboardingView tenantId={currentTenant.tenantId} isOwner={isOwner} />
+            <OnboardingView
+              tenantId={currentTenant.tenantId}
+              isOwner={isOwner}
+              onComplete={() => setActiveTab("workflow")}
+            />
           </div>
         )}
 
