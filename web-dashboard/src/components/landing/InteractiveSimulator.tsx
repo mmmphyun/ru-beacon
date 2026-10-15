@@ -3,232 +3,229 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Sparkles, Terminal, MessageSquare, Check, ShieldCheck, Zap } from "lucide-react";
+import { Radio, Activity, Check, MessageSquare, Zap, Clock } from "lucide-react";
+
+interface EventItem {
+  id: string;
+  name: string;
+  tag: string;
+  player: string;
+  detail: string;
+}
+
+const EVENTS: EventItem[] = [
+  { id: "diamond", name: "다이아몬드 채굴", tag: "BLOCK_BREAK", player: "Steve", detail: "y:-58 심층암 다이아몬드 원석 채굴" },
+  { id: "level", name: "플레이어 레벨업", tag: "LEVEL_UP", player: "Alex", detail: "레벨 30 달성" },
+  { id: "boss", name: "보스 처치", tag: "BOSS_KILL", player: "Steve", detail: "엔더 드래곤 토벌 성공" },
+];
 
 export function InteractiveSimulator() {
-  const [activeScenario, setActiveScenario] = useState<"d2m" | "m2d">("d2m");
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [step, setStep] = useState<number>(0);
+  const [selectedEvent, setSelectedEvent] = useState<EventItem>(EVENTS[0]);
+  const [stage, setStage] = useState<"idle" | "beacon" | "buffer" | "delivered">("idle");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const runSimulation = () => {
-    setIsSimulating(true);
-    setStep(1);
-    setTimeout(() => setStep(2), 500);
-    setTimeout(() => setStep(3), 1100);
+  const isSimulating = stage !== "idle";
+
+  const handleTrigger = () => {
+    if (isSimulating) return;
+    setToastMessage(null);
+    setStage("beacon");
+
     setTimeout(() => {
-      setIsSimulating(false);
-    }, 1800);
-  };
+      setStage("buffer");
+    }, 150);
 
-  const handleScenarioChange = (scenario: "d2m" | "m2d") => {
-    setActiveScenario(scenario);
-    setStep(0);
-    setIsSimulating(false);
+    setTimeout(() => {
+      setStage("delivered");
+      setToastMessage("메인 틱 점유 0.00ms, 평균 45ms 만에 디스코드 임베드가 발송되었습니다.");
+    }, 350);
+
+    setTimeout(() => {
+      setStage("idle");
+    }, 2400);
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto rounded border border-border/60 bg-card/60 backdrop-blur p-5 md:p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
+    <div className="w-full max-w-5xl mx-auto rounded-lg border border-border bg-card p-5 md:p-6 space-y-6">
+      {/* 쇼케이스 상단 헤더 */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
+            <Radio className="w-4 h-4 text-primary" />
             <h3 className="font-semibold text-sm tracking-tight text-foreground">
-              실시간 양방향 파이프라인 시뮬레이터
+              실시간 제품 텔레메트리 파이프라인
             </h3>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-              Live Demo
-            </span>
+            <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
+              Live Mockup
+            </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            마인크래프트 서버와 디스코드 간의 0ms Fast-fail 패킷 흐름을 직접 격발해 보세요.
+          <p className="text-xs text-muted-foreground mt-1">
+            마인크래프트 비콘 신호 감지부터 LMAX 링버퍼를 거쳐 디스코드 임베드로 안착하는 45ms 흐름입니다.
           </p>
         </div>
 
-        {/* 시나리오 스위처 */}
-        <div className="inline-flex rounded border border-border/60 bg-background/80 p-0.5 text-xs">
-          <button
-            onClick={() => handleScenarioChange("d2m")}
-            className={`px-3 py-1.5 rounded transition-all font-medium ${
-              activeScenario === "d2m"
-                ? "bg-card text-foreground shadow-sm font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Discord → Minecraft
-          </button>
-          <button
-            onClick={() => handleScenarioChange("m2d")}
-            className={`px-3 py-1.5 rounded transition-all font-medium ${
-              activeScenario === "m2d"
-                ? "bg-card text-foreground shadow-sm font-semibold"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Minecraft → Discord
-          </button>
+        {/* 이벤트 선택 버튼군 */}
+        <div className="inline-flex rounded border border-border bg-background p-1 text-xs gap-1">
+          {EVENTS.map((evt) => (
+            <button
+              key={evt.id}
+              onClick={() => setSelectedEvent(evt)}
+              disabled={isSimulating}
+              className={`px-2.5 py-1 rounded transition-colors text-[11px] font-mono ${
+                selectedEvent.id === evt.id
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {evt.name}
+            </button>
+          ))}
         </div>
       </div>
 
-      {activeScenario === "d2m" ? (
-        /* Discord -> Minecraft 시나리오 */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Discord 측: 인터랙션 발원지 */}
-          <div className="rounded border border-border/40 bg-background/40 p-4 space-y-3">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5 font-mono">
-                <MessageSquare className="w-3.5 h-3.5 text-primary" /> #출석체크 채널
+      {/* 3대 텔레메트리 쇼케이스 그리드 (루비-샌드 1px 헤어라인 카드) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 좌측: 루비 신호기 (비콘) 노드 */}
+        <div
+          className={`rounded border p-4 space-y-3 transition-colors duration-200 ${
+            stage === "beacon"
+              ? "border-primary bg-primary/5"
+              : "border-border bg-surface"
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-foreground flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${stage === "beacon" ? "bg-primary animate-ping" : "bg-primary"}`} />
+              루비 신호기 (비콘)
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground">IN-GAME</span>
+          </div>
+
+          <div className="rounded border border-border bg-card p-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between font-mono text-[11px]">
+              <span className="text-muted-foreground">상태</span>
+              <span className="text-foreground font-medium">
+                {stage === "beacon" ? "이벤트 격발 중" : "이벤트 대기 중"}
               </span>
-              <Badge variant="outline" className="text-[10px] font-mono">
-                Trigger
-              </Badge>
             </div>
-
-            <div className="p-3 rounded bg-card/80 border border-border/40 text-xs space-y-2">
-              <div className="font-semibold text-foreground flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                루비콘 일일 출석체크 이벤트
-              </div>
-              <p className="text-muted-foreground text-[11px] leading-relaxed">
-                디스코드 계정과 연동된 인게임 캐릭터로 일일 보상(다이아몬드 3개)을 수령합니다.
-              </p>
-              <Button
-                size="sm"
-                onClick={runSimulation}
-                disabled={isSimulating}
-                className="w-full text-xs h-8 bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1.5 mt-2"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                {isSimulating ? "동기화 진행 중..." : "[출석 보상 수령하기] 클릭"}
-              </Button>
+            <div className="flex items-center justify-between font-mono text-[11px]">
+              <span className="text-muted-foreground">태그</span>
+              <span className="text-primary font-bold">{selectedEvent.tag}</span>
             </div>
-
-            <div className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
-              <span>이벤트 판정 지연:</span>
-              <span className="text-emerald-500 font-semibold">0.12ms (서버 렉 없음)</span>
+            <div className="flex items-center justify-between font-mono text-[11px]">
+              <span className="text-muted-foreground">대상자</span>
+              <span className="text-foreground">{selectedEvent.player}</span>
             </div>
           </div>
 
-          {/* Minecraft 콘솔 측: 실행 결과 */}
-          <div className="rounded border border-border/40 bg-background/40 p-4 space-y-3">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5 font-mono">
-                <Terminal className="w-3.5 h-3.5 text-primary" /> Paper Console Stream
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono">
-                Action: Dispatch
-              </Badge>
-            </div>
-
-            <div className="h-28 rounded bg-black/70 p-3 font-mono text-[11px] text-emerald-400 space-y-1 overflow-y-auto border border-border/20">
-              <div className="text-muted-foreground/60">[SYSTEM] Ru-Beacon Agent v1.0.0 Ready (WSS Connected)</div>
-              {step >= 1 && (
-                <div className="text-blue-400 animate-pulse">
-                  [RECV] DISCORD_BUTTON_CLICK (User: Alex_KR, customId: btn_daily_reward)
-                </div>
-              )}
-              {step >= 2 && (
-                <div className="text-amber-400">
-                  [WORKER] Condition evaluated: True (Quota remaining: 1/1)
-                </div>
-              )}
-              {step >= 3 && (
-                <div className="text-emerald-300 font-semibold">
-                  [EXEC] give Alex_KR minecraft:diamond 3 & title Alex_KR subtitle &quot;출석 완료!&quot;
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>인게임 TPS 영향:</span>
-              <span className="text-emerald-500 font-semibold font-mono">0.00% (메인 스레드 멈춤 없음)</span>
-            </div>
-          </div>
+          <p className="text-[11px] text-muted-foreground leading-normal">
+            마인크래프트 비동기 이벤트 핸들러가 메인 스레드 간섭 없이 원석 채굴 이벤트를 포착합니다.
+          </p>
         </div>
-      ) : (
-        /* Minecraft -> Discord 시나리오 */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Minecraft 측: 이벤트 발원지 */}
-          <div className="rounded border border-border/40 bg-background/40 p-4 space-y-3">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5 font-mono">
-                <Terminal className="w-3.5 h-3.5 text-primary" /> Minecraft In-game Event
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono">
-                Trigger
-              </Badge>
-            </div>
 
-            <div className="p-3 rounded bg-card/80 border border-border/40 text-xs space-y-2">
-              <div className="font-semibold text-foreground flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                플레이어 50레벨 달성 이벤트
-              </div>
-              <p className="text-muted-foreground text-[11px] leading-relaxed">
-                인게임 플레이어가 몬스터 사냥 및 경험치 획득으로 50레벨에 도달했습니다.
-              </p>
-              <Button
-                size="sm"
-                onClick={runSimulation}
-                disabled={isSimulating}
-                className="w-full text-xs h-8 bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1.5 mt-2"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                {isSimulating ? "이벤트 전파 중..." : "[플레이어 50레벨 달성] 시뮬레이션"}
-              </Button>
-            </div>
+        {/* 중앙: LMAX Disruptor 링버퍼 코어 */}
+        <div
+          className={`rounded border p-4 space-y-3 transition-colors duration-200 ${
+            stage === "buffer"
+              ? "border-primary bg-primary/5"
+              : "border-border bg-surface"
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-foreground flex items-center gap-1.5">
+              <Activity className="w-3.5 h-3.5 text-primary" />
+              LMAX Disruptor 링버퍼
+            </span>
+            <span className="text-[10px] font-mono text-emerald-400">20.0 TPS 안정</span>
+          </div>
 
-            <div className="text-[11px] text-muted-foreground font-mono flex items-center gap-1">
-              <span>서버 이벤트 감지:</span>
-              <span className="text-emerald-500 font-semibold">0.03ms (메모리 누수 없음)</span>
+          <div className="rounded border border-border bg-card p-3 space-y-2 text-xs">
+            <div className="flex items-center justify-between font-mono text-[11px]">
+              <span className="text-muted-foreground">버퍼링 지연</span>
+              <span className="text-foreground font-semibold">0.08ms</span>
+            </div>
+            <div className="flex items-center justify-between font-mono text-[11px]">
+              <span className="text-muted-foreground">메인 틱 점유</span>
+              <span className="text-emerald-400 font-semibold">0.00ms (완전 비동기)</span>
+            </div>
+            <div className="flex items-center justify-between font-mono text-[11px]">
+              <span className="text-muted-foreground">시퀀스 큐</span>
+              <span className="text-muted-foreground">4096 / Lock-free</span>
             </div>
           </div>
 
-          {/* Discord 임베드 측: 실행 결과 */}
-          <div className="rounded border border-border/40 bg-background/40 p-4 space-y-3">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5 font-mono">
-                <MessageSquare className="w-3.5 h-3.5 text-primary" /> #서버-공지 채널
-              </span>
-              <Badge variant="outline" className="text-[10px] font-mono">
-                Action: Embed & Role
-              </Badge>
-            </div>
-
-            <div className="h-28 rounded bg-black/50 p-3 text-xs space-y-2 overflow-y-auto border border-border/20">
-              {step === 0 && (
-                <div className="text-muted-foreground/60 text-[11px] text-center pt-8">
-                  좌측 버튼을 눌러 레벨업 이벤트를 발생시키세요.
-                </div>
-              )}
-              {step >= 1 && (
-                <div className="text-[11px] font-mono text-blue-400 animate-pulse">
-                  [INGRESS] MINECRAFT_LEVEL_UP (Player: &quot;Steve_KR&quot;, Level: 50)
-                </div>
-              )}
-              {step >= 2 && (
-                <div className="p-2 rounded bg-card/90 border-l-2 border-primary text-[11px] space-y-1">
-                  <div className="font-semibold text-primary flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> 레벨 50 도달 달성 공지!
-                  </div>
-                  <div className="text-foreground/90">
-                    축하합니다! Steve_KR 님이 서버 최단 시간 50레벨을 돌파했습니다!
-                  </div>
-                </div>
-              )}
-              {step >= 3 && (
-                <div className="text-emerald-400 font-mono text-[11px] flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" /> [BOT] Steve_KR에게 @베테랑 역할 부여 완료
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>디스코드 알림 및 역할:</span>
-              <span className="text-emerald-500 font-semibold font-mono">실시간 지급 완료</span>
-            </div>
-          </div>
+          <p className="text-[11px] text-muted-foreground leading-normal">
+            메모리 할당 없는 원형 링버퍼 구조로 초당 1,000건 폭증 상황에서도 서버 틱 스파이크를 차단합니다.
+          </p>
         </div>
-      )}
+
+        {/* 우측: 디스코드 게이트웨이 노드 */}
+        <div
+          className={`rounded border p-4 space-y-3 transition-colors duration-200 ${
+            stage === "delivered"
+              ? "border-primary bg-primary/5"
+              : "border-border bg-surface"
+          }`}
+        >
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-foreground flex items-center gap-1.5">
+              <MessageSquare className="w-3.5 h-3.5 text-primary" />
+              디스코드 게이트웨이
+            </span>
+            <span className="text-[10px] font-mono text-primary">평균 45ms 도착</span>
+          </div>
+
+          {/* 디스코드 다크 스타일 규격 임베드 카드 */}
+          <div className="rounded border border-border bg-secondary p-3 space-y-2 text-xs border-l-4 border-l-primary">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-semibold text-foreground flex items-center gap-1">
+                Ru-Beacon
+                <span className="text-[9px] bg-primary text-primary-foreground px-1 py-0.2 rounded font-mono">
+                  BOT
+                </span>
+              </span>
+              <span className="text-[10px] text-muted-foreground font-mono">#서버-알림</span>
+            </div>
+            <div className="font-medium text-foreground text-[12px]">
+              [{selectedEvent.name}] {selectedEvent.player}
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {selectedEvent.detail}
+            </p>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground leading-normal">
+            중계 레이어 없이 디스코드 WebSocket API로 웹훅 임베드를 즉시 푸시합니다.
+          </p>
+        </div>
+      </div>
+
+      {/* 액션 컨트롤 & 실시간 피드백 토스트 */}
+      <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-border">
+        <Button
+          onClick={handleTrigger}
+          disabled={isSimulating}
+          className="w-full sm:w-auto h-9 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-4 gap-2"
+        >
+          <Zap className="w-3.5 h-3.5" />
+          {isSimulating ? "파이프라인 통과 중..." : "루비 신호기 이벤트 격발 테스트"}
+        </Button>
+
+        {toastMessage ? (
+          <div
+            role="status"
+            className="flex items-center gap-2 text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded transition-opacity"
+          >
+            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+            <Clock className="w-3.5 h-3.5" />
+            <span>엔드투엔드 파이프라인 평균 지연: 45ms</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
