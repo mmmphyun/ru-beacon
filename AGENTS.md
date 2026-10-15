@@ -26,6 +26,13 @@
 - 인스턴스 인증 토큰, allowlist, 권한 확인 등 보안 검증.
 - 데이터 손실을 방지하는 DB 트랜잭션 및 에러 핸들링.
 
+### 1.4 분산 인프라 3대 하드 룰 & 검증 하네스 (Distributed System Hard Rules)
+형식적 관료주의(매 작업 전 사전 브리핑, 단위 카오스 테스트 양산)를 배제하고, 실제 런타임 장애를 차단하는 포니테일 압축 규칙을 강제한다:
+1. **트랜잭션 순도 (Transaction Purity)**: RDBMS `transaction { ... }` 블록 내에서 Redis, Discord Webhook, 외부 HTTP 등 네트워크 I/O 호출을 엄격히 금지한다 (`HikariCP max 10` 커넥션 풀 고갈 방어).
+2. **Redis 유한성 (Bounded Redis)**: 모든 스트림 발행 시 `MAXLEN ~ 10,000` 상한을 강제하고, 모든 임시 키/락은 `EXPIRE`(TTL)를 100% 명시한다 (Redis OOM 방어).
+3. **2-Tier 단방향 보상 롤백 (Dual-Write Rollback)**: 캐시/락 선점 후 DB 트랜잭션 실패 시 `finally` 또는 `catch`에서 즉시 `del`/`srem` 원복을 보장한다 (분산 상태 불일치 방어).
+4. **검증 하네스 일원화 (Single Benchmark Harness)**: 사족성 카오스 테스트 코드를 남발하지 않고, 분산 동시성/인프라 검증은 `k6-concurrency-benchmark.js`(1,000 RPS) 단일 실측 하네스로 일괄 갈음한다.
+
 ---
 
 ## 2. Searching-Codebases 강제 강령 (AST Search & Token Guards)
