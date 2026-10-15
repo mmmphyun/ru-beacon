@@ -13,7 +13,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, AlertCircle, ArrowRight, ArrowLeft, Send, RotateCcw, Sparkles } from "lucide-react";
+import { CheckCircle2, AlertCircle, ArrowRight, ArrowLeft, Send, RotateCcw, Sparkles, Bot, Loader2, HelpCircle, AlertTriangle } from "lucide-react";
 
 interface WorkflowWizardProps {
   tenantId: string;
@@ -27,6 +27,108 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
   const [activeVersion, setActiveVersion] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // 자연어 에이전트 커맨드 바 상태
+  const [agentPrompt, setAgentPrompt] = useState("");
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [agentResult, setAgentResult] = useState<{
+    type: "success" | "ambiguous" | "error" | "rate_limited";
+    message: string;
+    confidence?: number;
+    candidateState?: WizardFormState;
+  } | null>(null);
+
+  const handleAgentGenerate = async () => {
+    const trimmed = agentPrompt.trim();
+    if (!trimmed) return;
+
+    setAgentLoading(true);
+    setAgentResult(null);
+
+    try {
+      const res = await fetch("/api/agent/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: trimmed, tenantId }),
+      });
+
+      if (res.status === 429) {
+        const data = await res.json().catch(() => ({}));
+        setAgentResult({
+          type: "rate_limited",
+          message: data.message || "요청 한도를 초과했습니다 (분당 2회, 일일 5회 제한). 잠시 후 다시 시도해주세요.",
+        });
+        return;
+      }
+
+      if (res.status === 400) {
+        const data = await res.json().catch(() => ({}));
+        setAgentResult({
+          type: "error",
+          message: data.message || "지원하지 않는 워크플로우 요구사항입니다. 마인크래프트 레벨업, 발전과제, 또는 Discord 버튼 이벤트만 지원됩니다.",
+          confidence: 0.0,
+        });
+        return;
+      }
+
+      if (!res.ok) {
+        setAgentResult({
+          type: "error",
+          message: "에이전트 생성 처리 중 일시적인 오류가 발생했습니다.",
+        });
+        return;
+      }
+
+      const data = await res.json();
+      const confidence = typeof data.confidence === "number" ? data.confidence : 0;
+
+      if (confidence >= 0.7) {
+        setFormState(data.formState);
+        setAgentResult({
+          type: "success",
+          message: `${data.explanation} (확신도: ${Math.round(confidence * 100)}%)`,
+          confidence,
+        });
+        setTimeout(() => {
+          setStep(2);
+        }, 500);
+      } else if (confidence > 0.0) {
+        setAgentResult({
+          type: "ambiguous",
+          message: `의도가 모호합니다: 혹시 '${data.explanation}'을(를) 원하셨습니까? (확신도: ${Math.round(confidence * 100)}%)`,
+          confidence,
+          candidateState: data.formState,
+        });
+      } else {
+        setAgentResult({
+          type: "error",
+          message: data.message || "지원하지 않는 워크플로우 요구사항입니다. 마인크래프트 레벨업, 발전과제, 또는 Discord 버튼 이벤트만 지원됩니다.",
+          confidence: 0.0,
+        });
+      }
+    } catch {
+      setAgentResult({
+        type: "error",
+        message: "에이전트 서비스 통신 중 오류가 발생했습니다.",
+      });
+    } finally {
+      setAgentLoading(false);
+    }
+  };
+
+  const handleApplyCandidate = () => {
+    if (agentResult?.candidateState) {
+      setFormState(agentResult.candidateState);
+      setAgentResult({
+        type: "success",
+        message: "추천 설정을 적용했습니다.",
+        confidence: agentResult.confidence,
+      });
+      setTimeout(() => {
+        setStep(2);
+      }, 500);
+    }
+  };
 
   // 실시간 AST 생성 및 유효성 검증
   const ast = useMemo(() => generateWorkflowAst(formState, activeVersion ?? 1), [formState, activeVersion]);
@@ -111,6 +213,85 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
 
   return (
     <div className="space-y-6">
+      {/* Ru-Beacon 에이전트 커맨드 바 */}
+      <div className="p-4 rounded-lg bg-slate-900 border border-slate-800 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Bot className="w-4 h-4 text-ruby-400" />
+            <span className="font-semibold text-white text-sm">Ru-Beacon 에이전트</span>
+            <Badge variant="outline" className="text-xs border-ruby-500/30 text-ruby-300">
+              자연어 자동 생성
+            </Badge>
+          </div>
+          <span className="text-xs text-slate-400">마인크래프트-Discord 연동 의도를 입력하면 위저드를 자동 구성합니다.</span>
+        </div>
+
+        <div className="flex gap-2">
+          <Input
+            value={agentPrompt}
+            onChange={(e) => setAgentPrompt(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !agentLoading && agentPrompt.trim()) {
+                handleAgentGenerate();
+              }
+            }}
+            placeholder="예: 플레이어가 50레벨을 달성하면 축하 임베드 메시지를 Discord에 전송해줘"
+            disabled={agentLoading}
+            className="text-sm bg-slate-950 border-slate-800 text-slate-200 placeholder:text-slate-500"
+          />
+          <Button
+            onClick={handleAgentGenerate}
+            disabled={agentLoading || !agentPrompt.trim()}
+            className="shrink-0 gap-1.5 bg-ruby-600 hover:bg-ruby-700 text-white transition-colors"
+          >
+            {agentLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>추론 중...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>생성</span>
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* 에이전트 피드백 배너 (확신도 3단계) */}
+        {agentResult && (
+          <div
+            className={`p-3 rounded-md border text-sm flex items-start justify-between gap-3 ${
+              agentResult.type === "success"
+                ? "bg-emerald-950/40 border-emerald-800 text-emerald-300"
+                : agentResult.type === "ambiguous"
+                ? "bg-amber-950/40 border-amber-800 text-amber-300"
+                : agentResult.type === "rate_limited"
+                ? "bg-orange-950/40 border-orange-800 text-orange-300"
+                : "bg-rose-950/40 border-rose-800 text-rose-300"
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              {agentResult.type === "success" && <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />}
+              {agentResult.type === "ambiguous" && <HelpCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+              {agentResult.type === "rate_limited" && <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />}
+              {agentResult.type === "error" && <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />}
+              <span>{agentResult.message}</span>
+            </div>
+            {agentResult.type === "ambiguous" && agentResult.candidateState && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleApplyCandidate}
+                className="shrink-0 text-xs border-amber-700 hover:bg-amber-900/40 text-amber-200"
+              >
+                추천 설정 적용하기
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* 상단 프리셋 바 */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-lg bg-slate-900 border border-slate-800">
         <div className="flex items-center gap-2 text-slate-300 text-sm">
@@ -150,7 +331,7 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
       <div className="grid grid-cols-3 gap-2 text-center text-sm font-medium">
         <div
           onClick={() => setStep(1)}
-          className={`cursor-pointer p-3 rounded-md border transition-all ${
+          className={`cursor-pointer p-3 rounded-md border transition-colors ${
             step === 1
               ? "bg-blue-600/20 border-blue-500 text-white"
               : "bg-slate-900/50 border-slate-800 text-slate-400"
@@ -160,7 +341,7 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
         </div>
         <div
           onClick={() => setStep(2)}
-          className={`cursor-pointer p-3 rounded-md border transition-all ${
+          className={`cursor-pointer p-3 rounded-md border transition-colors ${
             step === 2
               ? "bg-blue-600/20 border-blue-500 text-white"
               : "bg-slate-900/50 border-slate-800 text-slate-400"
@@ -170,7 +351,7 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
         </div>
         <div
           onClick={() => setStep(3)}
-          className={`cursor-pointer p-3 rounded-md border transition-all ${
+          className={`cursor-pointer p-3 rounded-md border transition-colors ${
             step === 3
               ? "bg-blue-600/20 border-blue-500 text-white"
               : "bg-slate-900/50 border-slate-800 text-slate-400"
