@@ -53,4 +53,13 @@ describe("LandingPage UI & Copywriting", () => {
     expect(screen.getByText("인스턴스 토큰 발급")).toBeDefined();
     expect(screen.getByText("실시간 하트비트 확인")).toBeDefined();
   });
+
+  it("성능 비교 매트릭스와 생태계 및 바텀 CTA가 정상적으로 노출되어야 한다", () => {
+    render(<LandingPage />);
+
+    expect(screen.getByText("기존 연동 방식과의 기술적 격차")).toBeDefined();
+    expect(screen.getByText("마인크래프트 메인 틱 점유 시간")).toBeDefined();
+    expect(screen.getAllByText("0.00ms (완전 비동기)").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("서버 렉 없는 디스코드 커뮤니티, 지금 즉시 연결하세요.")).toBeDefined();
+  });
 });
