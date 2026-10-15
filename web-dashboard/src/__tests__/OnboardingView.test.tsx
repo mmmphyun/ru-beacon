@@ -31,6 +31,10 @@ describe("OnboardingView 3-Step Wizard", () => {
   it("Step 1 완료 시 Step 2 인스턴스 토큰 발급 단계로 전환되어야 한다", async () => {
     render(<OnboardingView tenantId="test_tenant" />);
 
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("1234567890")).toBeDefined();
+    });
+
     const nextBtn = screen.getByRole("button", { name: /다음: 인스턴스 토큰 발급/ });
     fireEvent.click(nextBtn);
 
@@ -43,6 +47,10 @@ describe("OnboardingView 3-Step Wizard", () => {
   it("Step 3 연결 상태 확인에서 핑 수신 시 완료 상태가 표시되고 콜백이 호출되어야 한다", async () => {
     const onCompleteMock = vi.fn();
     render(<OnboardingView tenantId="test_tenant" onComplete={onCompleteMock} />);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("1234567890")).toBeDefined();
+    });
 
     // Step 1 -> Step 2
     fireEvent.click(screen.getByRole("button", { name: /다음: 인스턴스 토큰 발급/ }));
