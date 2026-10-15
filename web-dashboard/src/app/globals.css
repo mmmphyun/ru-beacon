@@ -1,60 +1,44 @@
+@import "../../.design/tokens/tokens.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --card: 0 0% 100%;
-  --ring: 345 100% 35%;
-  --input: 45 10% 90%;
-  --muted: 45 10% 95%;
-  --accent: 45 30% 90%;
-  --border: 45 10% 90%;
-  --radius: 4px;
-  --popover: 0 0% 100%;
-  --primary: 345 100% 35%;
-  --secondary: 45 20% 96%;
-  --background: 0 0% 98%;
-  --foreground: 345 100% 15%;
-  --destructive: 0 84% 60%;
-  --card-foreground: 345 100% 15%;
-  --muted-foreground: 345 20% 45%;
-  --accent-foreground: 345 100% 30%;
-  --popover-foreground: 345 100% 15%;
-  --primary-foreground: 0 0% 100%;
-  --secondary-foreground: 345 100% 25%;
-  --destructive-foreground: 0 0% 98%;
-}
-
+:root,
 .dark {
-  --card: 0 0% 12%;
-  --ring: 345 100% 45%;
-  --input: 0 0% 20%;
-  --muted: 0 0% 15%;
-  --accent: 345 100% 20%;
-  --border: 0 0% 20%;
+  --background: 0 0% 8%;
+  --card: 0 0% 11%;
+  --card-foreground: 45 10% 96%;
+  --popover: 0 0% 11%;
+  --popover-foreground: 45 10% 96%;
+  --primary: 340 85% 45%;
+  --primary-foreground: 45 10% 96%;
+  --secondary: 0 0% 14%;
+  --secondary-foreground: 45 10% 96%;
+  --muted: 0 0% 14%;
+  --muted-foreground: 45 8% 55%;
+  --accent: 340 85% 45%;
+  --accent-foreground: 45 10% 96%;
+  --destructive: 4 90% 55%;
+  --destructive-foreground: 45 10% 96%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 8%;
+  --success: 150 75% 40%;
+  --success-foreground: 45 10% 96%;
+  --border: 45 8% 18%;
+  --input: 45 8% 18%;
+  --ring: 340 85% 45%;
   --radius: 4px;
-  --popover: 0 0% 10%;
-  --primary: 345 100% 45%;
-  --secondary: 0 0% 20%;
-  --background: 0 0% 10%;
-  --foreground: 0 0% 98%;
-  --destructive: 0 62% 40%;
-  --card-foreground: 0 0% 98%;
-  --muted-foreground: 0 0% 65%;
-  --accent-foreground: 0 0% 98%;
-  --popover-foreground: 0 0% 98%;
-  --primary-foreground: 0 0% 100%;
-  --secondary-foreground: 0 0% 98%;
-  --destructive-foreground: 0 0% 98%;
 }
 
 body {
   color: hsl(var(--foreground));
   background: hsl(var(--background));
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: 0.015em;
 }
 
-code, pre, kbd {
-  font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+code,
+pre,
+kbd {
+  font-family: "JetBrains Mono", D2Coding, Pretendard, monospace;
 }
