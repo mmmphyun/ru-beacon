@@ -3,9 +3,36 @@
 @tailwind components;
 @tailwind utilities;
 
-:root,
+:root {
+  --background: 45 20% 97%;
+  --foreground: 0 0% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 12%;
+  --primary: 340 85% 45%;
+  --primary-foreground: 45 10% 98%;
+  --secondary: 45 15% 92%;
+  --secondary-foreground: 0 0% 15%;
+  --muted: 45 15% 92%;
+  --muted-foreground: 45 8% 42%;
+  --accent: 340 85% 45%;
+  --accent-foreground: 45 10% 98%;
+  --destructive: 4 90% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;
+  --warning-foreground: 0 0% 12%;
+  --success: 150 75% 35%;
+  --success-foreground: 0 0% 100%;
+  --border: 45 12% 86%;
+  --input: 45 12% 86%;
+  --ring: 340 85% 45%;
+  --radius: 6px;
+}
+
 .dark {
   --background: 0 0% 8%;
+  --foreground: 45 10% 96%;
   --card: 0 0% 11%;
   --card-foreground: 45 10% 96%;
   --popover: 0 0% 11%;
@@ -27,7 +54,7 @@
   --border: 45 8% 18%;
   --input: 45 8% 18%;
   --ring: 340 85% 45%;
-  --radius: 4px;
+  --radius: 6px;
 }
 
 body {

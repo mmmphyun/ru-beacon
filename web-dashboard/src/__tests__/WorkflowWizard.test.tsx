@@ -180,11 +180,13 @@ describe("WorkflowWizard Component", () => {
 
     fireEvent.click(screen.getByText("생성"));
 
-    await waitFor(() => {
-      expect(
-        screen.getByText("지원하지 않는 워크플로우 요구사항입니다. 마인크래프트 레벨업, 발전과제, 또는 Discord 버튼 이벤트만 지원됩니다.")
-      ).toBeDefined();
+    await act(async () => {
+      await Promise.resolve();
     });
+
+    expect(
+      screen.getByText("지원하지 않는 워크플로우 요구사항입니다. 마인크래프트 레벨업, 발전과제, 또는 Discord 버튼 이벤트만 지원됩니다.")
+    ).toBeDefined();
   });
 
   it("레이트 리밋 초과(429) 시 쿼터 제한 경고 배너가 노출되어야 한다", async () => {
@@ -204,10 +206,12 @@ describe("WorkflowWizard Component", () => {
 
     fireEvent.click(screen.getByText("생성"));
 
-    await waitFor(() => {
-      expect(
-        screen.getByText("요청 한도를 초과했습니다 (분당 2회, 일일 5회 제한). 잠시 후 다시 시도해주세요.")
-      ).toBeDefined();
+    await act(async () => {
+      await Promise.resolve();
     });
+
+    expect(
+      screen.getByText("요청 한도를 초과했습니다 (분당 2회, 일일 5회 제한). 잠시 후 다시 시도해주세요.")
+    ).toBeDefined();
   });
 });
