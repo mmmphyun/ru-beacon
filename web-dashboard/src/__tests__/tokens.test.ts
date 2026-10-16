@@ -27,10 +27,13 @@ describe("Ruby-Sand Design Tokens & SSOT Bridge", () => {
     expect(content).toMatch(/`MOTION_INTENSITY`:\s*2/);
   });
 
-  it("globals.css의 Line 1에서 design tokens.css를 임포트해야 한다", () => {
+  it("globals.css의 Line 1에서 design tokens.css를 임포트하고 LevelUp 클래스를 정의해야 한다", () => {
     const globalsCssPath = path.resolve(__dirname, "../app/globals.css");
     const content = fs.readFileSync(globalsCssPath, "utf-8");
     const firstLine = content.split("\n")[0].trim();
     expect(firstLine).toBe('@import "../../.design/tokens/tokens.css";');
+    expect(content).toContain('font-family: "LevelUp"');
+    expect(content).toContain(".headline");
+    expect(content).toContain(".score");
   });
 });

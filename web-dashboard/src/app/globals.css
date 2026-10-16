@@ -69,3 +69,28 @@ pre,
 kbd {
   font-family: "JetBrains Mono", D2Coding, Pretendard, monospace;
 }
+
+.headline {
+  font-family: "LevelUp", system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.headline em {
+  font-style: italic;
+}
+
+.app-label {
+  font-family: "LevelUp", system-ui, sans-serif;
+  font-weight: 400;
+}
+
+.score {
+  font-family: "LevelUp", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.prose {
+  font-family: "LevelUp", sans-serif;
+  font-variant-numeric: proportional-nums;
+}
+

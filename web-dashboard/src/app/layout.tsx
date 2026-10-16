@@ -14,6 +14,10 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/hada0127/hada-type/css/levelup.css"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{const t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}})()`,
