@@ -68,6 +68,7 @@ describe("LandingPage UI & Copywriting", () => {
     expect(screen.getAllByText("0.00ms (완전 비동기)").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("서버 렉 없는 디스코드 커뮤니티, 지금 즉시 연결하세요.")).toBeDefined();
     expect(screen.getByText(/플러그인 JAR 다운로드/)).toBeDefined();
-    expect(screen.getByText("Scroll")).toBeDefined();
+    expect(screen.getByLabelText("Ru-Beacon Brand Headline")).toBeDefined();
+    expect(document.querySelectorAll("[data-animate-curve]").length).toBeGreaterThanOrEqual(3);
   });
 });
