@@ -66,7 +66,6 @@ function buildTpsWaveModel(phaseRad: number, cx: number, cy: number) {
     waveLines.push(pts.join(" "));
   }
 
-  // 상단 20.0 TPS 절대 수평면 (y = +32 고정, 이벤트 파형이 치솟아도 미동 없이 평탄함)
   const halfW = ((cols - 1) * step) / 2;
   const halfD = ((rows - 1) * step) / 2;
   const flatY = 32;
@@ -220,7 +219,6 @@ export default function LandingPage() {
     });
   }, []);
 
-  // 3D 모델 및 이벤트 파형의 연속 모션 루프
   useEffect(() => {
     const prefersReduced =
       typeof window !== "undefined" &&
@@ -246,7 +244,6 @@ export default function LandingPage() {
     };
   }, []);
 
-  // 양방향 스크롤 감지: 뷰포트 진입 시마다 곡선 드로잉·게이지·요소 등장 재실행
   useEffect(() => {
     const prefersReduced =
       typeof window !== "undefined" &&
@@ -342,17 +339,14 @@ export default function LandingPage() {
   const phaseRad = (modelAngle * Math.PI) / 45;
   const tpsWaveModel = buildTpsWaveModel(phaseRad, 250, 165);
 
-  // 뷰포트 2: 4가지 서로 다른 3D 기하학 도형 (정육면체 -> 원형 링 -> 팔면체 게이트 -> 파동 구체)
   const node1Cube = buildWireCube(44, modelAngle, 95, 195);
   const node2Ring = buildMiniRing(30, -modelAngle * 1.4, 310, 95);
   const node3Octa = buildWireOctahedron(28, modelAngle * 1.1, 560, 215);
   const pulseRadius = 14 + (Math.sin(phaseRad * 2) * 0.5 + 0.5) * 14;
 
-  // 뷰포트 3: 대형 3D 링버퍼 토러스 & 중심부 코어 팔면체
   const ringBufferPath = buildWireRingBuffer(modelAngle * 0.5, 230, 190);
   const ringCoreOcta = buildWireOctahedron(32, -modelAngle * 1.2, 230, 190);
 
-  // 뷰포트 4: 수직 비콘 광선 착지점 타겟 다이아몬드
   const targetOcta = buildWireOctahedron(20, modelAngle, 120, 88);
 
   return (
@@ -414,21 +408,29 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* 뷰포트 0: 정육면체 비콘 피라미드 + 심장박동 + 광선 축 90도 회전 Ru-by-Beacon 헤더 (LevelUp 폰트 전용) */}
+      {/* 뷰포트 0: 정육면체 비콘 피라미드 + 심장박동 + 광선 축 90도 회전 Ru-by-Beacon 헤더 */}
       <BeaconStage />
 
-      {/* 뷰포트 1: 깔끔한 기본 산세리프 타이포그래피 + 우측 [3D 이벤트 파형 vs 20.0 TPS 수평 레이저 직선] */}
+      {/* 뷰포트 1: 좌측 헤드라인 / 우측 [3D 이벤트 파형 vs 20.0 TPS 수평 레이저] + 루비-샌드 그라디언트 */}
       <section
         id="hero"
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-between overflow-hidden"
       >
+        {/* 3D 파형 모델 주변 루비-샌드(Ruby-Sand) 앰비언트 그라디언트 */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 72% 46%, rgba(212, 17, 83, 0.16) 0%, rgba(206, 178, 138, 0.14) 36%, transparent 70%)",
+          }}
+        />
+
         <div className="hidden md:block" />
 
-        <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center my-auto">
-          {/* 좌측 7열: 깔끔한 기본 폰트 헤드라인 및 CTA */}
+        <div className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center my-auto">
           <div className="lg:col-span-7 space-y-6" data-animate-item>
-            <div className="text-[11px] font-light tracking-[0.26em] text-primary uppercase">
+            <div className="text-xs sm:text-sm font-medium tracking-[0.18em] text-primary uppercase">
               초저지연 마인크래프트-디스코드 브릿지
             </div>
 
@@ -436,7 +438,7 @@ export default function LandingPage() {
               서버 TPS 저하 없는 마인크래프트-디스코드 실시간 연동
             </h1>
 
-            <p className="text-sm sm:text-base font-light text-muted-foreground leading-relaxed max-w-xl">
+            <p className="text-base sm:text-lg font-normal text-muted-foreground leading-relaxed max-w-xl">
               서버에 이벤트가 몰려도 렉이 걸리지 않습니다. 게임 속 사건을 디스코드 알림과 역할에 곧바로 반영합니다.
             </p>
 
@@ -444,7 +446,7 @@ export default function LandingPage() {
               <Link href="/app">
                 <Button
                   size="lg"
-                  className="h-11 px-6 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
+                  className="h-11 px-6 text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
                 >
                   루비콘 콘솔 시작하기
                   <ArrowRight className="w-4 h-4" />
@@ -454,7 +456,7 @@ export default function LandingPage() {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="h-11 px-6 text-xs border-border hover:bg-muted/40 transition-colors gap-2"
+                  className="h-11 px-6 text-xs sm:text-sm border-border hover:bg-muted/40 transition-colors gap-2"
                 >
                   <Download className="w-4 h-4" />
                   플러그인 다운로드 ({release.tagName})
@@ -463,69 +465,79 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* 우측 5열 여백: 출렁이는 3D 이벤트 파형(하단) vs 미동 없는 20.0 TPS 루비 수평면(상단) */}
           <div className="lg:col-span-5 flex flex-col items-center justify-center" data-animate-model>
             <svg
               viewBox="0 0 500 320"
               className="w-full max-w-[480px] h-auto overflow-visible"
               aria-hidden="true"
             >
-              {/* 하단: 실시간으로 출렁이는 3D 이벤트 폭증 파형 그리드 */}
+              <defs>
+                <radialGradient id="waveGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#E11D48" stopOpacity="0.22" />
+                  <stop offset="55%" stopColor="#CEB28A" stopOpacity="0.12" />
+                  <stop offset="100%" stopColor="#CEB28A" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <ellipse cx="250" cy="165" rx="220" ry="130" fill="url(#waveGlow)" />
+
+              {/* 하단: 샌드(Sand) 톤으로 출렁이는 3D 이벤트 폭증 파형 그리드 */}
               <path
                 d={tpsWaveModel.wavePath}
                 fill="none"
-                stroke="currentColor"
-                strokeOpacity="0.24"
-                strokeWidth="0.95"
+                stroke="hsl(var(--sand))"
+                strokeOpacity="0.52"
+                strokeWidth="1.05"
               />
 
-              {/* 상단: 흔들림 없이 평탄한 20.0 TPS 보호 기준면 */}
+              {/* 상단: 흔들림 없이 평탄한 20.0 TPS 루비 보호 기준면 */}
               <polygon
                 points={tpsWaveModel.flatPolygon}
                 fill="#E11D48"
-                fillOpacity="0.08"
+                fillOpacity="0.11"
                 stroke="#E11D48"
-                strokeOpacity="0.35"
-                strokeWidth="1"
+                strokeOpacity="0.42"
+                strokeWidth="1.1"
               />
 
-              {/* 기준면을 관통하는 0.00ms 수평 루비 레이저 직선 */}
               <path
                 data-animate-curve
                 d={tpsWaveModel.laserLine}
                 fill="none"
                 stroke="#E11D48"
-                strokeWidth="2"
+                strokeWidth="2.2"
                 strokeDasharray="1400"
                 strokeDashoffset="0"
               />
               <circle
                 cx={tpsWaveModel.laserEnd[0]}
                 cy={tpsWaveModel.laserEnd[1]}
-                r="3.5"
+                r="4"
                 fill="#E11D48"
               />
             </svg>
-            <div className="mt-2 flex items-center gap-6 text-[11px] font-light tracking-[0.2em] text-muted-foreground uppercase">
+            <div className="mt-3 flex items-center gap-6 text-xs sm:text-sm font-normal tracking-[0.14em] text-muted-foreground">
               <span className="flex items-center gap-2">
-                <span className="w-2.5 h-[2px] bg-primary inline-block" />
+                <span className="w-3 h-[2px] bg-primary inline-block" />
                 20.0 TPS 수평 유지
               </span>
-              <span className="flex items-center gap-2 opacity-70">
-                <span className="w-2.5 h-[1px] bg-foreground inline-block" />
+              <span className="flex items-center gap-2">
+                <span
+                  className="w-3 h-[1.5px] inline-block"
+                  style={{ backgroundColor: "hsl(var(--sand))" }}
+                />
                 인게임 이벤트 폭증 파형
               </span>
             </div>
           </div>
         </div>
 
-        {/* 하단: 깔끔한 기본 고정폭 숫자로 정돈된 3대 지표 */}
-        <div className="max-w-6xl mx-auto w-full pt-8 pb-10 border-t border-border/60 grid grid-cols-3 gap-6">
+        {/* 하단: 3대 실측 지표 (라벨 크기 상향) */}
+        <div className="relative z-10 max-w-6xl mx-auto w-full pt-8 pb-10 border-t border-border/60 grid grid-cols-3 gap-6">
           <div data-animate-item>
             <div className="font-mono tabular-nums font-bold text-2xl sm:text-4xl text-primary tracking-tight">
               0.00ms
             </div>
-            <div className="mt-1 text-[11px] font-light tracking-[0.16em] text-muted-foreground">
+            <div className="mt-1.5 text-xs sm:text-sm font-normal tracking-[0.12em] text-muted-foreground">
               메인 틱 점유
             </div>
           </div>
@@ -533,7 +545,7 @@ export default function LandingPage() {
             <div className="font-mono tabular-nums font-bold text-2xl sm:text-4xl text-foreground tracking-tight">
               0.08ms
             </div>
-            <div className="mt-1 text-[11px] font-light tracking-[0.16em] text-muted-foreground">
+            <div className="mt-1.5 text-xs sm:text-sm font-normal tracking-[0.12em] text-muted-foreground">
               링버퍼 큐잉
             </div>
           </div>
@@ -541,22 +553,31 @@ export default function LandingPage() {
             <div className="font-mono tabular-nums font-bold text-2xl sm:text-4xl text-foreground tracking-tight">
               40ms
             </div>
-            <div className="mt-1 text-[11px] font-light tracking-[0.16em] text-muted-foreground">
+            <div className="mt-1.5 text-xs sm:text-sm font-normal tracking-[0.12em] text-muted-foreground">
               디스코드 도달
             </div>
           </div>
         </div>
       </section>
 
-      {/* 뷰포트 2: 우측 정렬 헤더 + 4가지 서로 다른 3D 기하학 도형(큐브 -> 링 -> 팔면체 -> 파동 구체)과 루비 S-곡선 */}
+      {/* 뷰포트 2: 우측 정렬 헤더 + 4가지 3D 도형 궤적 + 중앙 루비-샌드 오로라 그라디언트 */}
       <section
         id="pipeline"
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden"
       >
-        <div className="max-w-6xl mx-auto w-full space-y-12 md:space-y-16">
-          <div className="ml-auto text-left md:text-right max-w-xl space-y-2" data-animate-item>
-            <div className="text-[11px] font-light tracking-[0.26em] text-primary uppercase">
+        {/* 4개 3D 파이프라인 도형 영역 배경 루비-샌드 그라디언트 */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse 75% 50% at 50% 48%, rgba(212, 17, 83, 0.14) 0%, rgba(206, 178, 138, 0.13) 44%, transparent 76%)",
+          }}
+        />
+
+        <div className="relative z-10 max-w-6xl mx-auto w-full space-y-12 md:space-y-16">
+          <div className="ml-auto text-left md:text-right max-w-xl space-y-2.5" data-animate-item>
+            <div className="text-xs sm:text-sm font-medium tracking-[0.18em] text-primary uppercase">
               Signal Trajectory
             </div>
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
@@ -570,39 +591,56 @@ export default function LandingPage() {
               className="hidden md:block w-full h-auto overflow-visible"
               aria-hidden="true"
             >
+              <defs>
+                <radialGradient id="nodeGlowRuby" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#E11D48" stopOpacity="0.28" />
+                  <stop offset="100%" stopColor="#E11D48" stopOpacity="0" />
+                </radialGradient>
+                <radialGradient id="nodeGlowSand" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#CEB28A" stopOpacity="0.26" />
+                  <stop offset="100%" stopColor="#CEB28A" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+
+              {/* 각 3D 모델 뒤편의 개별 후광 */}
+              <circle cx="95" cy="195" r="70" fill="url(#nodeGlowRuby)" />
+              <circle cx="310" cy="95" r="70" fill="url(#nodeGlowSand)" />
+              <circle cx="560" cy="215" r="70" fill="url(#nodeGlowSand)" />
+              <circle cx="795" cy="110" r="75" fill="url(#nodeGlowRuby)" />
+
               <path
                 d="M 40,210 C 260,30 620,270 860,85"
                 fill="none"
-                stroke="currentColor"
-                strokeOpacity="0.1"
-                strokeWidth="1"
+                stroke="hsl(var(--sand))"
+                strokeOpacity="0.3"
+                strokeWidth="1.1"
               />
               <path
                 data-animate-curve
                 d="M 40,195 C 260,15 620,255 860,70"
                 fill="none"
                 stroke="#E11D48"
-                strokeWidth="1.8"
+                strokeWidth="2"
                 strokeDasharray="1400"
                 strokeDashoffset="0"
               />
 
               {/* 노드 01: 마인크래프트 서버 (3D 정육면체 블록) */}
-              <g className="text-foreground">
-                <polygon points={node1Cube.topPoly} fill="#E11D48" fillOpacity="0.2" />
-                <path d={node1Cube.path} fill="none" stroke="#E11D48" strokeOpacity="0.85" strokeWidth="1.2" />
+              <g>
+                <polygon points={node1Cube.topPoly} fill="#E11D48" fillOpacity="0.22" />
+                <path d={node1Cube.path} fill="none" stroke="#E11D48" strokeOpacity="0.9" strokeWidth="1.25" />
               </g>
 
-              {/* 노드 02: LMAX Disruptor (3D 원형 링버퍼) */}
-              <g className="text-foreground">
-                <path d={node2Ring} fill="none" stroke="currentColor" strokeOpacity="0.7" strokeWidth="1.15" />
-                <circle cx="310" cy="95" r="4" fill="#E11D48" />
+              {/* 노드 02: LMAX Disruptor (3D 샌드 원형 링버퍼) */}
+              <g>
+                <path d={node2Ring} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.85" strokeWidth="1.25" />
+                <circle cx="310" cy="95" r="4.5" fill="#E11D48" />
               </g>
 
-              {/* 노드 03: WSS 게이트웨이 (3D 팔면체 다이아몬드 게이트) */}
-              <g className="text-foreground">
-                <polygon points={node3Octa.midPoly} fill="#E11D48" fillOpacity="0.16" />
-                <path d={node3Octa.path} fill="none" stroke="currentColor" strokeOpacity="0.75" strokeWidth="1.15" />
+              {/* 노드 03: WSS 게이트웨이 (3D 샌드-루비 팔면체 다이아몬드 게이트) */}
+              <g>
+                <polygon points={node3Octa.midPoly} fill="#E11D48" fillOpacity="0.18" />
+                <path d={node3Octa.path} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.88" strokeWidth="1.25" />
               </g>
 
               {/* 노드 04: 디스코드 봇 서비스 (동심원 신호 파동 안테나) */}
@@ -613,8 +651,8 @@ export default function LandingPage() {
                   r={pulseRadius}
                   fill="none"
                   stroke="#E11D48"
-                  strokeOpacity="0.45"
-                  strokeWidth="1"
+                  strokeOpacity="0.5"
+                  strokeWidth="1.1"
                 />
                 <ellipse
                   cx="795"
@@ -623,7 +661,7 @@ export default function LandingPage() {
                   ry="11"
                   fill="none"
                   stroke="#E11D48"
-                  strokeOpacity="0.75"
+                  strokeOpacity="0.8"
                   strokeWidth="1.2"
                 />
                 <ellipse
@@ -632,9 +670,9 @@ export default function LandingPage() {
                   rx="11"
                   ry="22"
                   fill="none"
-                  stroke="#E11D48"
-                  strokeOpacity="0.55"
-                  strokeWidth="1"
+                  stroke="hsl(var(--sand))"
+                  strokeOpacity="0.7"
+                  strokeWidth="1.1"
                 />
                 <circle cx="795" cy="110" r="5" fill="#E11D48" />
               </g>
@@ -642,35 +680,35 @@ export default function LandingPage() {
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-4">
               <div data-animate-item className="space-y-1.5">
-                <div className="font-mono text-xs text-primary font-semibold">
+                <div className="font-mono text-xs sm:text-sm text-primary font-semibold">
                   01 // 0.00ms (완전 비동기)
                 </div>
-                <h3 className="font-semibold text-base text-foreground">마인크래프트 서버</h3>
-                <p className="text-xs font-light text-muted-foreground">
+                <h3 className="font-semibold text-base sm:text-lg text-foreground">마인크래프트 서버</h3>
+                <p className="text-sm font-normal text-muted-foreground">
                   메인 틱 중단 없이 사건 즉시 분리
                 </p>
               </div>
 
               <div data-animate-item className="space-y-1.5 md:pt-8">
-                <div className="font-mono text-xs text-muted-foreground">02 // 0.08ms Queue</div>
-                <h3 className="font-semibold text-base text-foreground">LMAX Disruptor</h3>
-                <p className="text-xs font-light text-muted-foreground">
+                <div className="font-mono text-xs sm:text-sm text-muted-foreground">02 // 0.08ms Queue</div>
+                <h3 className="font-semibold text-base sm:text-lg text-foreground">LMAX Disruptor</h3>
+                <p className="text-sm font-normal text-muted-foreground">
                   수만 건의 이벤트를 무잠금 정렬
                 </p>
               </div>
 
               <div data-animate-item className="space-y-1.5">
-                <div className="font-mono text-xs text-muted-foreground">03 // Single-Hop</div>
-                <h3 className="font-semibold text-base text-foreground">WSS 게이트웨이 & Redis</h3>
-                <p className="text-xs font-light text-muted-foreground">
+                <div className="font-mono text-xs sm:text-sm text-muted-foreground">03 // Single-Hop</div>
+                <h3 className="font-semibold text-base sm:text-lg text-foreground">WSS 게이트웨이 & Redis</h3>
+                <p className="text-sm font-normal text-muted-foreground">
                   상시 열린 웹소켓 통로로 직결 전송
                 </p>
               </div>
 
               <div data-animate-item className="space-y-1.5 md:pt-8 md:text-right">
-                <div className="font-mono text-xs text-emerald-500 font-semibold">04 // 42ms Ack</div>
-                <h3 className="font-semibold text-base text-foreground">디스코드 봇 서비스</h3>
-                <p className="text-xs font-light text-muted-foreground">
+                <div className="font-mono text-xs sm:text-sm text-emerald-500 font-semibold">04 // 42ms Ack</div>
+                <h3 className="font-semibold text-base sm:text-lg text-foreground">디스코드 봇 서비스</h3>
+                <p className="text-sm font-normal text-muted-foreground">
                   채널 알림 및 유저 역할 즉시 반영
                 </p>
               </div>
@@ -679,16 +717,25 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 뷰포트 3: 좌측 3D 12슬롯 링버퍼 토러스 모델 + 우측 깔끔한 기본 폰트 3대 명세 */}
+      {/* 뷰포트 3: 좌측 3D 12슬롯 링버퍼 토러스 모델(루비-샌드 후광) + 우측 3대 기술 명세 */}
       <section
         id="architecture"
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden"
       >
-        <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        {/* 좌측 3D 링버퍼 모델 뒤편 루비-샌드 집중 그라디언트 */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 28% 54%, rgba(212, 17, 83, 0.17) 0%, rgba(206, 178, 138, 0.15) 36%, transparent 68%)",
+          }}
+        />
+
+        <div className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-6 flex flex-col items-center lg:items-start" data-animate-model>
-            <div className="space-y-2 mb-6" data-animate-item>
-              <div className="text-[11px] font-light tracking-[0.26em] text-primary uppercase">
+            <div className="space-y-2.5 mb-6" data-animate-item>
+              <div className="text-xs sm:text-sm font-medium tracking-[0.18em] text-primary uppercase">
                 Core Engine
               </div>
               <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
@@ -701,61 +748,78 @@ export default function LandingPage() {
               className="w-full max-w-[440px] h-auto overflow-visible"
               aria-hidden="true"
             >
+              <defs>
+                <radialGradient id="torusGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="#E11D48" stopOpacity="0.26" />
+                  <stop offset="55%" stopColor="#CEB28A" stopOpacity="0.14" />
+                  <stop offset="100%" stopColor="#CEB28A" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <circle cx="230" cy="190" r="175" fill="url(#torusGlow)" />
+
               <path
                 data-animate-curve
                 d="M 25,240 C 90,60 370,60 435,140 C 380,310 110,320 25,240"
                 fill="none"
                 stroke="#E11D48"
-                strokeOpacity="0.65"
-                strokeWidth="1.5"
+                strokeOpacity="0.7"
+                strokeWidth="1.6"
                 strokeDasharray="1400"
                 strokeDashoffset="0"
               />
+              {/* 12슬롯 샌드(Sand) 와이어프레임 링버퍼 */}
               <path
                 d={ringBufferPath}
                 fill="none"
-                stroke="currentColor"
-                strokeOpacity="0.32"
-                strokeWidth="0.95"
+                stroke="hsl(var(--sand))"
+                strokeOpacity="0.55"
+                strokeWidth="1.05"
               />
-              <polygon points={ringCoreOcta.midPoly} fill="#E11D48" fillOpacity="0.28" />
+              {/* 중심부 루비 코어 팔면체 */}
+              <polygon points={ringCoreOcta.midPoly} fill="#E11D48" fillOpacity="0.3" />
               <path
                 d={ringCoreOcta.path}
                 fill="none"
                 stroke="#E11D48"
-                strokeOpacity="0.9"
-                strokeWidth="1.3"
+                strokeOpacity="0.92"
+                strokeWidth="1.35"
               />
             </svg>
           </div>
 
           <div className="lg:col-span-6 divide-y divide-border/70 border-y border-border/70">
-            <div data-animate-item className="py-7 space-y-1.5">
-              <div className="text-[11px] font-light tracking-[0.22em] text-primary uppercase">
+            <div data-animate-item className="py-7 space-y-2">
+              <div className="text-xs sm:text-sm font-medium tracking-[0.16em] text-primary uppercase">
                 01 / Direct Socket
               </div>
-              <h3 className="font-semibold text-lg text-foreground">WSS 단일 계층 게이트웨이</h3>
-              <p className="text-sm font-light text-muted-foreground">
+              <h3 className="font-semibold text-lg sm:text-xl text-foreground">
+                WSS 단일 계층 게이트웨이
+              </h3>
+              <p className="text-sm sm:text-base font-normal text-muted-foreground">
                 중계 서버 없이 플러그인과 관제 서버가 직접 연결됩니다.
               </p>
             </div>
 
-            <div data-animate-item className="py-7 space-y-1.5 lg:pl-8">
-              <div className="text-[11px] font-light tracking-[0.22em] text-primary uppercase">
+            <div data-animate-item className="py-7 space-y-2 lg:pl-8">
+              <div className="text-xs sm:text-sm font-medium tracking-[0.16em] text-primary uppercase">
                 02 / Lock-Free Ring
               </div>
-              <h3 className="font-semibold text-lg text-foreground">LMAX Disruptor 인메모리 링버퍼</h3>
-              <p className="text-sm font-light text-muted-foreground">
+              <h3 className="font-semibold text-lg sm:text-xl text-foreground">
+                LMAX Disruptor 인메모리 링버퍼
+              </h3>
+              <p className="text-sm sm:text-base font-normal text-muted-foreground">
                 대규모 전투·채굴 이벤트도 대기 시간 없이 메모리에서 즉시 소화합니다.
               </p>
             </div>
 
-            <div data-animate-item className="py-7 space-y-1.5 lg:pl-16">
-              <div className="text-[11px] font-light tracking-[0.22em] text-primary uppercase">
+            <div data-animate-item className="py-7 space-y-2 lg:pl-16">
+              <div className="text-xs sm:text-sm font-medium tracking-[0.16em] text-primary uppercase">
                 03 / Instant Role Sync
               </div>
-              <h3 className="font-semibold text-lg text-foreground">디스코드 권한 실시간 동기화</h3>
-              <p className="text-sm font-light text-muted-foreground">
+              <h3 className="font-semibold text-lg sm:text-xl text-foreground">
+                디스코드 권한 실시간 동기화
+              </h3>
+              <p className="text-sm sm:text-base font-normal text-muted-foreground">
                 인게임 달성 조건을 감지하는 즉시 디스코드 역할과 칭호를 바꿉니다.
               </p>
             </div>
@@ -763,13 +827,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 뷰포트 4: 수직 비콘 광선 착지(수미상관) + 직선 속도 비교 게이지 & 3단계 시작 */}
+      {/* 뷰포트 4: 수직 비콘 광선 착지(루비-샌드 후광) + 직선 속도 비교 게이지 & 3단계 시작 */}
       <section
         id="comparison"
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 flex flex-col justify-between overflow-hidden"
       >
-        {/* 첫 화면에서 쏘아 올린 비콘 광선이 마지막 뷰포트 상단 중앙으로 수직 낙하해 착지하는 연출 */}
+        {/* 상단 수직 비콘 착지 타겟 주변 루비-샌드 그라디언트 */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 22%, rgba(212, 17, 83, 0.16) 0%, rgba(206, 178, 138, 0.13) 38%, transparent 72%)",
+          }}
+        />
+
         <div className="relative z-10 flex flex-col items-center pt-2" data-animate-model>
           <svg
             viewBox="0 0 240 120"
@@ -779,11 +851,11 @@ export default function LandingPage() {
             <defs>
               <linearGradient id="landingBeamGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#E11D48" stopOpacity="0" />
-                <stop offset="60%" stopColor="#E11D48" stopOpacity="0.22" />
-                <stop offset="100%" stopColor="#E11D48" stopOpacity="0.55" />
+                <stop offset="60%" stopColor="#E11D48" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="#E11D48" stopOpacity="0.6" />
               </linearGradient>
             </defs>
-            <rect x="110" y="0" width="20" height="88" fill="url(#landingBeamGrad)" />
+            <rect x="108" y="0" width="24" height="88" fill="url(#landingBeamGrad)" />
             <line
               data-animate-curve
               x1="120"
@@ -791,41 +863,39 @@ export default function LandingPage() {
               x2="120"
               y2="88"
               stroke="#E11D48"
-              strokeWidth="1.75"
+              strokeWidth="1.8"
               strokeDasharray="1400"
               strokeDashoffset="0"
             />
-            <polygon points={targetOcta.midPoly} fill="#E11D48" fillOpacity="0.25" />
-            <path d={targetOcta.path} fill="none" stroke="#E11D48" strokeWidth="1.2" />
+            <polygon points={targetOcta.midPoly} fill="#E11D48" fillOpacity="0.28" />
+            <path d={targetOcta.path} fill="none" stroke="hsl(var(--sand))" strokeWidth="1.25" />
           </svg>
         </div>
 
         <div className="relative z-10 max-w-4xl mx-auto w-full space-y-12 my-auto">
-          {/* 상단: 실시간 직선 게이지로 비교하는 기술 격차 */}
           <div className="space-y-6">
-            <div className="text-center space-y-1.5" data-animate-item>
-              <div className="text-[11px] font-light tracking-[0.26em] text-primary uppercase">
+            <div className="text-center space-y-2" data-animate-item>
+              <div className="text-xs sm:text-sm font-medium tracking-[0.18em] text-primary uppercase">
                 Benchmark Contrast
               </div>
               <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
                 기존 연동 방식과의 기술적 격차
               </h2>
-              <p className="text-xs font-light text-muted-foreground">
+              <p className="text-sm font-normal text-muted-foreground">
                 마인크래프트 메인 틱 점유 시간
               </p>
             </div>
 
             <div
               data-animate-item
-              className="max-w-2xl mx-auto space-y-4 border-y border-border/70 py-6"
+              className="max-w-2xl mx-auto space-y-5 border-y border-border/70 py-6"
             >
-              {/* RuBeacon 즉시 통과 게이지 */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="font-semibold text-foreground">RuBeacon</span>
                   <span className="font-mono font-bold text-primary">0.00ms (완전 비동기)</span>
                 </div>
-                <div className="w-full h-1.5 bg-muted/60 overflow-hidden">
+                <div className="w-full h-2 bg-muted/70 overflow-hidden">
                   <div
                     data-gauge-fast
                     className="w-full h-full bg-primary origin-left"
@@ -833,50 +903,48 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* 기존 웹훅 지연 게이지 */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="font-light">기존 웹훅 플러그인</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+                  <span className="font-normal">기존 웹훅 플러그인</span>
                   <span className="font-mono">15 - 50ms (동기 블로킹 렉 유발)</span>
                 </div>
-                <div className="w-full h-1.5 bg-muted/60 overflow-hidden">
+                <div className="w-full h-2 bg-muted/70 overflow-hidden">
                   <div
                     data-gauge-slow
-                    className="w-full h-full bg-muted-foreground/45 origin-left"
+                    className="w-full h-full origin-left"
+                    style={{ backgroundColor: "hsl(var(--sand-strong))" }}
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* 중단: 빠른 3단계 연동 */}
           <div id="setup" className="space-y-5">
             <div className="text-center" data-animate-item>
-              <span className="text-[11px] font-light tracking-[0.26em] text-muted-foreground uppercase">
+              <span className="text-xs sm:text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
                 빠른 3단계 연동 안내
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-              <div data-animate-item className="space-y-1 pt-4 border-t border-border/60">
-                <div className="font-mono text-xs text-primary font-bold">01</div>
-                <h3 className="font-semibold text-sm text-foreground">디스코드 봇 초대</h3>
-                <p className="text-xs font-light text-muted-foreground">전용 봇을 서버에 추가</p>
+              <div data-animate-item className="space-y-1.5 pt-4 border-t border-border/60">
+                <div className="font-mono text-xs sm:text-sm text-primary font-bold">01</div>
+                <h3 className="font-semibold text-base text-foreground">디스코드 봇 초대</h3>
+                <p className="text-sm font-normal text-muted-foreground">전용 봇을 서버에 추가</p>
               </div>
-              <div data-animate-item className="space-y-1 pt-4 border-t border-border/60">
-                <div className="font-mono text-xs text-primary font-bold">02</div>
-                <h3 className="font-semibold text-sm text-foreground">인스턴스 토큰 발급</h3>
-                <p className="text-xs font-light text-muted-foreground">플러그인 설정에 토큰 등록</p>
+              <div data-animate-item className="space-y-1.5 pt-4 border-t border-border/60">
+                <div className="font-mono text-xs sm:text-sm text-primary font-bold">02</div>
+                <h3 className="font-semibold text-base text-foreground">인스턴스 토큰 발급</h3>
+                <p className="text-sm font-normal text-muted-foreground">플러그인 설정에 토큰 등록</p>
               </div>
-              <div data-animate-item className="space-y-1 pt-4 border-t border-border/60">
-                <div className="font-mono text-xs text-primary font-bold">03</div>
-                <h3 className="font-semibold text-sm text-foreground">실시간 하트비트 확인</h3>
-                <p className="text-xs font-light text-muted-foreground">서버 가동 즉시 온라인 연결</p>
+              <div data-animate-item className="space-y-1.5 pt-4 border-t border-border/60">
+                <div className="font-mono text-xs sm:text-sm text-primary font-bold">03</div>
+                <h3 className="font-semibold text-base text-foreground">실시간 하트비트 확인</h3>
+                <p className="text-sm font-normal text-muted-foreground">서버 가동 즉시 온라인 연결</p>
               </div>
             </div>
           </div>
 
-          {/* 하단: 최종 CTA & GitHub 최신 릴리스 다운로드 */}
           <div data-animate-item className="text-center space-y-5 pt-2">
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               서버 렉 없는 디스코드 커뮤니티, 지금 즉시 연결하세요.
@@ -887,7 +955,7 @@ export default function LandingPage() {
                 <Button
                   variant="outline"
                   size="lg"
-                  className="h-11 px-6 text-xs border-border hover:bg-muted/40 font-medium gap-2"
+                  className="h-11 px-6 text-xs sm:text-sm border-border hover:bg-muted/40 font-medium gap-2"
                 >
                   <Download className="w-4 h-4" />
                   플러그인 JAR 다운로드 ({release.tagName})
@@ -896,7 +964,7 @@ export default function LandingPage() {
               <Link href="/app">
                 <Button
                   size="lg"
-                  className="h-11 px-7 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
+                  className="h-11 px-7 text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
                 >
                   루비콘 콘솔 열기
                   <ArrowRight className="w-4 h-4" />
@@ -907,7 +975,7 @@ export default function LandingPage() {
         </div>
 
         {/* 미니멀 푸터 */}
-        <footer className="relative z-10 max-w-6xl mx-auto w-full pt-8 pb-6 border-t border-border/50 text-[11px] font-light tracking-widest text-muted-foreground flex flex-col sm:flex-row items-center justify-between gap-4">
+        <footer className="relative z-10 max-w-6xl mx-auto w-full pt-8 pb-6 border-t border-border/50 text-xs font-normal tracking-wider text-muted-foreground flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>RUBEACON &copy; 2026</div>
           <div className="flex gap-6">
             <Link href="#pipeline" className="hover:text-foreground transition-colors">

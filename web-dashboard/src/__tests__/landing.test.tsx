@@ -72,6 +72,8 @@ describe("LandingPage UI & Copywriting", () => {
     expect(document.querySelectorAll(".headline").length).toBe(1);
     expect(screen.getByText("20.0 TPS 수평 유지")).toBeDefined();
     expect(document.querySelector("[data-gauge-fast]")).not.toBeNull();
+    expect(document.querySelector("#waveGlow")).not.toBeNull();
+    expect(document.querySelector("#torusGlow")).not.toBeNull();
     expect(document.querySelectorAll("[data-animate-curve]").length).toBeGreaterThanOrEqual(3);
   });
 });
