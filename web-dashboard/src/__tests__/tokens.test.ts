@@ -35,5 +35,6 @@ describe("Ruby-Sand Design Tokens & SSOT Bridge", () => {
     expect(content).toContain('font-family: "LevelUp"');
     expect(content).toContain(".headline");
     expect(content).toContain(".score");
+    expect(content).toContain("--sand:");
   });
 });

@@ -403,19 +403,19 @@ export function BeaconStage() {
       className="relative w-full h-[165dvh] border-b border-border/60 select-none"
     >
       <div className="sticky top-14 w-full h-[calc(100dvh-3.5rem)] min-h-[560px] flex flex-col items-center justify-between overflow-hidden">
-        {/* 심장박동과 연동되는 루비 앰비언트 반사광 */}
+        {/* 심장박동과 연동되는 루비-샌드(Ruby-Sand) 듀얼 앰비언트 반사광 */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            opacity: activeGlow * 0.9,
+            opacity: activeGlow * 0.95,
             transform: `scale(${1 + pulseBoost * 0.06})`,
             background:
-              "radial-gradient(circle at 50% 46%, rgba(225, 29, 72, 0.16) 0%, rgba(225, 29, 72, 0.05) 36%, transparent 70%)",
+              "radial-gradient(circle at 50% 42%, rgba(212, 17, 83, 0.18) 0%, rgba(206, 178, 138, 0.12) 34%, transparent 72%)",
           }}
         />
 
-        {/* 네 모서리 코너 프레이밍 (표준 폰트, 얇은 굵기, 넓은 자간) */}
-        <div className="w-full max-w-6xl mx-auto px-6 pt-6 flex items-center justify-between text-[10px] sm:text-[11px] font-light tracking-[0.28em] text-muted-foreground/75 uppercase z-20">
+        {/* 네 모서리 코너 프레이밍 (안티앨리어싱 깨짐 방지를 위해 크기 및 굵기 상향) */}
+        <div className="w-full max-w-6xl mx-auto px-6 pt-6 flex items-center justify-between text-xs sm:text-[13px] font-normal tracking-[0.22em] text-muted-foreground uppercase z-20">
           <span>0.00ms Tick Occupancy</span>
           <span>LMAX Disruptor Core</span>
         </div>
@@ -452,7 +452,7 @@ export function BeaconStage() {
           </div>
 
           {/*
-            2) 광선 축 동반 회전 한글 서브 슬로건 (z-20 전경 & 아래로 175px~210px 이격하여 회전 전/후 모두 피라미드 블록에 가리지 않음)
+            2) 광선 축 동반 회전 한글 서브 슬로건 (z-20 전경 & 아래로 이격 + 폰트 크기 상향으로 가독성 확보)
           */}
           <div
             className="pointer-events-none absolute inset-0 flex items-center justify-center z-20"
@@ -461,7 +461,7 @@ export function BeaconStage() {
               transformOrigin: "50% 48%",
             }}
           >
-            <p className="translate-y-[165px] sm:translate-y-[200px] md:translate-y-[225px] text-xs sm:text-sm font-light tracking-[0.26em] text-foreground/85 whitespace-nowrap">
+            <p className="translate-y-[165px] sm:translate-y-[200px] md:translate-y-[225px] text-sm sm:text-base font-normal tracking-[0.22em] text-foreground/90 whitespace-nowrap">
               마인크래프트 · 디스코드 실시간 연동 서비스
             </p>
           </div>
@@ -487,73 +487,73 @@ export function BeaconStage() {
                 </linearGradient>
               </defs>
 
-              {/* 1. 7x7 하단 정육면체 광석 베이스 층 */}
+              {/* 1. 7x7 하단 정육면체 샌드(Sand) 광석 베이스 층 */}
               <g className="text-foreground">
-                <polygon points={s7.leftFace} fill="hsl(var(--background))" fillOpacity="0.82" />
-                <polygon points={s7.rightFace} fill="hsl(var(--background))" fillOpacity="0.88" />
-                <polygon points={s7.topPolygon} fill="hsl(var(--background))" fillOpacity="0.78" />
-                <polygon points={s7.leftFace} fill="currentColor" fillOpacity="0.04" />
-                <polygon points={s7.rightFace} fill="currentColor" fillOpacity="0.08" />
-                <polygon points={s7.topPolygon} fill="currentColor" fillOpacity="0.02" />
+                <polygon points={s7.leftFace} fill="hsl(var(--background))" fillOpacity="0.84" />
+                <polygon points={s7.rightFace} fill="hsl(var(--background))" fillOpacity="0.9" />
+                <polygon points={s7.topPolygon} fill="hsl(var(--background))" fillOpacity="0.8" />
+                <polygon points={s7.leftFace} fill="hsl(var(--sand))" fillOpacity="0.12" />
+                <polygon points={s7.rightFace} fill="hsl(var(--sand))" fillOpacity="0.18" />
+                <polygon points={s7.topPolygon} fill="hsl(var(--sand))" fillOpacity="0.08" />
                 <path
                   d={s7.gridPath}
-                  stroke="currentColor"
-                  strokeOpacity={0.14 + activeGlow * 0.08}
-                  strokeWidth="0.75"
-                  fill="none"
-                />
-                <path
-                  d={s7.edgePath}
-                  stroke={tiers.glowOpacity > 0.5 ? "#E11D48" : "currentColor"}
-                  strokeOpacity={0.32 + activeGlow * 0.24}
-                  strokeWidth="1.05"
-                  fill="none"
-                />
-              </g>
-
-              {/* 2. 5x5 중단 정육면체 광석 층 */}
-              <g className="text-foreground">
-                <polygon points={s5.leftFace} fill="hsl(var(--background))" fillOpacity="0.85" />
-                <polygon points={s5.rightFace} fill="hsl(var(--background))" fillOpacity="0.9" />
-                <polygon points={s5.topPolygon} fill="hsl(var(--background))" fillOpacity="0.82" />
-                <polygon points={s5.leftFace} fill="currentColor" fillOpacity="0.05" />
-                <polygon points={s5.rightFace} fill="currentColor" fillOpacity="0.1" />
-                <polygon points={s5.topPolygon} fill="currentColor" fillOpacity="0.03" />
-                <path
-                  d={s5.gridPath}
-                  stroke="currentColor"
-                  strokeOpacity={0.16 + activeGlow * 0.12}
+                  stroke="hsl(var(--sand))"
+                  strokeOpacity={0.32 + activeGlow * 0.12}
                   strokeWidth="0.8"
                   fill="none"
                 />
                 <path
+                  d={s7.edgePath}
+                  stroke="hsl(var(--sand))"
+                  strokeOpacity={0.55 + activeGlow * 0.2}
+                  strokeWidth="1.1"
+                  fill="none"
+                />
+              </g>
+
+              {/* 2. 5x5 중단 정육면체 샌드-루비 브릿지 광석 층 */}
+              <g className="text-foreground">
+                <polygon points={s5.leftFace} fill="hsl(var(--background))" fillOpacity="0.86" />
+                <polygon points={s5.rightFace} fill="hsl(var(--background))" fillOpacity="0.92" />
+                <polygon points={s5.topPolygon} fill="hsl(var(--background))" fillOpacity="0.84" />
+                <polygon points={s5.leftFace} fill="hsl(var(--sand))" fillOpacity="0.16" />
+                <polygon points={s5.rightFace} fill="hsl(var(--sand))" fillOpacity="0.24" />
+                <polygon points={s5.topPolygon} fill="hsl(var(--sand))" fillOpacity="0.1" />
+                <path
+                  d={s5.gridPath}
+                  stroke="hsl(var(--sand))"
+                  strokeOpacity={0.38 + activeGlow * 0.15}
+                  strokeWidth="0.85"
+                  fill="none"
+                />
+                <path
                   d={s5.edgePath}
-                  stroke={tiers.glowOpacity > 0.5 ? "#E11D48" : "currentColor"}
-                  strokeOpacity={0.38 + activeGlow * 0.32}
+                  stroke={tiers.glowOpacity > 0.5 ? "#E11D48" : "hsl(var(--sand))"}
+                  strokeOpacity={0.48 + activeGlow * 0.3}
                   strokeWidth="1.15"
                   fill="none"
                 />
               </g>
 
-              {/* 3. 3x3 상단 정육면체 광석 층 */}
+              {/* 3. 3x3 상단 정육면체 루비 광석 층 */}
               <g className="text-foreground">
                 <polygon points={s3.leftFace} fill="hsl(var(--background))" fillOpacity="0.88" />
                 <polygon points={s3.rightFace} fill="hsl(var(--background))" fillOpacity="0.92" />
                 <polygon points={s3.topPolygon} fill="hsl(var(--background))" fillOpacity="0.85" />
-                <polygon points={s3.leftFace} fill="currentColor" fillOpacity="0.06" />
-                <polygon points={s3.rightFace} fill="currentColor" fillOpacity="0.12" />
-                <polygon points={s3.topPolygon} fill="currentColor" fillOpacity="0.04" />
+                <polygon points={s3.leftFace} fill="#E11D48" fillOpacity="0.08" />
+                <polygon points={s3.rightFace} fill="#E11D48" fillOpacity="0.14" />
+                <polygon points={s3.topPolygon} fill="#E11D48" fillOpacity="0.06" />
                 <path
                   d={s3.gridPath}
                   stroke="#E11D48"
-                  strokeOpacity={0.24 + activeGlow * 0.28}
+                  strokeOpacity={0.28 + activeGlow * 0.28}
                   strokeWidth="0.85"
                   fill="none"
                 />
                 <path
                   d={s3.edgePath}
                   stroke="#E11D48"
-                  strokeOpacity={0.5 + activeGlow * 0.42}
+                  strokeOpacity={0.55 + activeGlow * 0.4}
                   strokeWidth="1.25"
                   fill="none"
                 />
@@ -622,7 +622,7 @@ export function BeaconStage() {
 
         {/* 하단 코너 프레이밍 & 중앙 Scroll 꺽쇄 */}
         <div className="w-full max-w-6xl mx-auto px-6 pb-8 flex items-end justify-between z-20">
-          <span className="hidden sm:inline-block text-[10px] sm:text-[11px] font-light tracking-[0.28em] text-muted-foreground/75 uppercase">
+          <span className="hidden sm:inline-block text-xs sm:text-[13px] font-normal tracking-[0.22em] text-muted-foreground uppercase">
             Minecraft ↔ Discord
           </span>
 
@@ -632,13 +632,13 @@ export function BeaconStage() {
             className="mx-auto sm:mx-0 flex flex-col items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group focus:outline-none"
             aria-label="아래로 스크롤"
           >
-            <span className="text-[10px] font-light tracking-[0.3em] uppercase opacity-75 group-hover:opacity-100 transition-opacity">
+            <span className="text-xs font-normal tracking-[0.24em] uppercase opacity-80 group-hover:opacity-100 transition-opacity">
               Scroll
             </span>
-            <ChevronDown className="w-4 h-4 opacity-75 group-hover:translate-y-0.5 transition-transform" />
+            <ChevronDown className="w-4 h-4 opacity-80 group-hover:translate-y-0.5 transition-transform" />
           </button>
 
-          <span className="hidden sm:inline-block text-[10px] sm:text-[11px] font-light tracking-[0.28em] text-muted-foreground/75 uppercase">
+          <span className="hidden sm:inline-block text-xs sm:text-[13px] font-normal tracking-[0.22em] text-muted-foreground uppercase">
             WSS Single-Hop Bridge
           </span>
         </div>
