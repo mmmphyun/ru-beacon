@@ -33,7 +33,11 @@ function projectIso(
   return [screenX, screenY];
 }
 
-function buildSlabPaths(
+/**
+ * 1:1:1 정육면체(Cube) 비율을 유지하는 등각 투영 피라미드 층 경로 생성.
+ * 상단 격자뿐만 아니라 좌·우 측면의 수직 블록 경계선도 함께 계산하여 정육면체 입체감을 보장한다.
+ */
+function buildCubeTierPaths(
   size: number,
   unit: number,
   yTop: number,
@@ -45,7 +49,6 @@ function buildSlabPaths(
   const half = (size * unit) / 2;
   const yBot = yTop - thickness;
 
-  // 상단 4개 꼭짓점: (-half,-half), (half,-half), (half,half), (-half,half)
   const topCorners = [
     projectIso(-half, yTop, -half, angleDeg, cx, cy),
     projectIso(half, yTop, -half, angleDeg, cx, cy),
@@ -62,7 +65,6 @@ function buildSlabPaths(
 
   const topPolygon = topCorners.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
 
-  // 전면 좌/우 측면 폴리곤 (시점 기준 y값이 큰 하단 3개 꼭짓점 연결)
   const leftFace = [topCorners[3], topCorners[2], botCorners[2], botCorners[3]]
     .map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`)
     .join(" ");
@@ -70,20 +72,29 @@ function buildSlabPaths(
     .map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`)
     .join(" ");
 
-  // 내부 격자선 (N x N 블록 경계)
+  // 상단 면 N x N 격자선 + 측면 수직 정육면체 분할선
   const gridLines: string[] = [];
   for (let i = 1; i < size; i++) {
     const pos = -half + i * unit;
+    // 상단 X축 방향 분할
     const [x1, y1] = projectIso(pos, yTop, -half, angleDeg, cx, cy);
     const [x2, y2] = projectIso(pos, yTop, half, angleDeg, cx, cy);
     gridLines.push(`M${x1.toFixed(1)},${y1.toFixed(1)} L${x2.toFixed(1)},${y2.toFixed(1)}`);
 
+    // 좌측 전면 수직 블록 분할선 (z = +half 면)
+    const [xb2, yb2] = projectIso(pos, yBot, half, angleDeg, cx, cy);
+    gridLines.push(`M${x2.toFixed(1)},${y2.toFixed(1)} L${xb2.toFixed(1)},${yb2.toFixed(1)}`);
+
+    // 상단 Z축 방향 분할
     const [zx1, zy1] = projectIso(-half, yTop, pos, angleDeg, cx, cy);
     const [zx2, zy2] = projectIso(half, yTop, pos, angleDeg, cx, cy);
     gridLines.push(`M${zx1.toFixed(1)},${zy1.toFixed(1)} L${zx2.toFixed(1)},${zy2.toFixed(1)}`);
+
+    // 우측 전면 수직 블록 분할선 (x = +half 면)
+    const [zxb2, zyb2] = projectIso(half, yBot, pos, angleDeg, cx, cy);
+    gridLines.push(`M${zx2.toFixed(1)},${zy2.toFixed(1)} L${zxb2.toFixed(1)},${zyb2.toFixed(1)}`);
   }
 
-  // 외곽 테두리 및 수직 모서리
   const edges: string[] = [];
   for (let i = 0; i < 4; i++) {
     const next = (i + 1) % 4;
@@ -94,7 +105,6 @@ function buildSlabPaths(
       `M${topCorners[i][0].toFixed(1)},${topCorners[i][1].toFixed(1)} L${botCorners[i][0].toFixed(1)},${botCorners[i][1].toFixed(1)}`
     );
   }
-  // 하단 전면 테두리
   edges.push(
     `M${botCorners[3][0].toFixed(1)},${botCorners[3][1].toFixed(1)} L${botCorners[2][0].toFixed(1)},${botCorners[2][1].toFixed(1)} L${botCorners[1][0].toFixed(1)},${botCorners[1][1].toFixed(1)}`
   );
@@ -140,9 +150,7 @@ export function useLatestRelease(): ReleaseInfo {
             "https://github.com/mmmphyun/ru-beacon/releases/latest",
         });
       })
-      .catch(() => {
-        // 네트워크 차단 및 API 한도 초과 시 기본 릴리스 경로 유지
-      });
+      .catch(() => {});
     return () => {
       mounted = false;
     };
@@ -152,6 +160,9 @@ export function useLatestRelease(): ReleaseInfo {
 }
 
 export function BeaconStage() {
+  const UNIT = 20; // 가로:세로:높이 = 20:20:20 정육면체(1:1:1) 비율 고정
+  const containerRef = useRef<HTMLElement>(null);
+
   const [tiers, setTiers] = useState<{
     t7: TierState;
     t5: TierState;
@@ -159,17 +170,22 @@ export function BeaconStage() {
     beacon: TierState;
     beamScale: number;
     glowOpacity: number;
+    heartbeat: number;
   }>({
-    t7: { size: 7, baseY: -36, offsetY: -14, angleDeg: -12, height: 14 },
-    t5: { size: 5, baseY: -18, offsetY: -6, angleDeg: 16, height: 14 },
-    t3: { size: 3, baseY: 0, offsetY: 6, angleDeg: -20, height: 14 },
-    beacon: { size: 1, baseY: 18, offsetY: 44, angleDeg: 45, height: 18 },
+    t7: { size: 7, baseY: -UNIT * 2, offsetY: -14, angleDeg: -12, height: UNIT },
+    t5: { size: 5, baseY: -UNIT, offsetY: -6, angleDeg: 16, height: UNIT },
+    t3: { size: 3, baseY: 0, offsetY: 6, angleDeg: -20, height: UNIT },
+    beacon: { size: 1, baseY: UNIT, offsetY: 44, angleDeg: 45, height: UNIT },
     beamScale: 0,
     glowOpacity: 0,
+    heartbeat: 0,
   });
 
-  const [scrollFade, setScrollFade] = useState(1);
+  // 스크롤 진행률 (0: 초기 90도 수직 헤더 상태 -> 1: 비콘과 헤더가 동반 회전하여 0도 수평 정렬 완료)
+  const [scrollProgress, setScrollProgress] = useState(0);
   const hasDockedRef = useRef(false);
+  const heartbeatAnimRef = useRef<anime.AnimeInstance | null>(null);
+
   const animStateRef = useRef({
     t7Offset: -14,
     t7Angle: -12,
@@ -181,35 +197,58 @@ export function BeaconStage() {
     beaconAngle: 45,
     beamScale: 0,
     glowOpacity: 0,
+    heartbeat: 0,
   });
+
+  const syncState = () => {
+    const state = animStateRef.current;
+    setTiers({
+      t7: { size: 7, baseY: -UNIT * 2, offsetY: state.t7Offset, angleDeg: state.t7Angle, height: UNIT },
+      t5: { size: 5, baseY: -UNIT, offsetY: state.t5Offset, angleDeg: state.t5Angle, height: UNIT },
+      t3: { size: 3, baseY: 0, offsetY: state.t3Offset, angleDeg: state.t3Angle, height: UNIT },
+      beacon: {
+        size: 1,
+        baseY: UNIT,
+        offsetY: state.beaconOffset,
+        angleDeg: state.beaconAngle,
+        height: UNIT,
+      },
+      beamScale: state.beamScale,
+      glowOpacity: state.glowOpacity,
+      heartbeat: state.heartbeat,
+    });
+  };
+
+  const startHeartbeatLoop = () => {
+    if (heartbeatAnimRef.current) return;
+    const state = animStateRef.current;
+    // 비콘 점화 후 은은한 심장박동(Lub-Dub) 루프
+    heartbeatAnimRef.current = anime({
+      targets: state,
+      heartbeat: [
+        { value: 0.45, duration: 160, easing: "easeOutQuad" },
+        { value: 0.1, duration: 130, easing: "easeInQuad" },
+        { value: 0.9, duration: 190, easing: "easeOutCubic" },
+        { value: 0, duration: 750, easing: "easeOutSine" },
+      ],
+      endDelay: 950,
+      loop: true,
+      update: syncState,
+    });
+  };
 
   const triggerDockingSequence = () => {
     if (hasDockedRef.current) return;
     hasDockedRef.current = true;
 
     const state = animStateRef.current;
-    const syncState = () => {
-      setTiers({
-        t7: { size: 7, baseY: -36, offsetY: state.t7Offset, angleDeg: state.t7Angle, height: 14 },
-        t5: { size: 5, baseY: -18, offsetY: state.t5Offset, angleDeg: state.t5Angle, height: 14 },
-        t3: { size: 3, baseY: 0, offsetY: state.t3Offset, angleDeg: state.t3Angle, height: 14 },
-        beacon: {
-          size: 1,
-          baseY: 18,
-          offsetY: state.beaconOffset,
-          angleDeg: state.beaconAngle,
-          height: 18,
-        },
-        beamScale: state.beamScale,
-        glowOpacity: state.glowOpacity,
-      });
-    };
-
     const tl = anime.timeline({
       update: syncState,
+      complete: () => {
+        startHeartbeatLoop();
+      },
     });
 
-    // 1단계: 회전 정렬 및 비콘 하강 결합
     tl.add({
       targets: state,
       t7Angle: 0,
@@ -222,29 +261,27 @@ export function BeaconStage() {
       beaconOffset: 0,
       duration: 850,
       easing: "easeInOutQuart",
-    })
-      // 2단계: 자석 결합 반발력 (위에서 아래로 시간차 압축 후 탄성 복원)
-      .add({
-        targets: state,
-        beaconOffset: [
-          { value: -11, duration: 110, easing: "easeOutQuad" },
-          { value: 0, duration: 650, easing: "easeOutElastic(1, .5)" },
-        ],
-        t3Offset: [
-          { value: -10, duration: 120, delay: 20, easing: "easeOutQuad" },
-          { value: 0, duration: 650, easing: "easeOutElastic(1, .5)" },
-        ],
-        t5Offset: [
-          { value: -8, duration: 130, delay: 50, easing: "easeOutQuad" },
-          { value: 0, duration: 650, easing: "easeOutElastic(1, .55)" },
-        ],
-        t7Offset: [
-          { value: -5, duration: 140, delay: 80, easing: "easeOutQuad" },
-          { value: 0, duration: 650, easing: "easeOutElastic(1, .6)" },
-        ],
-        beamScale: [{ value: 1, duration: 700, delay: 90, easing: "easeOutExpo" }],
-        glowOpacity: [{ value: 1, duration: 600, delay: 90, easing: "easeOutQuad" }],
-      });
+    }).add({
+      targets: state,
+      beaconOffset: [
+        { value: -11, duration: 110, easing: "easeOutQuad" },
+        { value: 0, duration: 650, easing: "easeOutElastic(1, .5)" },
+      ],
+      t3Offset: [
+        { value: -10, duration: 120, delay: 20, easing: "easeOutQuad" },
+        { value: 0, duration: 650, easing: "easeOutElastic(1, .5)" },
+      ],
+      t5Offset: [
+        { value: -8, duration: 130, delay: 50, easing: "easeOutQuad" },
+        { value: 0, duration: 650, easing: "easeOutElastic(1, .55)" },
+      ],
+      t7Offset: [
+        { value: -5, duration: 140, delay: 80, easing: "easeOutQuad" },
+        { value: 0, duration: 650, easing: "easeOutElastic(1, .6)" },
+      ],
+      beamScale: [{ value: 1, duration: 700, delay: 90, easing: "easeOutExpo" }],
+      glowOpacity: [{ value: 1, duration: 600, delay: 90, easing: "easeOutQuad" }],
+    });
   };
 
   useEffect(() => {
@@ -256,90 +293,103 @@ export function BeaconStage() {
     if (prefersReduced) {
       hasDockedRef.current = true;
       setTiers({
-        t7: { size: 7, baseY: -36, offsetY: 0, angleDeg: 0, height: 14 },
-        t5: { size: 5, baseY: -18, offsetY: 0, angleDeg: 0, height: 14 },
-        t3: { size: 3, baseY: 0, offsetY: 0, angleDeg: 0, height: 14 },
-        beacon: { size: 1, baseY: 18, offsetY: 0, angleDeg: 0, height: 18 },
+        t7: { size: 7, baseY: -UNIT * 2, offsetY: 0, angleDeg: 0, height: UNIT },
+        t5: { size: 5, baseY: -UNIT, offsetY: 0, angleDeg: 0, height: UNIT },
+        t3: { size: 3, baseY: 0, offsetY: 0, angleDeg: 0, height: UNIT },
+        beacon: { size: 1, baseY: UNIT, offsetY: 0, angleDeg: 0, height: UNIT },
         beamScale: 1,
         glowOpacity: 1,
+        heartbeat: 0.3,
       });
       return;
     }
 
-    // 첫 진입 후 350ms 뒤 결합 및 반발 시퀀스 실행
     const timer = setTimeout(() => {
       triggerDockingSequence();
-    }, 350);
+    }, 300);
 
     const onScroll = () => {
       const y = window.scrollY;
-      if (y > 10 && !hasDockedRef.current) {
+      if (y > 5 && !hasDockedRef.current) {
         triggerDockingSequence();
       }
       const vh = window.innerHeight || 800;
-      const ratio = Math.max(0, Math.min(1, 1 - y / (vh * 0.85)));
-      setScrollFade(ratio);
+      // 스크롤 0 ~ 0.65vh 구간 동안 광선 옆 -90도 헤더와 비콘이 함께 90도 회전하여 0도 수평 정렬됨
+      const rotProgress = Math.max(0, Math.min(1, y / (vh * 0.65)));
+      setScrollProgress(rotProgress);
     };
 
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       clearTimeout(timer);
       window.removeEventListener("scroll", onScroll);
+      if (heartbeatAnimRef.current) {
+        heartbeatAnimRef.current.pause();
+        heartbeatAnimRef.current = null;
+      }
     };
   }, []);
 
   const cx = 300;
-  const cy = 280;
-  const unit = 22;
+  const cy = 285;
 
-  const s7 = buildSlabPaths(
+  // 스크롤에 따라 비콘 피라미드 전체가 헤더와 함께 동반 회전 (0deg -> 90deg)
+  const scrollRotationDeg = scrollProgress * 90;
+  // 광선 옆에 -90도로 서 있던 헤더가 스크롤에 따라 사람이 읽기 편한 0도 수평으로 회전 (-90deg -> 0deg)
+  const headerRotationDeg = -90 + scrollProgress * 90;
+
+  const s7 = buildCubeTierPaths(
     7,
-    unit,
+    UNIT,
     tiers.t7.baseY + tiers.t7.offsetY,
     tiers.t7.height,
-    tiers.t7.angleDeg,
+    tiers.t7.angleDeg + scrollRotationDeg,
     cx,
     cy
   );
-  const s5 = buildSlabPaths(
+  const s5 = buildCubeTierPaths(
     5,
-    unit,
+    UNIT,
     tiers.t5.baseY + tiers.t5.offsetY,
     tiers.t5.height,
-    tiers.t5.angleDeg,
+    tiers.t5.angleDeg + scrollRotationDeg,
     cx,
     cy
   );
-  const s3 = buildSlabPaths(
+  const s3 = buildCubeTierPaths(
     3,
-    unit,
+    UNIT,
     tiers.t3.baseY + tiers.t3.offsetY,
     tiers.t3.height,
-    tiers.t3.angleDeg,
+    tiers.t3.angleDeg + scrollRotationDeg,
     cx,
     cy
   );
-  const sBeacon = buildSlabPaths(
+  const sBeacon = buildCubeTierPaths(
     1,
-    unit,
+    UNIT,
     tiers.beacon.baseY + tiers.beacon.offsetY,
     tiers.beacon.height,
-    tiers.beacon.angleDeg,
+    tiers.beacon.angleDeg + scrollRotationDeg,
     cx,
     cy
   );
 
-  // 비콘 상단 정점 좌표 (광선 시작점)
   const [, beaconTopY] = projectIso(
     0,
     tiers.beacon.baseY + tiers.beacon.offsetY,
     0,
-    tiers.beacon.angleDeg,
+    tiers.beacon.angleDeg + scrollRotationDeg,
     cx,
     cy
   );
 
-  const scrollToHero = () => {
+  // 심장박동(Lub-Dub) 수치가 반영된 광선 폭 및 발광 강도
+  const pulseBoost = tiers.heartbeat;
+  const activeGlow = Math.min(1, tiers.glowOpacity + pulseBoost * 0.35);
+  const beamHalfWidth = 10 + pulseBoost * 6;
+
+  const scrollToNext = () => {
     const el = document.getElementById("hero");
     if (el && typeof el.scrollIntoView === "function") {
       el.scrollIntoView({ behavior: "smooth" });
@@ -348,161 +398,243 @@ export function BeaconStage() {
 
   return (
     <section
+      ref={containerRef}
       aria-label="RuBeacon Signal Stage"
-      className="relative w-full h-[calc(100dvh-3.5rem)] min-h-[540px] flex flex-col items-center justify-between overflow-hidden select-none border-b border-border/60"
+      className="relative w-full h-[165dvh] border-b border-border/60 select-none"
     >
-      {/* 배경 은은한 루비 앰비언트 반사광 (라이트/다크 자동 대응) */}
-      <div
-        className="pointer-events-none absolute inset-0 transition-opacity duration-700"
-        style={{
-          opacity: tiers.glowOpacity * scrollFade * 0.85,
-          background:
-            "radial-gradient(circle at 50% 42%, rgba(225, 29, 72, 0.14) 0%, rgba(225, 29, 72, 0.04) 35%, transparent 70%)",
-        }}
-      />
+      <div className="sticky top-14 w-full h-[calc(100dvh-3.5rem)] min-h-[560px] flex flex-col items-center justify-between overflow-hidden">
+        {/* 심장박동과 연동되는 루비 앰비언트 반사광 */}
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            opacity: activeGlow * 0.9,
+            transform: `scale(${1 + pulseBoost * 0.06})`,
+            background:
+              "radial-gradient(circle at 50% 46%, rgba(225, 29, 72, 0.16) 0%, rgba(225, 29, 72, 0.05) 36%, transparent 70%)",
+          }}
+        />
 
-      {/* 상단 여백 균형용 빈 슬롯 */}
-      <div className="h-12" />
+        {/* 네 모서리 코너 프레이밍 (표준 폰트, 얇은 굵기, 넓은 자간) */}
+        <div className="w-full max-w-6xl mx-auto px-6 pt-6 flex items-center justify-between text-[10px] sm:text-[11px] font-light tracking-[0.28em] text-muted-foreground/75 uppercase z-20">
+          <span>0.00ms Tick Occupancy</span>
+          <span>LMAX Disruptor Core</span>
+        </div>
 
-      {/* 중앙 등각 투영 7x7, 5x5, 3x3 피라미드 & 비콘 광선 SVG */}
-      <div
-        className="relative w-full max-w-[600px] aspect-[6/5] flex items-center justify-center px-4"
-        style={{
-          opacity: Math.max(0.08, scrollFade),
-          transform: `translateY(${(1 - scrollFade) * -28}px)`,
-        }}
-      >
-        <svg
-          viewBox="0 0 600 460"
-          className="w-full h-full overflow-visible"
-          role="img"
-          aria-label="7x7, 5x5, 3x3 루비 비콘 피라미드"
-        >
-          <defs>
-            <linearGradient id="rubyBeamGrad" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#E11D48" stopOpacity="0.55" />
-              <stop offset="45%" stopColor="#E11D48" stopOpacity="0.18" />
-              <stop offset="100%" stopColor="#E11D48" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id="rubyCoreLine" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%" stopColor="#F43F5E" stopOpacity="0.95" />
-              <stop offset="70%" stopColor="#E11D48" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#E11D48" stopOpacity="0" />
-            </linearGradient>
-          </defs>
+        {/* 중앙 무대: 광선 축 90도 회전 타이포그래피(배경/오버랩) + 정중앙 정육면체 루비 비콘 피라미드(전경) */}
+        <div className="relative w-full max-w-5xl flex-1 flex items-center justify-center px-4">
+          {/*
+            광선 축 회전 브랜드 헤더:
+            초기에는 광선 바로 옆에 -90도로 세워져 비콘 뒤편에 일부 가려지며(오버랩),
+            스크롤 시 비콘과 함께 0도 수평으로 회전하여 정면에 읽히게 안착함.
+          */}
+          <div
+            className="pointer-events-none absolute inset-0 flex items-center justify-center z-0"
+            style={{
+              transform: `rotate(${headerRotationDeg}deg) translateY(${(1 - scrollProgress) * -22}px)`,
+              transformOrigin: "50% 48%",
+            }}
+          >
+            <div className="flex flex-col items-center text-center">
+              <div
+                aria-label="Ru-Beacon Brand Headline"
+                className="headline italic text-5xl sm:text-7xl md:text-[6.5rem] leading-none tracking-tight text-foreground/90 whitespace-nowrap"
+              >
+                <em>
+                  <span>Ru</span>
+                  <span className="relative inline-flex items-center mx-1 sm:mx-1.5">
+                    <span className="opacity-20 font-normal">by</span>
+                    {/* by 위를 가로지르며 Ru-Beacon의 하이픈(-) 역할을 겸하는 루비 취소선 */}
+                    <span
+                      className="absolute left-[-8%] right-[-8%] top-1/2 -translate-y-1/2 h-[3px] sm:h-[5px] bg-primary rounded-full shadow-[0_0_16px_rgba(225,29,72,0.85)]"
+                      aria-hidden="true"
+                    />
+                  </span>
+                  <span>Beacon</span>
+                </em>
+              </div>
+              <p className="mt-3 sm:mt-4 text-[10px] sm:text-xs font-light tracking-[0.34em] text-muted-foreground uppercase whitespace-nowrap">
+                Zero-Lag Minecraft to Discord Signal
+              </p>
+            </div>
+          </div>
 
-          {/* 1. 7x7 하단 광석 베이스 층 */}
-          <g className="text-foreground">
-            <polygon points={s7.leftFace} fill="currentColor" fillOpacity="0.03" />
-            <polygon points={s7.rightFace} fill="currentColor" fillOpacity="0.06" />
-            <polygon points={s7.topPolygon} fill="currentColor" fillOpacity="0.02" />
-            <path
-              d={s7.gridPath}
-              stroke="currentColor"
-              strokeOpacity={0.12 + tiers.glowOpacity * 0.08}
-              strokeWidth="0.75"
-              fill="none"
-            />
-            <path
-              d={s7.edgePath}
-              stroke={tiers.glowOpacity > 0.5 ? "#E11D48" : "currentColor"}
-              strokeOpacity={0.28 + tiers.glowOpacity * 0.22}
-              strokeWidth="1"
-              fill="none"
-            />
-          </g>
+          {/* 정중앙 정육면체(1:1:1) 7x7, 5x5, 3x3 피라미드 & 심장박동 광선 SVG (전경 z-10 배치로 타이포와 입체적 오버랩) */}
+          <div className="relative z-10 w-full max-w-[580px] aspect-[6/5] flex items-center justify-center pointer-events-none">
+            <svg
+              viewBox="0 0 600 460"
+              className="w-full h-full overflow-visible"
+              role="img"
+              aria-label="7x7, 5x5, 3x3 루비 비콘 피라미드"
+            >
+              <defs>
+                <linearGradient id="rubyBeamGrad" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#E11D48" stopOpacity={0.55 + pulseBoost * 0.25} />
+                  <stop offset="50%" stopColor="#E11D48" stopOpacity={0.18 + pulseBoost * 0.12} />
+                  <stop offset="100%" stopColor="#E11D48" stopOpacity="0" />
+                </linearGradient>
+                <linearGradient id="rubyCoreLine" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#F43F5E" stopOpacity="1" />
+                  <stop offset="75%" stopColor="#E11D48" stopOpacity={0.55 + pulseBoost * 0.25} />
+                  <stop offset="100%" stopColor="#E11D48" stopOpacity="0" />
+                </linearGradient>
+              </defs>
 
-          {/* 2. 5x5 중단 광석 층 */}
-          <g className="text-foreground">
-            <polygon points={s5.leftFace} fill="currentColor" fillOpacity="0.04" />
-            <polygon points={s5.rightFace} fill="currentColor" fillOpacity="0.08" />
-            <polygon points={s5.topPolygon} fill="currentColor" fillOpacity="0.03" />
-            <path
-              d={s5.gridPath}
-              stroke="currentColor"
-              strokeOpacity={0.15 + tiers.glowOpacity * 0.1}
-              strokeWidth="0.75"
-              fill="none"
-            />
-            <path
-              d={s5.edgePath}
-              stroke={tiers.glowOpacity > 0.5 ? "#E11D48" : "currentColor"}
-              strokeOpacity={0.35 + tiers.glowOpacity * 0.3}
-              strokeWidth="1.1"
-              fill="none"
-            />
-          </g>
+              {/* 1. 7x7 하단 정육면체 광석 베이스 층 */}
+              <g className="text-foreground">
+                <polygon points={s7.leftFace} fill="hsl(var(--background))" fillOpacity="0.82" />
+                <polygon points={s7.rightFace} fill="hsl(var(--background))" fillOpacity="0.88" />
+                <polygon points={s7.topPolygon} fill="hsl(var(--background))" fillOpacity="0.78" />
+                <polygon points={s7.leftFace} fill="currentColor" fillOpacity="0.04" />
+                <polygon points={s7.rightFace} fill="currentColor" fillOpacity="0.08" />
+                <polygon points={s7.topPolygon} fill="currentColor" fillOpacity="0.02" />
+                <path
+                  d={s7.gridPath}
+                  stroke="currentColor"
+                  strokeOpacity={0.14 + activeGlow * 0.08}
+                  strokeWidth="0.75"
+                  fill="none"
+                />
+                <path
+                  d={s7.edgePath}
+                  stroke={tiers.glowOpacity > 0.5 ? "#E11D48" : "currentColor"}
+                  strokeOpacity={0.32 + activeGlow * 0.24}
+                  strokeWidth="1.05"
+                  fill="none"
+                />
+              </g>
 
-          {/* 3. 3x3 상단 광석 층 */}
-          <g className="text-foreground">
-            <polygon points={s3.leftFace} fill="currentColor" fillOpacity="0.05" />
-            <polygon points={s3.rightFace} fill="currentColor" fillOpacity="0.1" />
-            <polygon points={s3.topPolygon} fill="currentColor" fillOpacity="0.04" />
-            <path
-              d={s3.gridPath}
-              stroke="#E11D48"
-              strokeOpacity={0.2 + tiers.glowOpacity * 0.25}
-              strokeWidth="0.8"
-              fill="none"
-            />
-            <path
-              d={s3.edgePath}
-              stroke="#E11D48"
-              strokeOpacity={0.45 + tiers.glowOpacity * 0.4}
-              strokeWidth="1.2"
-              fill="none"
-            />
-          </g>
+              {/* 2. 5x5 중단 정육면체 광석 층 */}
+              <g className="text-foreground">
+                <polygon points={s5.leftFace} fill="hsl(var(--background))" fillOpacity="0.85" />
+                <polygon points={s5.rightFace} fill="hsl(var(--background))" fillOpacity="0.9" />
+                <polygon points={s5.topPolygon} fill="hsl(var(--background))" fillOpacity="0.82" />
+                <polygon points={s5.leftFace} fill="currentColor" fillOpacity="0.05" />
+                <polygon points={s5.rightFace} fill="currentColor" fillOpacity="0.1" />
+                <polygon points={s5.topPolygon} fill="currentColor" fillOpacity="0.03" />
+                <path
+                  d={s5.gridPath}
+                  stroke="currentColor"
+                  strokeOpacity={0.16 + activeGlow * 0.12}
+                  strokeWidth="0.8"
+                  fill="none"
+                />
+                <path
+                  d={s5.edgePath}
+                  stroke={tiers.glowOpacity > 0.5 ? "#E11D48" : "currentColor"}
+                  strokeOpacity={0.38 + activeGlow * 0.32}
+                  strokeWidth="1.15"
+                  fill="none"
+                />
+              </g>
 
-          {/* 4. 수직 루비 비콘 광선 (비콘 결합 시 상단으로 사출) */}
-          {tiers.beamScale > 0.01 && (
-            <g>
-              <rect
-                x={cx - 11}
-                y={beaconTopY - 320 * tiers.beamScale}
-                width={22}
-                height={320 * tiers.beamScale}
-                fill="url(#rubyBeamGrad)"
-              />
-              <line
-                x1={cx}
-                y1={beaconTopY}
-                x2={cx}
-                y2={beaconTopY - 340 * tiers.beamScale}
-                stroke="url(#rubyCoreLine)"
-                strokeWidth="1.5"
-              />
-            </g>
-          )}
+              {/* 3. 3x3 상단 정육면체 광석 층 */}
+              <g className="text-foreground">
+                <polygon points={s3.leftFace} fill="hsl(var(--background))" fillOpacity="0.88" />
+                <polygon points={s3.rightFace} fill="hsl(var(--background))" fillOpacity="0.92" />
+                <polygon points={s3.topPolygon} fill="hsl(var(--background))" fillOpacity="0.85" />
+                <polygon points={s3.leftFace} fill="currentColor" fillOpacity="0.06" />
+                <polygon points={s3.rightFace} fill="currentColor" fillOpacity="0.12" />
+                <polygon points={s3.topPolygon} fill="currentColor" fillOpacity="0.04" />
+                <path
+                  d={s3.gridPath}
+                  stroke="#E11D48"
+                  strokeOpacity={0.24 + activeGlow * 0.28}
+                  strokeWidth="0.85"
+                  fill="none"
+                />
+                <path
+                  d={s3.edgePath}
+                  stroke="#E11D48"
+                  strokeOpacity={0.5 + activeGlow * 0.42}
+                  strokeWidth="1.25"
+                  fill="none"
+                />
+              </g>
 
-          {/* 5. 최상단 1x1 루비 비콘 코어 블록 */}
-          <g>
-            <polygon points={sBeacon.leftFace} fill="#E11D48" fillOpacity={0.22 + tiers.glowOpacity * 0.25} />
-            <polygon points={sBeacon.rightFace} fill="#BE123C" fillOpacity={0.32 + tiers.glowOpacity * 0.28} />
-            <polygon points={sBeacon.topPolygon} fill="#F43F5E" fillOpacity={0.28 + tiers.glowOpacity * 0.35} />
-            <path
-              d={sBeacon.edgePath}
-              stroke="#F43F5E"
-              strokeOpacity={0.85}
-              strokeWidth="1.35"
-              fill="none"
-            />
-          </g>
-        </svg>
+              {/* 4. 수직 루비 비콘 광선 (심장박동에 맞춰 폭과 광도가 은은하게 맥동) */}
+              {tiers.beamScale > 0.01 && (
+                <g>
+                  <rect
+                    x={cx - beamHalfWidth}
+                    y={beaconTopY - 340 * tiers.beamScale}
+                    width={beamHalfWidth * 2}
+                    height={340 * tiers.beamScale}
+                    fill="url(#rubyBeamGrad)"
+                  />
+                  <line
+                    x1={cx}
+                    y1={beaconTopY}
+                    x2={cx}
+                    y2={beaconTopY - 360 * tiers.beamScale}
+                    stroke="url(#rubyCoreLine)"
+                    strokeWidth={1.5 + pulseBoost * 1.1}
+                  />
+                  {/* 심장박동 코어 파동 링 */}
+                  <ellipse
+                    cx={cx}
+                    cy={beaconTopY + UNIT * 0.4}
+                    rx={14 + pulseBoost * 24}
+                    ry={8 + pulseBoost * 13}
+                    fill="none"
+                    stroke="#F43F5E"
+                    strokeOpacity={Math.max(0, 0.55 - pulseBoost * 0.5)}
+                    strokeWidth="1"
+                  />
+                </g>
+              )}
+
+              {/* 5. 최상단 1x1 정육면체 루비 비콘 코어 블록 */}
+              <g>
+                <polygon
+                  points={sBeacon.leftFace}
+                  fill="#E11D48"
+                  fillOpacity={0.28 + activeGlow * 0.32}
+                />
+                <polygon
+                  points={sBeacon.rightFace}
+                  fill="#BE123C"
+                  fillOpacity={0.38 + activeGlow * 0.35}
+                />
+                <polygon
+                  points={sBeacon.topPolygon}
+                  fill="#F43F5E"
+                  fillOpacity={0.35 + activeGlow * 0.42}
+                />
+                <path
+                  d={sBeacon.edgePath}
+                  stroke="#F43F5E"
+                  strokeOpacity={0.9}
+                  strokeWidth={1.4 + pulseBoost * 0.4}
+                  fill="none"
+                />
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        {/* 하단 코너 프레이밍 & 중앙 Scroll 꺽쇄 */}
+        <div className="w-full max-w-6xl mx-auto px-6 pb-8 flex items-end justify-between z-20">
+          <span className="hidden sm:inline-block text-[10px] sm:text-[11px] font-light tracking-[0.28em] text-muted-foreground/75 uppercase">
+            Minecraft ↔ Discord
+          </span>
+
+          <button
+            type="button"
+            onClick={scrollToNext}
+            className="mx-auto sm:mx-0 flex flex-col items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group focus:outline-none"
+            aria-label="아래로 스크롤"
+          >
+            <span className="text-[10px] font-light tracking-[0.3em] uppercase opacity-75 group-hover:opacity-100 transition-opacity">
+              Scroll
+            </span>
+            <ChevronDown className="w-4 h-4 opacity-75 group-hover:translate-y-0.5 transition-transform" />
+          </button>
+
+          <span className="hidden sm:inline-block text-[10px] sm:text-[11px] font-light tracking-[0.28em] text-muted-foreground/75 uppercase">
+            WSS Single-Hop Bridge
+          </span>
+        </div>
       </div>
-
-      {/* 하단 미니멀 스크롤 유도 버튼 (오직 Scroll 텍스트와 아래 꺽쇄만 배치) */}
-      <button
-        type="button"
-        onClick={scrollToHero}
-        className="mb-10 flex flex-col items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors group focus:outline-none"
-        aria-label="아래로 스크롤"
-      >
-        <span className="text-[11px] font-mono tracking-[0.24em] uppercase opacity-75 group-hover:opacity-100 transition-opacity">
-          Scroll
-        </span>
-        <ChevronDown className="w-4 h-4 opacity-75 group-hover:translate-y-0.5 transition-transform" />
-      </button>
     </section>
   );
 }

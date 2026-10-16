@@ -32,10 +32,15 @@ describe("BeaconStage & useLatestRelease", () => {
     });
   });
 
-  it("7x7, 5x5, 3x3 피라미드 비콘 SVG와 미니멀 Scroll 꺽쇄 버튼을 렌더링해야 한다", () => {
+  it("7x7, 5x5, 3x3 정육면체 피라미드 비콘 SVG, Ru-by-Beacon 헤더 및 미니멀 Scroll 버튼을 렌더링해야 한다", () => {
     render(<BeaconStage />);
 
     expect(screen.getByRole("img", { name: "7x7, 5x5, 3x3 루비 비콘 피라미드" })).toBeDefined();
+    expect(screen.getByLabelText("Ru-Beacon Brand Headline")).toBeDefined();
+    expect(screen.getByText("Ru")).toBeDefined();
+    expect(screen.getByText("by")).toBeDefined();
+    expect(screen.getByText("Beacon")).toBeDefined();
+    expect(screen.getByText("0.00ms Tick Occupancy")).toBeDefined();
     expect(screen.getByText("Scroll")).toBeDefined();
     expect(screen.getByRole("button", { name: "아래로 스크롤" })).toBeDefined();
   });
