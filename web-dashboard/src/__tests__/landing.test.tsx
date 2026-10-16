@@ -69,7 +69,7 @@ describe("LandingPage UI & Copywriting", () => {
     expect(screen.getByText("서버 렉 없는 디스코드 커뮤니티, 지금 즉시 연결하세요.")).toBeDefined();
     expect(screen.getByText(/플러그인 JAR 다운로드/)).toBeDefined();
     expect(screen.getByLabelText("Ru-Beacon Brand Headline")).toBeDefined();
-    expect(document.querySelectorAll(".headline").length).toBe(1);
+    expect(document.querySelectorAll(".headline").length).toBe(2);
     expect(screen.getByText("20.0 TPS 수평 유지")).toBeDefined();
     expect(document.querySelector("[data-gauge-fast]")).not.toBeNull();
     expect(document.querySelector("#waveGlow")).not.toBeNull();
