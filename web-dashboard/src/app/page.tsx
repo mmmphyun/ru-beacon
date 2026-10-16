@@ -23,7 +23,73 @@ function isoPoint(x: number, y: number, z: number, angleDeg: number, cx: number,
 }
 
 /**
- * 여백에 배치할 정육면체(1:1:1) 3D 와이어프레임 경로 생성 헬퍼
+ * 뷰포트 1 전용: 요동치는 3D 인게임 이벤트 파형(Wave Grid) vs 흔들림 없는 20.0 TPS 수평 기준면 생성
+ */
+function buildTpsWaveModel(phaseRad: number, cx: number, cy: number) {
+  const cols = 7;
+  const rows = 5;
+  const step = 28;
+  const waveLines: string[] = [];
+
+  const getWaveY = (gx: number, gz: number) => {
+    const d = Math.sqrt(gx * gx + gz * gz);
+    return (
+      Math.sin(gx * 0.9 + phaseRad * 2.2) *
+        Math.cos(gz * 0.9 - phaseRad * 1.6) *
+        22 +
+      Math.sin(d * 1.2 - phaseRad * 3) * 10 -
+      38
+    );
+  };
+
+  for (let r = 0; r < rows; r++) {
+    const gz = (r - (rows - 1) / 2) * step;
+    const pts: string[] = [];
+    for (let c = 0; c < cols; c++) {
+      const gx = (c - (cols - 1) / 2) * step;
+      const wy = getWaveY(c, r);
+      const [sx, sy] = isoPoint(gx, wy, gz, 18, cx, cy);
+      pts.push(`${c === 0 ? "M" : "L"}${sx.toFixed(1)},${sy.toFixed(1)}`);
+    }
+    waveLines.push(pts.join(" "));
+  }
+
+  for (let c = 0; c < cols; c++) {
+    const gx = (c - (cols - 1) / 2) * step;
+    const pts: string[] = [];
+    for (let r = 0; r < rows; r++) {
+      const gz = (r - (rows - 1) / 2) * step;
+      const wy = getWaveY(c, r);
+      const [sx, sy] = isoPoint(gx, wy, gz, 18, cx, cy);
+      pts.push(`${r === 0 ? "M" : "L"}${sx.toFixed(1)},${sy.toFixed(1)}`);
+    }
+    waveLines.push(pts.join(" "));
+  }
+
+  // 상단 20.0 TPS 절대 수평면 (y = +32 고정, 이벤트 파형이 치솟아도 미동 없이 평탄함)
+  const halfW = ((cols - 1) * step) / 2;
+  const halfD = ((rows - 1) * step) / 2;
+  const flatY = 32;
+  const fCorners = [
+    isoPoint(-halfW, flatY, -halfD, 18, cx, cy),
+    isoPoint(halfW, flatY, -halfD, 18, cx, cy),
+    isoPoint(halfW, flatY, halfD, 18, cx, cy),
+    isoPoint(-halfW, flatY, halfD, 18, cx, cy),
+  ];
+  const flatPolygon = fCorners.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const flatLaserStart = isoPoint(-halfW - 24, flatY, 0, 18, cx, cy);
+  const flatLaserEnd = isoPoint(halfW + 24, flatY, 0, 18, cx, cy);
+
+  return {
+    wavePath: waveLines.join(" "),
+    flatPolygon,
+    laserLine: `M${flatLaserStart[0].toFixed(1)},${flatLaserStart[1].toFixed(1)} L${flatLaserEnd[0].toFixed(1)},${flatLaserEnd[1].toFixed(1)}`,
+    laserEnd: flatLaserEnd,
+  };
+}
+
+/**
+ * 뷰포트 2 노드 01: 마인크래프트 서버 상징 3D 정육면체(Cube)
  */
 function buildWireCube(size: number, angleDeg: number, cx: number, cy: number) {
   const h = size / 2;
@@ -52,7 +118,51 @@ function buildWireCube(size: number, angleDeg: number, cx: number, cy: number) {
 }
 
 /**
- * LMAX Disruptor 링버퍼를 상징하는 3D 팔각 링(Torus/Ring) 와이어프레임 경로 생성 헬퍼
+ * 뷰포트 2 노드 02: LMAX Disruptor 상징 소형 3D 동심원 링(Ring)
+ */
+function buildMiniRing(radius: number, angleDeg: number, cx: number, cy: number) {
+  const segs = 8;
+  const inner = radius * 0.52;
+  const lines: string[] = [];
+  for (let i = 0; i < segs; i++) {
+    const a1 = (i / segs) * Math.PI * 2;
+    const a2 = ((i + 1) / segs) * Math.PI * 2;
+    const o1 = isoPoint(Math.cos(a1) * radius, 0, Math.sin(a1) * radius, angleDeg, cx, cy);
+    const o2 = isoPoint(Math.cos(a2) * radius, 0, Math.sin(a2) * radius, angleDeg, cx, cy);
+    const i1 = isoPoint(Math.cos(a1) * inner, 0, Math.sin(a1) * inner, angleDeg, cx, cy);
+    const i2 = isoPoint(Math.cos(a2) * inner, 0, Math.sin(a2) * inner, angleDeg, cx, cy);
+    lines.push(`M${o1[0].toFixed(1)},${o1[1].toFixed(1)} L${o2[0].toFixed(1)},${o2[1].toFixed(1)}`);
+    lines.push(`M${i1[0].toFixed(1)},${i1[1].toFixed(1)} L${i2[0].toFixed(1)},${i2[1].toFixed(1)}`);
+    lines.push(`M${o1[0].toFixed(1)},${o1[1].toFixed(1)} L${i1[0].toFixed(1)},${i1[1].toFixed(1)}`);
+  }
+  return lines.join(" ");
+}
+
+/**
+ * 뷰포트 2 노드 03: WSS 게이트웨이 상징 3D 팔면체 다이아몬드(Octahedron)
+ */
+function buildWireOctahedron(radius: number, angleDeg: number, cx: number, cy: number) {
+  const topApex = isoPoint(0, radius * 1.15, 0, angleDeg, cx, cy);
+  const botApex = isoPoint(0, -radius * 1.15, 0, angleDeg, cx, cy);
+  const mid = [
+    isoPoint(-radius, 0, 0, angleDeg, cx, cy),
+    isoPoint(0, 0, -radius, angleDeg, cx, cy),
+    isoPoint(radius, 0, 0, angleDeg, cx, cy),
+    isoPoint(0, 0, radius, angleDeg, cx, cy),
+  ];
+  const lines: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    const n = (i + 1) % 4;
+    lines.push(`M${mid[i][0].toFixed(1)},${mid[i][1].toFixed(1)} L${mid[n][0].toFixed(1)},${mid[n][1].toFixed(1)}`);
+    lines.push(`M${topApex[0].toFixed(1)},${topApex[1].toFixed(1)} L${mid[i][0].toFixed(1)},${mid[i][1].toFixed(1)}`);
+    lines.push(`M${botApex[0].toFixed(1)},${botApex[1].toFixed(1)} L${mid[i][0].toFixed(1)},${mid[i][1].toFixed(1)}`);
+  }
+  const midPoly = mid.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  return { path: lines.join(" "), midPoly };
+}
+
+/**
+ * 뷰포트 3 전용: LMAX Disruptor 12슬롯 대형 3D 링버퍼 토러스 모델
  */
 function buildWireRingBuffer(angleDeg: number, cx: number, cy: number) {
   const segments = 12;
@@ -84,12 +194,10 @@ function buildWireRingBuffer(angleDeg: number, cx: number, cy: number) {
     const iTop2 = isoPoint(ix2, height / 2, iz2, angleDeg, cx, cy);
     const iBot1 = isoPoint(ix1, -height / 2, iz1, angleDeg, cx, cy);
 
-    // 외곽 상·하단 링 및 수직 기둥
     lines.push(`M${oTop1[0].toFixed(1)},${oTop1[1].toFixed(1)} L${oTop2[0].toFixed(1)},${oTop2[1].toFixed(1)}`);
     lines.push(`M${oBot1[0].toFixed(1)},${oBot1[1].toFixed(1)} L${oBot2[0].toFixed(1)},${oBot2[1].toFixed(1)}`);
     lines.push(`M${oTop1[0].toFixed(1)},${oTop1[1].toFixed(1)} L${oBot1[0].toFixed(1)},${oBot1[1].toFixed(1)}`);
 
-    // 내측 상단 링 및 방사형 슬롯 구분선 (링버퍼 시퀀스 슬롯 표현)
     lines.push(`M${iTop1[0].toFixed(1)},${iTop1[1].toFixed(1)} L${iTop2[0].toFixed(1)},${iTop2[1].toFixed(1)}`);
     lines.push(`M${oTop1[0].toFixed(1)},${oTop1[1].toFixed(1)} L${iTop1[0].toFixed(1)},${iTop1[1].toFixed(1)}`);
     lines.push(`M${iTop1[0].toFixed(1)},${iTop1[1].toFixed(1)} L${iBot1[0].toFixed(1)},${iBot1[1].toFixed(1)}`);
@@ -112,7 +220,7 @@ export default function LandingPage() {
     });
   }, []);
 
-  // 여백 내 3D 선 모델(링버퍼 토러스 & 큐브 노드)의 은은한 연속 회전 루프
+  // 3D 모델 및 이벤트 파형의 연속 모션 루프
   useEffect(() => {
     const prefersReduced =
       typeof window !== "undefined" &&
@@ -125,7 +233,7 @@ export default function LandingPage() {
     const anim = anime({
       targets: rotObj,
       angle: 382,
-      duration: 28000,
+      duration: 24000,
       easing: "linear",
       loop: true,
       update: () => {
@@ -138,7 +246,7 @@ export default function LandingPage() {
     };
   }, []);
 
-  // 양방향 스크롤 감지: 내릴 때와 다시 올릴 때 모두 곡선 드로잉 및 요소 모션 재실행
+  // 양방향 스크롤 감지: 뷰포트 진입 시마다 곡선 드로잉·게이지·요소 등장 재실행
   useEffect(() => {
     const prefersReduced =
       typeof window !== "undefined" &&
@@ -158,11 +266,15 @@ export default function LandingPage() {
           const curves = entry.target.querySelectorAll("[data-animate-curve]");
           const items = entry.target.querySelectorAll("[data-animate-item]");
           const models = entry.target.querySelectorAll("[data-animate-model]");
+          const fastGauge = entry.target.querySelectorAll("[data-gauge-fast]");
+          const slowGauge = entry.target.querySelectorAll("[data-gauge-slow]");
 
           if (entry.isIntersecting) {
             anime.remove(curves);
             anime.remove(items);
             anime.remove(models);
+            anime.remove(fastGauge);
+            anime.remove(slowGauge);
 
             if (curves.length > 0) {
               anime({
@@ -177,7 +289,7 @@ export default function LandingPage() {
             if (models.length > 0) {
               anime({
                 targets: models,
-                scale: [0.84, 1],
+                scale: [0.86, 1],
                 opacity: [0, 1],
                 duration: 950,
                 easing: "easeOutElastic(1, .65)",
@@ -188,16 +300,35 @@ export default function LandingPage() {
               anime({
                 targets: items,
                 opacity: [0, 1],
-                translateY: [34, 0],
-                delay: anime.stagger(85),
-                duration: 680,
+                translateY: [32, 0],
+                delay: anime.stagger(80),
+                duration: 650,
                 easing: "easeOutCubic",
               });
             }
+
+            if (fastGauge.length > 0) {
+              anime({
+                targets: fastGauge,
+                scaleX: [0, 1],
+                duration: 280,
+                easing: "easeOutExpo",
+              });
+            }
+
+            if (slowGauge.length > 0) {
+              anime({
+                targets: slowGauge,
+                scaleX: [0, 0.38],
+                duration: 1800,
+                easing: "steps(6)",
+              });
+            }
           } else {
-            // 화면 밖으로 벗어나면 다시 스크롤해 돌아왔을 때 재실행되도록 초기 상태 리셋
-            anime.set(items, { opacity: 0.08, translateY: 34 });
+            anime.set(items, { opacity: 0.08, translateY: 32 });
             anime.set(curves, { strokeDashoffset: 1400, opacity: 0.1 });
+            anime.set(fastGauge, { scaleX: 0 });
+            anime.set(slowGauge, { scaleX: 0 });
           }
         });
       },
@@ -208,24 +339,28 @@ export default function LandingPage() {
     return () => observer.disconnect();
   }, []);
 
-  const heroCube1 = buildWireCube(46, modelAngle * 0.8, 120, 210);
-  const heroCube2 = buildWireCube(64, -modelAngle * 0.6, 260, 145);
-  const heroCube3 = buildWireCube(52, modelAngle * 1.1, 405, 85);
+  const phaseRad = (modelAngle * Math.PI) / 45;
+  const tpsWaveModel = buildTpsWaveModel(phaseRad, 250, 165);
 
-  const pipeCube1 = buildWireCube(44, modelAngle, 95, 195);
-  const pipeCube2 = buildWireCube(44, -modelAngle, 310, 95);
-  const pipeCube3 = buildWireCube(44, modelAngle, 560, 215);
-  const pipeCube4 = buildWireCube(44, -modelAngle, 795, 110);
+  // 뷰포트 2: 4가지 서로 다른 3D 기하학 도형 (정육면체 -> 원형 링 -> 팔면체 게이트 -> 파동 구체)
+  const node1Cube = buildWireCube(44, modelAngle, 95, 195);
+  const node2Ring = buildMiniRing(30, -modelAngle * 1.4, 310, 95);
+  const node3Octa = buildWireOctahedron(28, modelAngle * 1.1, 560, 215);
+  const pulseRadius = 14 + (Math.sin(phaseRad * 2) * 0.5 + 0.5) * 14;
 
+  // 뷰포트 3: 대형 3D 링버퍼 토러스 & 중심부 코어 팔면체
   const ringBufferPath = buildWireRingBuffer(modelAngle * 0.5, 230, 190);
-  const ringCoreCube = buildWireCube(42, -modelAngle * 1.2, 230, 190);
+  const ringCoreOcta = buildWireOctahedron(32, -modelAngle * 1.2, 230, 190);
+
+  // 뷰포트 4: 수직 비콘 광선 착지점 타겟 다이아몬드
+  const targetOcta = buildWireOctahedron(20, modelAngle, 120, 88);
 
   return (
     <div
       ref={pageRef}
       className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground font-sans break-keep"
     >
-      {/* 상단 고정 헤더 (기존 형태 유지) */}
+      {/* 상단 고정 헤더 */}
       <header className="border-b border-border/70 bg-background/85 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -279,10 +414,10 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* 뷰포트 0: 정육면체 비콘 피라미드 + 심장박동 + 광선 축 90도 회전 Ru-by-Beacon 헤더 */}
+      {/* 뷰포트 0: 정육면체 비콘 피라미드 + 심장박동 + 광선 축 90도 회전 Ru-by-Beacon 헤더 (LevelUp 폰트 전용) */}
       <BeaconStage />
 
-      {/* 뷰포트 1: 비대칭 분할 (좌측 대담한 헤드라인 / 우측 여백 루비 기하학 곡선 & 3D 정육면체 트라이어드) */}
+      {/* 뷰포트 1: 깔끔한 기본 산세리프 타이포그래피 + 우측 [3D 이벤트 파형 vs 20.0 TPS 수평 레이저 직선] */}
       <section
         id="hero"
         data-viewport-section
@@ -291,17 +426,17 @@ export default function LandingPage() {
         <div className="hidden md:block" />
 
         <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center my-auto">
-          {/* 좌측 7열: 핵심 슬로건 및 CTA */}
+          {/* 좌측 7열: 깔끔한 기본 폰트 헤드라인 및 CTA */}
           <div className="lg:col-span-7 space-y-6" data-animate-item>
-            <div className="text-[11px] font-light tracking-[0.28em] text-primary uppercase">
+            <div className="text-[11px] font-light tracking-[0.26em] text-primary uppercase">
               초저지연 마인크래프트-디스코드 브릿지
             </div>
 
-            <h1 className="headline italic text-4xl sm:text-5xl md:text-6xl tracking-tight text-foreground leading-[1.12] text-balance">
-              <em>서버 TPS 저하 없는 마인크래프트-디스코드 실시간 연동</em>
+            <h1 className="text-3xl sm:text-5xl md:text-[3.5rem] font-bold tracking-tight text-foreground leading-[1.15] text-balance">
+              서버 TPS 저하 없는 마인크래프트-디스코드 실시간 연동
             </h1>
 
-            <p className="text-sm sm:text-base font-light tracking-wide text-muted-foreground leading-relaxed max-w-xl">
+            <p className="text-sm sm:text-base font-light text-muted-foreground leading-relaxed max-w-xl">
               서버에 이벤트가 몰려도 렉이 걸리지 않습니다. 게임 속 사건을 디스코드 알림과 역할에 곧바로 반영합니다.
             </p>
 
@@ -328,94 +463,107 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* 우측 5열 여백: 루비 기하학 베지어 곡선 + 회전하는 3D 정육면체 노드 모델 */}
-          <div className="lg:col-span-5 flex items-center justify-center" data-animate-model>
+          {/* 우측 5열 여백: 출렁이는 3D 이벤트 파형(하단) vs 미동 없는 20.0 TPS 루비 수평면(상단) */}
+          <div className="lg:col-span-5 flex flex-col items-center justify-center" data-animate-model>
             <svg
-              viewBox="0 0 500 300"
-              className="w-full max-w-[460px] h-auto overflow-visible"
+              viewBox="0 0 500 320"
+              className="w-full max-w-[480px] h-auto overflow-visible"
               aria-hidden="true"
             >
-              {/* 배경 기하학 보조 호 */}
+              {/* 하단: 실시간으로 출렁이는 3D 이벤트 폭증 파형 그리드 */}
               <path
-                d="M 20,260 Q 240,280 460,40"
+                d={tpsWaveModel.wavePath}
                 fill="none"
                 stroke="currentColor"
-                strokeOpacity="0.1"
-                strokeWidth="1"
-                strokeDasharray="4 6"
+                strokeOpacity="0.24"
+                strokeWidth="0.95"
               />
-              {/* 메인 루비 기하학 곡선 */}
+
+              {/* 상단: 흔들림 없이 평탄한 20.0 TPS 보호 기준면 */}
+              <polygon
+                points={tpsWaveModel.flatPolygon}
+                fill="#E11D48"
+                fillOpacity="0.08"
+                stroke="#E11D48"
+                strokeOpacity="0.35"
+                strokeWidth="1"
+              />
+
+              {/* 기준면을 관통하는 0.00ms 수평 루비 레이저 직선 */}
               <path
                 data-animate-curve
-                d="M 30,245 C 165,245 200,85 455,65"
+                d={tpsWaveModel.laserLine}
                 fill="none"
                 stroke="#E11D48"
-                strokeWidth="1.75"
+                strokeWidth="2"
                 strokeDasharray="1400"
                 strokeDashoffset="0"
               />
-              {/* 3개의 3D 와이어프레임 정육면체 */}
-              <g className="text-foreground">
-                <polygon points={heroCube1.topPoly} fill="#E11D48" fillOpacity="0.12" />
-                <path d={heroCube1.path} fill="none" stroke="currentColor" strokeOpacity="0.35" strokeWidth="1" />
-
-                <polygon points={heroCube2.topPoly} fill="#E11D48" fillOpacity="0.22" />
-                <path d={heroCube2.path} fill="none" stroke="#E11D48" strokeOpacity="0.75" strokeWidth="1.2" />
-
-                <polygon points={heroCube3.topPoly} fill="#E11D48" fillOpacity="0.15" />
-                <path d={heroCube3.path} fill="none" stroke="currentColor" strokeOpacity="0.45" strokeWidth="1" />
-              </g>
+              <circle
+                cx={tpsWaveModel.laserEnd[0]}
+                cy={tpsWaveModel.laserEnd[1]}
+                r="3.5"
+                fill="#E11D48"
+              />
             </svg>
+            <div className="mt-2 flex items-center gap-6 text-[11px] font-light tracking-[0.2em] text-muted-foreground uppercase">
+              <span className="flex items-center gap-2">
+                <span className="w-2.5 h-[2px] bg-primary inline-block" />
+                20.0 TPS 수평 유지
+              </span>
+              <span className="flex items-center gap-2 opacity-70">
+                <span className="w-2.5 h-[1px] bg-foreground inline-block" />
+                인게임 이벤트 폭증 파형
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* 하단: 얇은 자간과 LevelUp 고정폭 숫자(.score)로만 구성된 미니멀 지표 */}
+        {/* 하단: 깔끔한 기본 고정폭 숫자로 정돈된 3대 지표 */}
         <div className="max-w-6xl mx-auto w-full pt-8 pb-10 border-t border-border/60 grid grid-cols-3 gap-6">
           <div data-animate-item>
-            <div className="score headline italic text-2xl sm:text-4xl text-primary">
-              <em>0.00ms</em>
+            <div className="font-mono tabular-nums font-bold text-2xl sm:text-4xl text-primary tracking-tight">
+              0.00ms
             </div>
-            <div className="mt-1 text-[11px] font-light tracking-[0.18em] text-muted-foreground uppercase">
+            <div className="mt-1 text-[11px] font-light tracking-[0.16em] text-muted-foreground">
               메인 틱 점유
             </div>
           </div>
           <div data-animate-item className="text-center">
-            <div className="score headline italic text-2xl sm:text-4xl text-foreground">
-              <em>0.08ms</em>
+            <div className="font-mono tabular-nums font-bold text-2xl sm:text-4xl text-foreground tracking-tight">
+              0.08ms
             </div>
-            <div className="mt-1 text-[11px] font-light tracking-[0.18em] text-muted-foreground uppercase">
+            <div className="mt-1 text-[11px] font-light tracking-[0.16em] text-muted-foreground">
               링버퍼 큐잉
             </div>
           </div>
           <div data-animate-item className="text-right">
-            <div className="score headline italic text-2xl sm:text-4xl text-foreground">
-              <em>40ms</em>
+            <div className="font-mono tabular-nums font-bold text-2xl sm:text-4xl text-foreground tracking-tight">
+              40ms
             </div>
-            <div className="mt-1 text-[11px] font-light tracking-[0.18em] text-muted-foreground uppercase">
+            <div className="mt-1 text-[11px] font-light tracking-[0.16em] text-muted-foreground">
               디스코드 도달
             </div>
           </div>
         </div>
       </section>
 
-      {/* 뷰포트 2: 우측 정렬 헤더 + 중앙 여백을 가로지르는 루비 S-곡선과 4개 3D 정육면체 파이프라인 */}
+      {/* 뷰포트 2: 우측 정렬 헤더 + 4가지 서로 다른 3D 기하학 도형(큐브 -> 링 -> 팔면체 -> 파동 구체)과 루비 S-곡선 */}
       <section
         id="pipeline"
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden"
       >
         <div className="max-w-6xl mx-auto w-full space-y-12 md:space-y-16">
-          {/* 우측 정렬 헤더로 이전 뷰포트와 시선 대칭 변화 */}
           <div className="ml-auto text-left md:text-right max-w-xl space-y-2" data-animate-item>
-            <div className="text-[11px] font-light tracking-[0.28em] text-primary uppercase">
+            <div className="text-[11px] font-light tracking-[0.26em] text-primary uppercase">
               Signal Trajectory
             </div>
-            <h2 className="headline italic text-3xl sm:text-5xl tracking-tight text-foreground">
-              <em>이벤트가 처리되는 실제 런타임 경로</em>
+            <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
+              이벤트가 처리되는 실제 런타임 경로
             </h2>
           </div>
 
-          {/* 여백을 채우는 대형 루비 S-커브 + 4개 3D 정육면체 모델 */}
           <div className="relative w-full" data-animate-model>
             <svg
               viewBox="0 0 900 260"
@@ -434,28 +582,69 @@ export default function LandingPage() {
                 d="M 40,195 C 260,15 620,255 860,70"
                 fill="none"
                 stroke="#E11D48"
-                strokeWidth="2"
+                strokeWidth="1.8"
                 strokeDasharray="1400"
                 strokeDashoffset="0"
               />
-              {[pipeCube1, pipeCube2, pipeCube3, pipeCube4].map((cube, idx) => (
-                <g key={idx} className="text-foreground">
-                  <polygon points={cube.topPoly} fill="#E11D48" fillOpacity={0.18 + idx * 0.06} />
-                  <path
-                    d={cube.path}
-                    fill="none"
-                    stroke={idx === 0 || idx === 3 ? "#E11D48" : "currentColor"}
-                    strokeOpacity="0.7"
-                    strokeWidth="1.2"
-                  />
-                </g>
-              ))}
+
+              {/* 노드 01: 마인크래프트 서버 (3D 정육면체 블록) */}
+              <g className="text-foreground">
+                <polygon points={node1Cube.topPoly} fill="#E11D48" fillOpacity="0.2" />
+                <path d={node1Cube.path} fill="none" stroke="#E11D48" strokeOpacity="0.85" strokeWidth="1.2" />
+              </g>
+
+              {/* 노드 02: LMAX Disruptor (3D 원형 링버퍼) */}
+              <g className="text-foreground">
+                <path d={node2Ring} fill="none" stroke="currentColor" strokeOpacity="0.7" strokeWidth="1.15" />
+                <circle cx="310" cy="95" r="4" fill="#E11D48" />
+              </g>
+
+              {/* 노드 03: WSS 게이트웨이 (3D 팔면체 다이아몬드 게이트) */}
+              <g className="text-foreground">
+                <polygon points={node3Octa.midPoly} fill="#E11D48" fillOpacity="0.16" />
+                <path d={node3Octa.path} fill="none" stroke="currentColor" strokeOpacity="0.75" strokeWidth="1.15" />
+              </g>
+
+              {/* 노드 04: 디스코드 봇 서비스 (동심원 신호 파동 안테나) */}
+              <g>
+                <circle
+                  cx="795"
+                  cy="110"
+                  r={pulseRadius}
+                  fill="none"
+                  stroke="#E11D48"
+                  strokeOpacity="0.45"
+                  strokeWidth="1"
+                />
+                <ellipse
+                  cx="795"
+                  cy="110"
+                  rx="22"
+                  ry="11"
+                  fill="none"
+                  stroke="#E11D48"
+                  strokeOpacity="0.75"
+                  strokeWidth="1.2"
+                />
+                <ellipse
+                  cx="795"
+                  cy="110"
+                  rx="11"
+                  ry="22"
+                  fill="none"
+                  stroke="#E11D48"
+                  strokeOpacity="0.55"
+                  strokeWidth="1"
+                />
+                <circle cx="795" cy="110" r="5" fill="#E11D48" />
+              </g>
             </svg>
 
-            {/* 텍스트는 핵심 키워드와 1줄만 남겨 여백 극대화 */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-4">
               <div data-animate-item className="space-y-1.5">
-                <div className="score text-xs text-primary font-bold">01 // 0.00ms (완전 비동기)</div>
+                <div className="font-mono text-xs text-primary font-semibold">
+                  01 // 0.00ms (완전 비동기)
+                </div>
                 <h3 className="font-semibold text-base text-foreground">마인크래프트 서버</h3>
                 <p className="text-xs font-light text-muted-foreground">
                   메인 틱 중단 없이 사건 즉시 분리
@@ -463,7 +652,7 @@ export default function LandingPage() {
               </div>
 
               <div data-animate-item className="space-y-1.5 md:pt-8">
-                <div className="score text-xs text-muted-foreground">02 // 0.08ms Queue</div>
+                <div className="font-mono text-xs text-muted-foreground">02 // 0.08ms Queue</div>
                 <h3 className="font-semibold text-base text-foreground">LMAX Disruptor</h3>
                 <p className="text-xs font-light text-muted-foreground">
                   수만 건의 이벤트를 무잠금 정렬
@@ -471,7 +660,7 @@ export default function LandingPage() {
               </div>
 
               <div data-animate-item className="space-y-1.5">
-                <div className="score text-xs text-muted-foreground">03 // Single-Hop</div>
+                <div className="font-mono text-xs text-muted-foreground">03 // Single-Hop</div>
                 <h3 className="font-semibold text-base text-foreground">WSS 게이트웨이 & Redis</h3>
                 <p className="text-xs font-light text-muted-foreground">
                   상시 열린 웹소켓 통로로 직결 전송
@@ -479,7 +668,7 @@ export default function LandingPage() {
               </div>
 
               <div data-animate-item className="space-y-1.5 md:pt-8 md:text-right">
-                <div className="score text-xs text-emerald-500 font-bold">04 // 42ms Ack</div>
+                <div className="font-mono text-xs text-emerald-500 font-semibold">04 // 42ms Ack</div>
                 <h3 className="font-semibold text-base text-foreground">디스코드 봇 서비스</h3>
                 <p className="text-xs font-light text-muted-foreground">
                   채널 알림 및 유저 역할 즉시 반영
@@ -490,21 +679,20 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 뷰포트 3: 좌측 3D 와이어프레임 링버퍼 모델 + 우측 간결한 3대 기술 명세 */}
+      {/* 뷰포트 3: 좌측 3D 12슬롯 링버퍼 토러스 모델 + 우측 깔끔한 기본 폰트 3대 명세 */}
       <section
         id="architecture"
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden"
       >
         <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          {/* 좌측 6열 여백: 회전하는 3D 링버퍼 토러스 모델 & 루비 궤도 곡선 */}
           <div className="lg:col-span-6 flex flex-col items-center lg:items-start" data-animate-model>
             <div className="space-y-2 mb-6" data-animate-item>
-              <div className="text-[11px] font-light tracking-[0.28em] text-primary uppercase">
+              <div className="text-[11px] font-light tracking-[0.26em] text-primary uppercase">
                 Core Engine
               </div>
-              <h2 className="headline italic text-3xl sm:text-5xl tracking-tight text-foreground">
-                <em>초저지연 비동기 인프라 명세</em>
+              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
+                초저지연 비동기 인프라 명세
               </h2>
             </div>
 
@@ -513,7 +701,6 @@ export default function LandingPage() {
               className="w-full max-w-[440px] h-auto overflow-visible"
               aria-hidden="true"
             >
-              {/* 링버퍼를 감싸는 루비 타원 궤도 곡선 */}
               <path
                 data-animate-curve
                 d="M 25,240 C 90,60 370,60 435,140 C 380,310 110,320 25,240"
@@ -524,7 +711,6 @@ export default function LandingPage() {
                 strokeDasharray="1400"
                 strokeDashoffset="0"
               />
-              {/* 3D 팔각 링버퍼 와이어프레임 */}
               <path
                 d={ringBufferPath}
                 fill="none"
@@ -532,10 +718,9 @@ export default function LandingPage() {
                 strokeOpacity="0.32"
                 strokeWidth="0.95"
               />
-              {/* 중심부 코어 큐브 */}
-              <polygon points={ringCoreCube.topPoly} fill="#E11D48" fillOpacity="0.3" />
+              <polygon points={ringCoreOcta.midPoly} fill="#E11D48" fillOpacity="0.28" />
               <path
-                d={ringCoreCube.path}
+                d={ringCoreOcta.path}
                 fill="none"
                 stroke="#E11D48"
                 strokeOpacity="0.9"
@@ -544,33 +729,32 @@ export default function LandingPage() {
             </svg>
           </div>
 
-          {/* 우측 6열: 불필요한 사족을 덜어낸 3대 명세 */}
           <div className="lg:col-span-6 divide-y divide-border/70 border-y border-border/70">
             <div data-animate-item className="py-7 space-y-1.5">
-              <div className="text-[11px] font-light tracking-[0.24em] text-primary uppercase">
+              <div className="text-[11px] font-light tracking-[0.22em] text-primary uppercase">
                 01 / Direct Socket
               </div>
-              <h3 className="headline text-xl text-foreground">WSS 단일 계층 게이트웨이</h3>
+              <h3 className="font-semibold text-lg text-foreground">WSS 단일 계층 게이트웨이</h3>
               <p className="text-sm font-light text-muted-foreground">
                 중계 서버 없이 플러그인과 관제 서버가 직접 연결됩니다.
               </p>
             </div>
 
             <div data-animate-item className="py-7 space-y-1.5 lg:pl-8">
-              <div className="text-[11px] font-light tracking-[0.24em] text-primary uppercase">
+              <div className="text-[11px] font-light tracking-[0.22em] text-primary uppercase">
                 02 / Lock-Free Ring
               </div>
-              <h3 className="headline text-xl text-foreground">LMAX Disruptor 인메모리 링버퍼</h3>
+              <h3 className="font-semibold text-lg text-foreground">LMAX Disruptor 인메모리 링버퍼</h3>
               <p className="text-sm font-light text-muted-foreground">
                 대규모 전투·채굴 이벤트도 대기 시간 없이 메모리에서 즉시 소화합니다.
               </p>
             </div>
 
             <div data-animate-item className="py-7 space-y-1.5 lg:pl-16">
-              <div className="text-[11px] font-light tracking-[0.24em] text-primary uppercase">
+              <div className="text-[11px] font-light tracking-[0.22em] text-primary uppercase">
                 03 / Instant Role Sync
               </div>
-              <h3 className="headline text-xl text-foreground">디스코드 권한 실시간 동기화</h3>
+              <h3 className="font-semibold text-lg text-foreground">디스코드 권한 실시간 동기화</h3>
               <p className="text-sm font-light text-muted-foreground">
                 인게임 달성 조건을 감지하는 즉시 디스코드 역할과 칭호를 바꿉니다.
               </p>
@@ -579,98 +763,123 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 뷰포트 4: 중앙 대칭 레이아웃 + 대형 루비 호(Arc) + 격차 비교 및 3단계 시작 */}
+      {/* 뷰포트 4: 수직 비콘 광선 착지(수미상관) + 직선 속도 비교 게이지 & 3단계 시작 */}
       <section
         id="comparison"
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 flex flex-col justify-between overflow-hidden"
       >
-        {/* 배경 여백을 가로지르는 대형 루비 포물선 아크 */}
-        <svg
-          viewBox="0 0 1200 420"
-          className="pointer-events-none absolute inset-x-0 top-10 w-full h-auto opacity-80"
-          aria-hidden="true"
-        >
-          <path
-            data-animate-curve
-            d="M -40,380 Q 600,20 1240,380"
-            fill="none"
-            stroke="#E11D48"
-            strokeOpacity="0.35"
-            strokeWidth="1.5"
-            strokeDasharray="1400"
-            strokeDashoffset="0"
-          />
-          <path
-            d="M 120,410 Q 600,110 1080,410"
-            fill="none"
-            stroke="currentColor"
-            strokeOpacity="0.08"
-            strokeWidth="1"
-          />
-        </svg>
+        {/* 첫 화면에서 쏘아 올린 비콘 광선이 마지막 뷰포트 상단 중앙으로 수직 낙하해 착지하는 연출 */}
+        <div className="relative z-10 flex flex-col items-center pt-2" data-animate-model>
+          <svg
+            viewBox="0 0 240 120"
+            className="w-48 h-24 overflow-visible"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="landingBeamGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#E11D48" stopOpacity="0" />
+                <stop offset="60%" stopColor="#E11D48" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="#E11D48" stopOpacity="0.55" />
+              </linearGradient>
+            </defs>
+            <rect x="110" y="0" width="20" height="88" fill="url(#landingBeamGrad)" />
+            <line
+              data-animate-curve
+              x1="120"
+              y1="0"
+              x2="120"
+              y2="88"
+              stroke="#E11D48"
+              strokeWidth="1.75"
+              strokeDasharray="1400"
+              strokeDashoffset="0"
+            />
+            <polygon points={targetOcta.midPoly} fill="#E11D48" fillOpacity="0.25" />
+            <path d={targetOcta.path} fill="none" stroke="#E11D48" strokeWidth="1.2" />
+          </svg>
+        </div>
 
-        <div className="hidden md:block" />
-
-        <div className="relative z-10 max-w-5xl mx-auto w-full space-y-14 my-auto">
-          {/* 상단: 중앙 정렬 기술 격차 요약 */}
-          <div className="text-center space-y-6">
-            <div className="space-y-2" data-animate-item>
-              <div className="text-[11px] font-light tracking-[0.28em] text-primary uppercase">
+        <div className="relative z-10 max-w-4xl mx-auto w-full space-y-12 my-auto">
+          {/* 상단: 실시간 직선 게이지로 비교하는 기술 격차 */}
+          <div className="space-y-6">
+            <div className="text-center space-y-1.5" data-animate-item>
+              <div className="text-[11px] font-light tracking-[0.26em] text-primary uppercase">
                 Benchmark Contrast
               </div>
-              <h2 className="headline italic text-3xl sm:text-5xl tracking-tight text-foreground">
-                <em>기존 연동 방식과의 기술적 격차</em>
+              <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
+                기존 연동 방식과의 기술적 격차
               </h2>
+              <p className="text-xs font-light text-muted-foreground">
+                마인크래프트 메인 틱 점유 시간
+              </p>
             </div>
 
             <div
               data-animate-item
-              className="max-w-3xl mx-auto grid grid-cols-1 sm:grid-cols-3 border-y border-border/70 py-5 gap-4 items-center text-sm"
+              className="max-w-2xl mx-auto space-y-4 border-y border-border/70 py-6"
             >
-              <div className="font-light tracking-wider text-muted-foreground">
-                마인크래프트 메인 틱 점유 시간
+              {/* RuBeacon 즉시 통과 게이지 */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-foreground">RuBeacon</span>
+                  <span className="font-mono font-bold text-primary">0.00ms (완전 비동기)</span>
+                </div>
+                <div className="w-full h-1.5 bg-muted/60 overflow-hidden">
+                  <div
+                    data-gauge-fast
+                    className="w-full h-full bg-primary origin-left"
+                  />
+                </div>
               </div>
-              <div className="score headline italic text-xl sm:text-2xl text-primary">
-                <em>0.00ms (완전 비동기)</em>
-              </div>
-              <div className="text-xs font-light text-muted-foreground line-through opacity-65">
-                기존 웹훅 15 - 50ms 렉 유발
+
+              {/* 기존 웹훅 지연 게이지 */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-light">기존 웹훅 플러그인</span>
+                  <span className="font-mono">15 - 50ms (동기 블로킹 렉 유발)</span>
+                </div>
+                <div className="w-full h-1.5 bg-muted/60 overflow-hidden">
+                  <div
+                    data-gauge-slow
+                    className="w-full h-full bg-muted-foreground/45 origin-left"
+                  />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* 중단: 빠른 3단계 연동 (한 눈에 들어오는 심플 3열) */}
-          <div id="setup" className="space-y-6">
+          {/* 중단: 빠른 3단계 연동 */}
+          <div id="setup" className="space-y-5">
             <div className="text-center" data-animate-item>
-              <span className="text-[11px] font-light tracking-[0.28em] text-muted-foreground uppercase">
+              <span className="text-[11px] font-light tracking-[0.26em] text-muted-foreground uppercase">
                 빠른 3단계 연동 안내
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
               <div data-animate-item className="space-y-1 pt-4 border-t border-border/60">
-                <div className="score text-xs text-primary font-bold">01</div>
+                <div className="font-mono text-xs text-primary font-bold">01</div>
                 <h3 className="font-semibold text-sm text-foreground">디스코드 봇 초대</h3>
                 <p className="text-xs font-light text-muted-foreground">전용 봇을 서버에 추가</p>
               </div>
               <div data-animate-item className="space-y-1 pt-4 border-t border-border/60">
-                <div className="score text-xs text-primary font-bold">02</div>
+                <div className="font-mono text-xs text-primary font-bold">02</div>
                 <h3 className="font-semibold text-sm text-foreground">인스턴스 토큰 발급</h3>
                 <p className="text-xs font-light text-muted-foreground">플러그인 설정에 토큰 등록</p>
               </div>
               <div data-animate-item className="space-y-1 pt-4 border-t border-border/60">
-                <div className="score text-xs text-primary font-bold">03</div>
+                <div className="font-mono text-xs text-primary font-bold">03</div>
                 <h3 className="font-semibold text-sm text-foreground">실시간 하트비트 확인</h3>
                 <p className="text-xs font-light text-muted-foreground">서버 가동 즉시 온라인 연결</p>
               </div>
             </div>
           </div>
 
-          {/* 하단: 중앙 집중형 최종 CTA & GitHub 최신 릴리스 다운로드 */}
-          <div data-animate-item className="text-center space-y-5 pt-4">
-            <h3 className="headline italic text-2xl sm:text-3xl text-foreground">
-              <em>서버 렉 없는 디스코드 커뮤니티, 지금 즉시 연결하세요.</em>
+          {/* 하단: 최종 CTA & GitHub 최신 릴리스 다운로드 */}
+          <div data-animate-item className="text-center space-y-5 pt-2">
+            <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+              서버 렉 없는 디스코드 커뮤니티, 지금 즉시 연결하세요.
             </h3>
 
             <div className="flex flex-wrap items-center justify-center gap-3">
