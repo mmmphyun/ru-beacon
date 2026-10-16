@@ -423,9 +423,7 @@ export function BeaconStage() {
         {/* 중앙 무대: 광선 축 90도 회전 타이포그래피(배경/오버랩) + 정중앙 정육면체 루비 비콘 피라미드(전경) */}
         <div className="relative w-full max-w-5xl flex-1 flex items-center justify-center px-4">
           {/*
-            광선 축 회전 브랜드 헤더:
-            초기에는 광선 바로 옆에 -90도로 세워져 비콘 뒤편에 일부 가려지며(오버랩),
-            스크롤 시 비콘과 함께 0도 수평으로 회전하여 정면에 읽히게 안착함.
+            1) 광선 축 회전 브랜드 워드마크 (z-0: 비콘 블록 뒤편에 입체적으로 오버랩됨)
           */}
           <div
             className="pointer-events-none absolute inset-0 flex items-center justify-center z-0"
@@ -434,28 +432,38 @@ export function BeaconStage() {
               transformOrigin: "50% 48%",
             }}
           >
-            <div className="flex flex-col items-center text-center">
-              <div
-                aria-label="Ru-Beacon Brand Headline"
-                className="headline italic text-5xl sm:text-7xl md:text-[6.5rem] leading-none tracking-tight text-foreground/90 whitespace-nowrap"
-              >
-                <em>
-                  <span>Ru</span>
-                  <span className="relative inline-flex items-center mx-1 sm:mx-1.5">
-                    <span className="opacity-20 font-normal">by</span>
-                    {/* by 위를 가로지르며 Ru-Beacon의 하이픈(-) 역할을 겸하는 루비 취소선 */}
-                    <span
-                      className="absolute left-[-8%] right-[-8%] top-1/2 -translate-y-1/2 h-[3px] sm:h-[5px] bg-primary rounded-full shadow-[0_0_16px_rgba(225,29,72,0.85)]"
-                      aria-hidden="true"
-                    />
-                  </span>
-                  <span>Beacon</span>
-                </em>
-              </div>
-              <p className="mt-3 sm:mt-4 text-[10px] sm:text-xs font-light tracking-[0.34em] text-muted-foreground uppercase whitespace-nowrap">
-                Zero-Lag Minecraft to Discord Signal
-              </p>
+            <div
+              aria-label="Ru-Beacon Brand Headline"
+              className="headline italic text-5xl sm:text-7xl md:text-[6.5rem] leading-none tracking-tight text-foreground/90 whitespace-nowrap"
+            >
+              <em>
+                <span>Ru</span>
+                <span className="relative inline-flex items-center mx-1 sm:mx-1.5">
+                  <span className="opacity-20 font-normal">by</span>
+                  {/* by 위를 가로지르며 Ru-Beacon의 하이픈(-) 역할을 겸하는 루비 취소선 */}
+                  <span
+                    className="absolute left-[-8%] right-[-8%] top-1/2 -translate-y-1/2 h-[3px] sm:h-[5px] bg-primary rounded-full shadow-[0_0_16px_rgba(225,29,72,0.85)]"
+                    aria-hidden="true"
+                  />
+                </span>
+                <span>Beacon</span>
+              </em>
             </div>
+          </div>
+
+          {/*
+            2) 광선 축 동반 회전 한글 서브 슬로건 (z-20 전경 & 아래로 175px~210px 이격하여 회전 전/후 모두 피라미드 블록에 가리지 않음)
+          */}
+          <div
+            className="pointer-events-none absolute inset-0 flex items-center justify-center z-20"
+            style={{
+              transform: `rotate(${headerRotationDeg}deg) translateY(${(1 - scrollProgress) * -22}px)`,
+              transformOrigin: "50% 48%",
+            }}
+          >
+            <p className="translate-y-[165px] sm:translate-y-[200px] md:translate-y-[225px] text-xs sm:text-sm font-light tracking-[0.26em] text-foreground/85 whitespace-nowrap">
+              마인크래프트 · 디스코드 실시간 연동 서비스
+            </p>
           </div>
 
           {/* 정중앙 정육면체(1:1:1) 7x7, 5x5, 3x3 피라미드 & 심장박동 광선 SVG (전경 z-10 배치로 타이포와 입체적 오버랩) */}

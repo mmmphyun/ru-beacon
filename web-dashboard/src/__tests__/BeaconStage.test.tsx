@@ -40,6 +40,7 @@ describe("BeaconStage & useLatestRelease", () => {
     expect(screen.getByText("Ru")).toBeDefined();
     expect(screen.getByText("by")).toBeDefined();
     expect(screen.getByText("Beacon")).toBeDefined();
+    expect(screen.getByText("마인크래프트 · 디스코드 실시간 연동 서비스")).toBeDefined();
     expect(screen.getByText("0.00ms Tick Occupancy")).toBeDefined();
     expect(screen.getByText("Scroll")).toBeDefined();
     expect(screen.getByRole("button", { name: "아래로 스크롤" })).toBeDefined();
