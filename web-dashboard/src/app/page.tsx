@@ -396,10 +396,10 @@ export default function LandingPage() {
   return (
     <div
       ref={pageRef}
-      className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground font-sans break-keep"
+      className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground font-sans break-keep scroll-smooth [scroll-snap-type:y_proximity]"
     >
-      {/* 상단 고정 헤더: 블러 글래스모피즘 + 본문 그리드 일치(max-w-6xl) */}
-      <header className="border-b border-border/30 bg-background/70 backdrop-blur-md sticky top-0 z-50 transition-colors">
+      {/* 상단 고정 헤더: 실선 경계 제거 + 부드러운 페이드 글래스모피즘 그라데이션 */}
+      <header className="sticky top-0 z-50 bg-gradient-to-b from-background/95 via-background/70 to-transparent backdrop-blur-md transition-colors">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <RuBeaconLogo size={24} />
@@ -462,21 +462,23 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* 뷰포트 0: 정육면체 비콘 피라미드 + 심장박동 + 광선 축 90도 회전 Ru-by-Beacon 헤더 */}
-      <BeaconStage />
+      {/* 뷰포트 0: 정육면체 비콘 피라미드 (스크롤 조립 인터랙션을 위해 자석 스냅 제외: snap-none) */}
+      <div className="snap-none">
+        <BeaconStage />
+      </div>
 
-      {/* 뷰포트 1: 좌측 헤드라인 / 우측 [3D 이벤트 파형 vs 20.0 TPS 수평 레이저] + 루비-샌드 그라디언트 */}
+      {/* 뷰포트 1: 좌측 헤드라인 / 우측 [3D 이벤트 파형 vs 20.0 TPS 수평 레이저] (소프트 앵커 스냅: snap-start) */}
       <section
         id="hero"
         data-viewport-section
-        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-between overflow-hidden"
+        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-between overflow-hidden snap-start scroll-mt-14"
       >
-        {/* 3D 파형 모델 주변 루비-샌드(Ruby-Sand) 앰비언트 그라디언트 */}
+        {/* 3D 파형 모델 영역 딥 루비 앰비언트 라이트 */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 72% 46%, rgba(212, 17, 83, 0.16) 0%, rgba(206, 178, 138, 0.14) 36%, transparent 70%)",
+              "radial-gradient(circle at 72% 46%, rgba(225, 29, 72, 0.05) 0%, transparent 68%)",
           }}
         />
 
@@ -618,7 +620,7 @@ export default function LandingPage() {
       <section
         id="pipeline"
         data-viewport-section
-        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden"
+        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden snap-start scroll-mt-14"
       >
         {/* 4개 3D 파이프라인 도형 영역 배경 딥 루비 앰비언트 라이트 */}
         <div
@@ -761,7 +763,7 @@ export default function LandingPage() {
       <section
         id="architecture"
         data-viewport-section
-        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden"
+        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden snap-start scroll-mt-14"
       >
         {/* 좌측 3D 모델 영역 딥 루비 단일 앰비언트 라이트 */}
         <div
@@ -885,7 +887,7 @@ export default function LandingPage() {
       <section
         id="comparison"
         data-viewport-section
-        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 flex flex-col justify-between overflow-hidden"
+        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 flex flex-col justify-between overflow-hidden snap-start scroll-mt-14"
       >
         {/* 상단 미러링 영역 주변 딥 루비 단일 앰비언트 라이트 */}
         <div
