@@ -1,6 +1,7 @@
 package com.rubeacon.api.routes
 
 import com.rubeacon.api.auth.AuthConfig
+import com.rubeacon.api.auth.frontendUrl
 import com.rubeacon.api.auth.DevMockLoginRequest
 import com.rubeacon.api.auth.DiscordOAuthService
 import com.rubeacon.api.auth.TenantSummaryDto
@@ -74,12 +75,7 @@ fun Route.authRoutes(oauthService: DiscordOAuthService) {
             call.sessions.set(profile)
             logger.info("관리자 세션 발급 완료: userId={}, username={}", profile.discordUserId, profile.username)
 
-            val returnUrl = call.request.queryParameters["state"] ?: "/dashboard"
-            call.respond(HttpStatusCode.OK, mapOf(
-                "status" to "SUCCESS",
-                "userId" to profile.discordUserId,
-                "username" to profile.username
-            ))
+            call.respondRedirect("${AuthConfig.frontendUrl}/app")
         }
 
         // 로그아웃
@@ -126,12 +122,15 @@ fun Route.authRoutes(oauthService: DiscordOAuthService) {
                 }
             }
 
+            val ownedGuilds = cachedGuilds.filter { it.isOwner }
+
             call.respond(HttpStatusCode.OK, UserProfileDto(
                 discordUserId = session.discordUserId,
                 username = session.username,
                 avatar = session.avatar,
                 isPlatformSuperAdmin = isSuperAdmin,
-                tenants = tenants
+                tenants = tenants,
+                ownedGuilds = ownedGuilds
             ))
         }
 

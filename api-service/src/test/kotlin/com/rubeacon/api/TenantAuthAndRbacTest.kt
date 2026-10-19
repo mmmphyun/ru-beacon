@@ -3,6 +3,7 @@ package com.rubeacon.api
 import com.rubeacon.api.auth.DevMockLoginRequest
 import com.rubeacon.api.auth.DiscordGuildInfo
 import com.rubeacon.api.auth.DiscordOAuthService
+import com.rubeacon.api.auth.UserProfileDto
 import com.rubeacon.api.db.Admin2faPolicies
 import com.rubeacon.api.db.MinecraftInstances
 import com.rubeacon.api.db.MinecraftNetworks
@@ -225,5 +226,37 @@ class TenantAuthAndRbacTest : BaseIntegrationTest() {
             )))
         }
         assertEquals(HttpStatusCode.Conflict, res.status)
+    }
+
+    @Test
+    fun `내 프로필 조회 시 소유한 길드 목록이 ownedGuilds에 매핑되어 반환되어야 한다`() = testApplication {
+        val oauthService = DiscordOAuthService(jedis)
+        val testUser = "user_owner_multi"
+        val ownedGuild1 = DiscordGuildInfo(id = "guild_own_1", name = "내 마인크래프트 서버", isOwner = true)
+        val joinedGuild2 = DiscordGuildInfo(id = "guild_join_2", name = "친구 디스코드 서버", isOwner = false)
+
+        jedis.setex("rubeacon:discord:user:$testUser:guilds", 300, Json.encodeToString(listOf(
+            ownedGuild1, joinedGuild2
+        )))
+
+        application {
+            module(database = database, jedis = jedis, oauthService = oauthService)
+        }
+
+        val client = createClient { install(HttpCookies) }
+        System.setProperty("DEV_MOCK_AUTH", "true")
+        client.post("/api/v1/auth/dev-mock-login") {
+            contentType(ContentType.Application.Json)
+            setBody(Json.encodeToString(DevMockLoginRequest(discordUserId = testUser, username = "MultiOwner")))
+        }
+        System.setProperty("DEV_MOCK_AUTH", "false")
+
+        val res = client.get("/api/v1/auth/me")
+        assertEquals(HttpStatusCode.OK, res.status)
+
+        val profile = Json.decodeFromString<UserProfileDto>(res.bodyAsText())
+        assertEquals(1, profile.ownedGuilds.size)
+        assertEquals("guild_own_1", profile.ownedGuilds[0].id)
+        assertEquals("내 마인크래프트 서버", profile.ownedGuilds[0].name)
     }
 }

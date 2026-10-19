@@ -54,5 +54,6 @@ data class UserProfileDto(
     val username: String,
     val avatar: String?,
     val isPlatformSuperAdmin: Boolean,
-    val tenants: List<TenantSummaryDto>
+    val tenants: List<TenantSummaryDto>,
+    val ownedGuilds: List<DiscordGuildInfo> = emptyList()
 )

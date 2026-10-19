@@ -15,8 +15,11 @@ import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 
+val AuthConfig.frontendUrl: String
+    get() = System.getenv("FRONTEND_URL") ?: System.getProperty("FRONTEND_URL") ?: "http://localhost:3000"
+
 /**
- * Discord OAuth2 ¿¬µ¿ ¹× Redis ±â¹İ ±æµå/±ÇÇÑ Ä³½Ì ¼­ºñ½º.
+ * Discord OAuth2 ì—°ë™ ë° Redis ê¸°ë°˜ ê¸¸ë“œ/ê¶Œí•œ ìºì‹± ì„œë¹„ìŠ¤.
  */
 class DiscordOAuthService(
     private val jedis: JedisPooled,
@@ -32,11 +35,11 @@ class DiscordOAuthService(
 
     companion object {
         private const val REDIS_CACHE_PREFIX = "rubeacon:discord:user:"
-        private const val REDIS_CACHE_TTL_SECONDS = 900L // 15ºĞ
+        private const val REDIS_CACHE_TTL_SECONDS = 900L // 15ë¶„
     }
 
     /**
-     * Discord OAuth2 ·Î±×ÀÎ ÀÎ°¡ URL »ı¼º.
+     * Discord OAuth2 ë¡œê·¸ì¸ ì¸ê°€ URL ìƒì„±.
      */
     fun buildAuthorizationUrl(state: String): String {
         val encodedRedirect = URLEncoder.encode(redirectUri, StandardCharsets.UTF_8)
@@ -48,7 +51,7 @@ class DiscordOAuthService(
     }
 
     /**
-     * Discord ÀÎ°¡ ÄÚµå¸¦ Access TokenÀ¸·Î ±³È¯ÇÔ.
+     * Discord ì¸ê°€ ì½”ë“œë¥¼ Access Tokenìœ¼ë¡œ êµí™˜í•¨.
      */
     fun exchangeCodeForToken(code: String): String? {
         val formBody = "client_id=" + clientId +
@@ -70,17 +73,17 @@ class DiscordOAuthService(
                 val element = json.parseToJsonElement(response.body()).jsonObject
                 element["access_token"]?.jsonPrimitive?.content
             } else {
-                logger.error("Discord ÅäÅ« ±³È¯ ½ÇÆĞ: status={}, body={}", response.statusCode(), response.body())
+                logger.error("Discord í† í° êµí™˜ ì‹¤íŒ¨: status={}, body={}", response.statusCode(), response.body())
                 null
             }
         } catch (e: Exception) {
-            logger.error("Discord ÅäÅ« ±³È¯ ³×Æ®¿öÅ© ¿¹¿Ü ¹ß»ı", e)
+            logger.error("Discord í† í° êµí™˜ ë„¤íŠ¸ì›Œí¬ ì˜ˆì™¸ ë°œìƒ", e)
             null
         }
     }
 
     /**
-     * Discord À¯Àú ÇÁ·ÎÇÊ(@me) Á¶È¸.
+     * Discord ìœ ì € í”„ë¡œí•„(@me) ì¡°íšŒ.
      */
     fun fetchUserProfile(accessToken: String): UserSession? {
         val request = HttpRequest.newBuilder()
@@ -102,13 +105,13 @@ class DiscordOAuthService(
                 null
             }
         } catch (e: Exception) {
-            logger.error("Discord ÇÁ·ÎÇÊ Á¶È¸ ½ÇÆĞ", e)
+            logger.error("Discord í”„ë¡œí•„ ì¡°íšŒ ì‹¤íŒ¨", e)
             null
         }
     }
 
     /**
-     * »ç¿ëÀÚÀÇ ±æµå ¸ñ·Ï ¹× ¿ªÇÒ Á¤º¸¸¦ Á¶È¸ÇÔ (Redis Ä³½Ì 15ºĞ Àû¿ë).
+     * ì‚¬ìš©ìì˜ ê¸¸ë“œ ëª©ë¡ ë° ì—­í•  ì •ë³´ë¥¼ ì¡°íšŒí•¨ (Redis ìºì‹± 15ë¶„ ì ìš©).
      */
     fun getCachedUserGuilds(userId: String, accessToken: String? = null): List<DiscordGuildInfo> {
         val cacheKey = REDIS_CACHE_PREFIX + userId + ":guilds"
@@ -118,7 +121,7 @@ class DiscordOAuthService(
                 return json.decodeFromString(cachedJson)
             }
         } catch (e: Exception) {
-            logger.warn("Redis ±æµå Ä³½Ã Á¶È¸ ½ÇÆĞ, API Á÷Á¢ Á¶È¸ ½Ãµµ: {}", e.message)
+            logger.warn("Redis ê¸¸ë“œ ìºì‹œ ì¡°íšŒ ì‹¤íŒ¨, API ì§ì ‘ ì¡°íšŒ ì‹œë„: {}", e.message)
         }
 
         if (accessToken.isNullOrBlank()) {
@@ -130,27 +133,27 @@ class DiscordOAuthService(
             try {
                 jedis.setex(cacheKey, REDIS_CACHE_TTL_SECONDS, json.encodeToString(guilds))
             } catch (e: Exception) {
-                logger.warn("Redis ±æµå Ä³½Ã ÀûÀç ½ÇÆĞ: {}", e.message)
+                logger.warn("Redis ê¸¸ë“œ ìºì‹œ ì ì¬ ì‹¤íŒ¨: {}", e.message)
             }
         }
         return guilds
     }
 
     /**
-     * Redis ±æµå Ä³½Ã °­Á¦ ¹«È¿È­.
+     * Redis ê¸¸ë“œ ìºì‹œ ê°•ì œ ë¬´íš¨í™”.
      */
     fun invalidateGuildsCache(userId: String) {
         val cacheKey = REDIS_CACHE_PREFIX + userId + ":guilds"
         try {
             jedis.del(cacheKey)
-            logger.info("Redis ±æµå Ä³½Ã ¹«È¿È­ ¿Ï·á: userId={}", userId)
+            logger.info("Redis ê¸¸ë“œ ìºì‹œ ë¬´íš¨í™” ì™„ë£Œ: userId={}", userId)
         } catch (e: Exception) {
-            logger.warn("Redis ±æµå Ä³½Ã »èÁ¦ ½ÇÆĞ: {}", e.message)
+            logger.warn("Redis ê¸¸ë“œ ìºì‹œ ì‚­ì œ ì‹¤íŒ¨: {}", e.message)
         }
     }
 
     /**
-     * Discord API·ÎºÎÅÍ »ç¿ëÀÚ°¡ ¼Ò¼ÓµÈ ±æµå ¸ñ·Ï Á¶È¸.
+     * Discord APIë¡œë¶€í„° ì‚¬ìš©ìê°€ ì†Œì†ëœ ê¸¸ë“œ ëª©ë¡ ì¡°íšŒ.
      */
     private fun fetchGuildsFromDiscord(accessToken: String): List<DiscordGuildInfo> {
         val request = HttpRequest.newBuilder()
@@ -179,17 +182,17 @@ class DiscordOAuthService(
                     )
                 }
             } else {
-                logger.error("Discord ±æµå ¸ñ·Ï Á¶È¸ ½ÇÆĞ: status={}, body={}", response.statusCode(), response.body())
+                logger.error("Discord ê¸¸ë“œ ëª©ë¡ ì¡°íšŒ ì‹¤íŒ¨: status={}, body={}", response.statusCode(), response.body())
                 emptyList()
             }
         } catch (e: Exception) {
-            logger.error("Discord ±æµå ¸ñ·Ï ¿äÃ» ¿¹¿Ü ¹ß»ı", e)
+            logger.error("Discord ê¸¸ë“œ ëª©ë¡ ìš”ì²­ ì˜ˆì™¸ ë°œìƒ", e)
             emptyList()
         }
     }
 
     /**
-     * Æ¯Á¤ ±æµå¿¡¼­ »ç¿ëÀÚ°¡ º¸À¯ÇÑ ¿ªÇÒ(Role IDs) Á¶È¸.
+     * íŠ¹ì • ê¸¸ë“œì—ì„œ ì‚¬ìš©ìê°€ ë³´ìœ í•œ ì—­í• (Role IDs) ì¡°íšŒ.
      */
     fun fetchMemberRolesForGuild(guildId: String, accessToken: String): List<String> {
         val request = HttpRequest.newBuilder()
@@ -209,7 +212,7 @@ class DiscordOAuthService(
                 emptyList()
             }
         } catch (e: Exception) {
-            logger.warn("Discord ±æµå ¸â¹ö ¿ªÇÒ Á¶È¸ ½ÇÆĞ: guildId={}, error={}", guildId, e.message)
+            logger.warn("Discord ê¸¸ë“œ ë©¤ë²„ ì—­í•  ì¡°íšŒ ì‹¤íŒ¨: guildId={}, error={}", guildId, e.message)
             emptyList()
         }
     }
