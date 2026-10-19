@@ -11,6 +11,7 @@ import { UserProfile } from "@/types/workflow";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { RuBeaconLogo } from "@/components/brand/RuBeaconLogo";
 import {
   Layers,
   Settings,
@@ -73,9 +74,7 @@ export default function TenantConsolePage() {
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <div className="w-7 h-7 rounded bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs tracking-tighter">
-                R
-              </div>
+              <RuBeaconLogo size={22} />
               <span className="font-semibold text-sm tracking-tight text-foreground">Ru-Beacon</span>
             </Link>
 
