@@ -338,6 +338,11 @@ export function BeaconStage() {
   // 광선 옆에 -90도로 서 있던 헤더가 스크롤에 따라 사람이 읽기 편한 0도 수평으로 회전 (-90deg -> 0deg)
   const headerRotationDeg = -90 + scrollProgress * 90;
 
+  // 한글 서브 슬로건: 애초에 정방향(0deg 수평) 유지
+  // 로고가 -90도(수직)에서 회전할 때 회전 반경과 충돌하지 않도록 안전 거리 확보 후, 로고가 0도 수평 복귀함에 맞춰 위로 사뿐히 안착
+  const sloganLiftY = (1 - scrollProgress) * 32;
+  const sloganOpacity = 0.7 + scrollProgress * 0.3;
+
   const s7 = buildCubeTierPaths(
     7,
     UNIT,
@@ -452,16 +457,16 @@ export function BeaconStage() {
           </div>
 
           {/*
-            2) 광선 축 동반 회전 한글 서브 슬로건 (z-20 전경 & 아래로 이격 + 폰트 크기 상향으로 가독성 확보)
+            2) 정방향 유지 한글 서브 슬로건 (애초에 정방향 0deg 수평 유지 + 로고 회전 충돌 방지 안전 이격 및 스크롤 연동 안착)
           */}
           <div
             className="pointer-events-none absolute inset-0 flex items-center justify-center z-20"
             style={{
-              transform: `rotate(${headerRotationDeg}deg) translateY(${(1 - scrollProgress) * -22}px)`,
-              transformOrigin: "50% 48%",
+              transform: `translateY(${sloganLiftY}px)`,
+              opacity: sloganOpacity,
             }}
           >
-            <p className="translate-y-[165px] sm:translate-y-[200px] md:translate-y-[225px] text-sm sm:text-base font-normal tracking-[0.22em] text-foreground/90 whitespace-nowrap">
+            <p className="translate-y-[180px] sm:translate-y-[205px] md:translate-y-[228px] text-sm sm:text-base font-medium tracking-[0.22em] text-foreground/90 whitespace-nowrap">
               마인크래프트 · 디스코드 실시간 연동 서비스
             </p>
           </div>
