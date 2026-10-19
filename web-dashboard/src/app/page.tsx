@@ -831,101 +831,99 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 뷰포트 4: 실시간 미러링 쇼케이스 + 직선 속도 비교 게이지 & 3단계 시작 */}
+      {/* 뷰포트 4: 실시간 미러링 쇼케이스 & 직선 속도 비교 게이지 */}
       <section
         id="comparison"
         data-viewport-section
-        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 flex flex-col justify-between overflow-hidden snap-start scroll-mt-14"
+        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 flex flex-col justify-center overflow-hidden snap-start scroll-mt-14"
       >
         {/* 상단 미러링 영역 주변 딥 루비 단일 앰비언트 라이트 */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 50% 20%, rgba(225, 29, 72, 0.05) 0%, transparent 68%)",
+              "radial-gradient(circle at 50% 30%, rgba(225, 29, 72, 0.05) 0%, transparent 68%)",
           }}
         />
 
-        <div className="relative z-10 flex flex-col items-center pt-2" data-animate-model>
-          <svg
-            viewBox="0 0 380 120"
-            className="w-full max-w-[360px] h-24 overflow-visible"
-            aria-hidden="true"
-          >
-            {/* 좌측: 마인크래프트 인게임 이벤트 큐브 노드 (이벤트 격발 시 펄스) */}
-            <g transform={`translate(60, 60) scale(${cubePulse})`}>
-              <rect x="-24" y="-24" width="48" height="48" rx="6" fill="#E11D48" fillOpacity="0.12" stroke="#E11D48" strokeWidth="1.4" />
-              {/* 마인크래프트 검/블록 상징 대각선 라인 */}
-              <line x1="-12" y1="12" x2="12" y2="-12" stroke="#E11D48" strokeWidth="1.6" strokeLinecap="round" />
-              <text x="0" y="38" textAnchor="middle" fill="#E11D48" fontSize="10" fontFamily="monospace" fontWeight="600">
-                IN-GAME
+        <div className="relative z-10 max-w-4xl mx-auto w-full space-y-10 my-auto">
+          {/* 상단 실시간 미러링 쇼케이스 애니메이션 */}
+          <div className="flex flex-col items-center" data-animate-model>
+            <svg
+              viewBox="0 0 380 120"
+              className="w-full max-w-[360px] h-24 overflow-visible"
+              aria-hidden="true"
+            >
+              {/* 좌측: 마인크래프트 인게임 이벤트 큐브 노드 */}
+              <g transform={`translate(60, 60) scale(${cubePulse})`}>
+                <rect x="-24" y="-24" width="48" height="48" rx="6" fill="#E11D48" fillOpacity="0.12" stroke="#E11D48" strokeWidth="1.4" />
+                <line x1="-12" y1="12" x2="12" y2="-12" stroke="#E11D48" strokeWidth="1.6" strokeLinecap="round" />
+                <text x="0" y="38" textAnchor="middle" fill="#E11D48" fontSize="10" fontFamily="monospace" fontWeight="600">
+                  IN-GAME
+                </text>
+              </g>
+
+              {/* 중앙: 초고속 직결 미러링 통로 */}
+              <line
+                data-animate-curve
+                x1="90"
+                y1="60"
+                x2="275"
+                y2="60"
+                stroke="hsl(var(--sand))"
+                strokeOpacity="0.35"
+                strokeWidth="1.2"
+                strokeDasharray="4 4"
+              />
+              <circle cx={syncPacketX} cy="60" r="4.5" fill="#E11D48" />
+              <circle cx={syncPacketX} cy="60" r={8 + syncPacketGlow * 4} fill="none" stroke="#E11D48" strokeOpacity={0.25 + syncPacketGlow * 0.45} strokeWidth="1.2" />
+
+              <text x="182" y="50" textAnchor="middle" fill="hsl(var(--sand))" fontSize="10" fontFamily="monospace" fontWeight="bold">
+                ⚡ 42ms SYNC
               </text>
-            </g>
 
-            {/* 중앙: 초고속 직결 미러링 통로 (42ms 양방향 전송 레이저 및 이동 패킷) */}
-            <line
-              data-animate-curve
-              x1="90"
-              y1="60"
-              x2="275"
-              y2="60"
-              stroke="hsl(var(--sand))"
-              strokeOpacity="0.35"
-              strokeWidth="1.2"
-              strokeDasharray="4 4"
-            />
-            {/* 실시간으로 인게임에서 디스코드로 질주하는 단방향 패킷 광선 */}
-            <circle cx={syncPacketX} cy="60" r="4.5" fill="#E11D48" />
-            <circle cx={syncPacketX} cy="60" r={8 + syncPacketGlow * 4} fill="none" stroke="#E11D48" strokeOpacity={0.25 + syncPacketGlow * 0.45} strokeWidth="1.2" />
+              {/* 우측: 디스코드 임베드 카드 노드 */}
+              <g transform="translate(310, 60)">
+                <rect x="-35" y="-26" width="70" height="52" rx="4" fill="hsl(var(--sand))" fillOpacity="0.08" stroke="hsl(var(--sand))" strokeWidth="1.3" />
+                <rect x="-31" y="-21" width="4" height="42" rx="1.5" fill="#E11D48" fillOpacity={0.6 + embedTyping * 0.4} />
+                <line
+                  x1="-20"
+                  y1="-12"
+                  x2={-20 + 42 * Math.min(1, embedTyping * 1.5)}
+                  y2="-12"
+                  stroke="hsl(var(--sand))"
+                  strokeOpacity="0.85"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+                <line
+                  x1="-20"
+                  y1="-2"
+                  x2={-20 + 32 * Math.max(0, Math.min(1, (embedTyping - 0.25) * 1.6))}
+                  y2="-2"
+                  stroke="hsl(var(--sand))"
+                  strokeOpacity="0.55"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <line
+                  x1="-20"
+                  y1="8"
+                  x2={-20 + 38 * Math.max(0, Math.min(1, (embedTyping - 0.5) * 2))}
+                  y2="8"
+                  stroke="hsl(var(--sand))"
+                  strokeOpacity="0.4"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <text x="0" y="38" textAnchor="middle" fill="hsl(var(--sand))" fontSize="10" fontFamily="monospace" fontWeight="600">
+                  DISCORD
+                </text>
+              </g>
+            </svg>
+          </div>
 
-            <text x="182" y="50" textAnchor="middle" fill="hsl(var(--sand))" fontSize="10" fontFamily="monospace" fontWeight="bold">
-              ⚡ 42ms SYNC
-            </text>
-
-            {/* 우측: 디스코드 임베드 카드 노드 (패킷 도착 시 타이핑되는 라인) */}
-            <g transform="translate(310, 60)">
-              <rect x="-35" y="-26" width="70" height="52" rx="4" fill="hsl(var(--sand))" fillOpacity="0.08" stroke="hsl(var(--sand))" strokeWidth="1.3" />
-              {/* 디스코드 임베드 루비 컬러 바 (패킷 도달 시 발광) */}
-              <rect x="-31" y="-21" width="4" height="42" rx="1.5" fill="#E11D48" fillOpacity={0.6 + embedTyping * 0.4} />
-              {/* 실시간 타이핑되는 임베드 텍스트 모의 라인 */}
-              <line
-                x1="-20"
-                y1="-12"
-                x2={-20 + 42 * Math.min(1, embedTyping * 1.5)}
-                y2="-12"
-                stroke="hsl(var(--sand))"
-                strokeOpacity="0.85"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <line
-                x1="-20"
-                y1="-2"
-                x2={-20 + 32 * Math.max(0, Math.min(1, (embedTyping - 0.25) * 1.6))}
-                y2="-2"
-                stroke="hsl(var(--sand))"
-                strokeOpacity="0.55"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <line
-                x1="-20"
-                y1="8"
-                x2={-20 + 38 * Math.max(0, Math.min(1, (embedTyping - 0.5) * 2))}
-                y2="8"
-                stroke="hsl(var(--sand))"
-                strokeOpacity="0.4"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <text x="0" y="38" textAnchor="middle" fill="hsl(var(--sand))" fontSize="10" fontFamily="monospace" fontWeight="600">
-                DISCORD
-              </text>
-            </g>
-          </svg>
-        </div>
-
-        <div className="relative z-10 max-w-4xl mx-auto w-full space-y-12 my-auto">
+          {/* 속도 비교 텍스트 및 게이지 바 */}
           <div className="space-y-6">
             <div className="text-center space-y-2" data-animate-item>
               <div className="text-xs sm:text-sm font-medium tracking-[0.18em] text-primary uppercase">
@@ -973,26 +971,38 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <div id="setup" className="space-y-5">
-            <div className="text-center" data-animate-item>
+      {/* 뷰포트 5: 온보딩 3단계 시작 가이드 & 최종 CTA & 미니멀 푸터 */}
+      <section
+        id="setup"
+        data-viewport-section
+        className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 flex flex-col justify-between overflow-hidden snap-start scroll-mt-14"
+      >
+        <div className="relative z-10 max-w-4xl mx-auto w-full space-y-10 my-auto">
+          <div className="space-y-6">
+            <div className="text-center space-y-2" data-animate-item>
               <span className="text-xs sm:text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
                 {LANDING_COPY_KO.comparison.setupGuideTag}
               </span>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                3단계로 완성하는 실시간 브릿지
+              </h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
               {LANDING_COPY_KO.comparison.setupSteps.map((stp) => (
-                <div key={stp.num} data-animate-item className="space-y-1.5 pt-4 border-t border-border/60">
-                  <div className="font-mono text-xs sm:text-sm text-primary font-bold">{stp.num}</div>
+                <div key={stp.num} data-animate-item className="space-y-2 pt-5 border-t border-border/60">
+                  <div className="font-mono text-sm text-primary font-bold">{stp.num}</div>
                   <h3 className="font-semibold text-base text-foreground">{stp.title}</h3>
-                  <p className="text-sm font-normal text-muted-foreground">{stp.desc}</p>
+                  <p className="text-sm font-normal text-muted-foreground leading-relaxed">{stp.desc}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div data-animate-item className="text-center space-y-5 pt-2">
+          <div data-animate-item className="text-center space-y-6 pt-4">
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               {LANDING_COPY_KO.comparison.ctaHeadline}
             </h3>
@@ -1021,15 +1031,18 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* 미니멀 푸터 */}
-        <footer className="relative z-10 max-w-6xl mx-auto w-full pt-8 pb-6 border-t border-border/50 text-xs font-normal tracking-wider text-muted-foreground flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>RUBEACON &copy; 2026</div>
-          <div className="flex gap-6">
-            {LANDING_COPY_KO.header.nav.map((item) => (
-              <Link key={item.href} href={item.href} className="hover:text-foreground transition-colors">
-                {item.label}
-              </Link>
-            ))}
+        {/* 미니멀 푸터: 상단 고정 헤더와 중복되는 네비게이션을 제거하고 1줄 저작권 및 링크로 정돈 */}
+        <footer className="relative z-10 max-w-5xl mx-auto w-full pt-8 pb-6 border-t border-border/40 text-xs font-normal tracking-wider text-muted-foreground flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>RUBEACON &copy; 2026. LMAX Disruptor Powered.</div>
+          <div className="flex items-center gap-5">
+            <a
+              href="https://github.com/mmmphyun/ru-beacon"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              GitHub
+            </a>
             <Link href="/admin" className="hover:text-foreground transition-colors">
               관리 콘솔
             </Link>

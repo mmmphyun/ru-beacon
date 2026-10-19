@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import LandingPage from "../app/page";
+import { LANDING_COPY_KO } from "@/content/landing-copy";
 
 vi.mock("@/lib/api", () => ({
   fetchUserProfile: vi.fn().mockResolvedValue(null),
@@ -41,13 +42,13 @@ describe("LandingPage UI & Copywriting", () => {
   it("핵심 인프라 3대 명세 및 4단계 런타임 파이프라인 청사진이 정상 노출되어야 한다", () => {
     render(<LandingPage />);
 
-    expect(screen.getByText("이벤트가 처리되는 실제 런타임 경로")).toBeDefined();
+    expect(screen.getByText(LANDING_COPY_KO.pipeline.title)).toBeDefined();
     expect(screen.getByText("마인크래프트 서버")).toBeDefined();
     expect(screen.getAllByText("LMAX Disruptor").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("WSS 게이트웨이 & Redis")).toBeDefined();
     expect(screen.getByText("디스코드 봇 서비스")).toBeDefined();
 
-    expect(screen.getByText("WSS 단일 계층 게이트웨이")).toBeDefined();
+    expect(screen.getByText(LANDING_COPY_KO.architecture.items[0].title)).toBeDefined();
     expect(screen.getByText("LMAX Disruptor 인메모리 링버퍼")).toBeDefined();
     expect(screen.getByText("디스코드 권한 실시간 동기화")).toBeDefined();
   });
