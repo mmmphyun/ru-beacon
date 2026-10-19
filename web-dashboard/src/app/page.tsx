@@ -459,7 +459,7 @@ export default function LandingPage() {
                   size="lg"
                   className="h-11 px-6 text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
                 >
-                  루비콘 콘솔 시작하기
+                  Ru-Beacon 콘솔 시작하기
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>

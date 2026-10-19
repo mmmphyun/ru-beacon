@@ -762,7 +762,7 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
                   onClick={handleSaveDraft}
                   className="text-xs"
                 >
-                  초안 저장
+                  임시 저장
                 </Button>
                 <Button
                   size="sm"
@@ -770,11 +770,11 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
                   onClick={handleDeploy}
                   className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5"
                 >
-                  <Send className="w-3.5 h-3.5" /> 배포(Publish)
+                  <Send className="w-3.5 h-3.5" /> 실서버 적용하기
                 </Button>
                 {createdWorkflowId && (
                   <Button variant="outline" size="sm" onClick={handleRollback} className="text-xs">
-                    <RotateCcw className="w-3.5 h-3.5 mr-1" /> 롤백
+                    <RotateCcw className="w-3.5 h-3.5 mr-1" /> 이전 버전 복원
                   </Button>
                 )}
               </>
