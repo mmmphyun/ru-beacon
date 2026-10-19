@@ -6,7 +6,7 @@ import { WorkflowWizard } from "@/components/workflow/WorkflowWizard";
 import { WorkflowList } from "@/components/workflow/WorkflowList";
 import { OnboardingView } from "@/components/onboarding/OnboardingView";
 import { AuditLogTable } from "@/components/audit/AuditLogTable";
-import { fetchUserProfile, devMockLogin } from "@/lib/api";
+import { fetchUserProfile, devMockLogin, getDiscordLoginUrl, logoutUser } from "@/lib/api";
 import { UserProfile } from "@/types/workflow";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,9 @@ export default function TenantConsolePage() {
     try {
       const profile = await fetchUserProfile();
       setUser(profile);
+      if (profile && profile.tenants.length === 0) {
+        setActiveTab("onboarding");
+      }
     } finally {
       setLoadingUser(false);
     }
@@ -59,9 +62,44 @@ export default function TenantConsolePage() {
     setWorkflowSubView("list");
   };
 
-  const currentTenant = user?.tenants[0] || {
+  if (loadingUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-muted-foreground text-xs font-mono">
+        세션 확인 중...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <div className="w-full max-w-sm p-6 rounded-xl border border-border/60 bg-card shadow-lg text-center space-y-5">
+          <div className="flex justify-center">
+            <RuBeaconLogo size={42} />
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-lg font-bold text-foreground tracking-tight">Ru-Beacon 관리자 콘솔</h1>
+            <p className="text-xs text-muted-foreground">
+              마인크래프트 서버와 디스코드 연동 관리를 위해 Discord 계정으로 로그인해 주세요.
+            </p>
+          </div>
+          <Button
+            asChild
+            className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium py-2 rounded-lg transition-colors text-xs"
+          >
+            <a href={getDiscordLoginUrl()}>Discord로 로그인</a>
+          </Button>
+          <p className="text-[10px] text-muted-foreground">
+            서버 소유자 또는 관리자 역할을 보유한 계정만 접근 가능합니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentTenant = user.tenants[0] || {
     tenantId: "tenant_default",
-    guildName: "루비콘 기본 서버",
+    guildName: user.ownedGuilds?.[0]?.name || "새 마인크래프트 서버",
     role: "OWNER" as const,
   };
 
@@ -96,30 +134,42 @@ export default function TenantConsolePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* 로컬 개발용 퀵 스위처 */}
-            <div className="hidden sm:flex items-center gap-1 rounded border border-border/50 bg-background/60 p-0.5 text-xs">
-              <span className="text-[10px] font-mono text-muted-foreground px-2">DevMock:</span>
-              <button
-                onClick={() => handleDevRoleSwitch("OWNER")}
-                className={`px-2 py-0.5 rounded text-[11px] transition-colors ${
-                  isOwner ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                OWNER
-              </button>
-              <button
-                onClick={() => handleDevRoleSwitch("ADMIN")}
-                className={`px-2 py-0.5 rounded text-[11px] transition-colors ${
-                  !isOwner ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                ADMIN
-              </button>
-            </div>
+            {/* 로컬 개발용 퀵 스위처: DEV_MOCK 활성화 시에만 노출 */}
+            {process.env.NEXT_PUBLIC_DEV_MOCK === "true" && (
+              <div className="hidden sm:flex items-center gap-1 rounded border border-border/50 bg-background/60 p-0.5 text-xs">
+                <span className="text-[10px] font-mono text-muted-foreground px-2">DevMock:</span>
+                <button
+                  onClick={() => handleDevRoleSwitch("OWNER")}
+                  className={`px-2 py-0.5 rounded text-[11px] transition-colors ${
+                    isOwner ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  OWNER
+                </button>
+                <button
+                  onClick={() => handleDevRoleSwitch("ADMIN")}
+                  className={`px-2 py-0.5 rounded text-[11px] transition-colors ${
+                    !isOwner ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  ADMIN
+                </button>
+              </div>
+            )}
 
-            {/* 유저 배지 */}
+            {/* 유저 배지 및 로그아웃 */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="font-mono text-[11px] text-foreground">{user?.username || "Guest"}</span>
+              <button
+                onClick={async () => {
+                  await logoutUser();
+                  await loadSession();
+                }}
+                title="로그아웃"
+                className="text-muted-foreground hover:text-foreground p-1 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
             </div>
 
             {/* 슈퍼어드민인 경우 관제센터 바로가기 */}

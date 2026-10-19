@@ -104,6 +104,7 @@ export interface UserProfile {
   avatar: string | null;
   isPlatformSuperAdmin: boolean;
   tenants: TenantMemberItem[];
+  ownedGuilds?: { id: string; name: string }[];
 }
 
 export interface AuditLogItem {

@@ -9,6 +9,9 @@ import {
 } from "@/types/workflow";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+export const IS_DEV_MOCK =
+  process.env.NEXT_PUBLIC_DEV_MOCK === "true" ||
+  (process.env.NODE_ENV === "test" && process.env.NEXT_PUBLIC_DEV_MOCK !== "false");
 
 /**
  * credentials: 'include'를 기본 적용하는 중앙 집중식 fetch 함수
@@ -165,11 +168,49 @@ let mockTenant: TenantConfig & { instances: InstanceItem[] } = {
  * 세션 및 사용자 프로필 조회 (GET /api/v1/auth/me)
  */
 export async function fetchUserProfile(): Promise<UserProfile | null> {
-  const res = await fetchApi<UserProfile>("/api/v1/auth/me");
+  const res = await fetchApi<any>("/api/v1/auth/me");
   if (res.ok && res.data) {
-    return res.data;
+    const rawTenants: any[] = res.data.tenants || [];
+    const normalizedTenants: TenantMemberItem[] = rawTenants.map((t) => ({
+      tenantId: t.tenantId || t.id || "",
+      guildName: t.guildName || t.name || "",
+      role: t.role || (t.isOwner ? "OWNER" : "ADMIN"),
+    }));
+
+    return {
+      discordUserId: res.data.discordUserId,
+      username: res.data.username,
+      avatar: res.data.avatar ?? null,
+      isPlatformSuperAdmin: Boolean(res.data.isPlatformSuperAdmin),
+      tenants: normalizedTenants,
+      ownedGuilds: (res.data.ownedGuilds || []).map((g: any) => ({
+        id: g.id,
+        name: g.name,
+      })),
+    };
+  }
+
+  if (res.status === 401 || !IS_DEV_MOCK) {
+    return null;
   }
   return mockUserProfile;
+}
+
+/**
+ * Discord OAuth2 로그인 URL 반환
+ */
+export function getDiscordLoginUrl(): string {
+  return `${API_BASE}/api/v1/auth/discord/login`;
+}
+
+/**
+ * 사용자 세션 로그아웃 (POST /api/v1/auth/logout)
+ */
+export async function logoutUser(): Promise<boolean> {
+  const res = await fetchApi<{ status: string }>("/api/v1/auth/logout", {
+    method: "POST",
+  });
+  return res.ok;
 }
 
 /**
@@ -406,9 +447,14 @@ export async function saveOnboarding(data: TenantConfig): Promise<{ tenantId: st
 export async function fetchTenantDetail(
   tenantId: string
 ): Promise<(TenantConfig & { instances: InstanceItem[] }) | null> {
-  const res = await fetchApi<TenantConfig & { instances: InstanceItem[] }>(`/api/v1/tenants/${tenantId}`);
-  if (res.ok && res.data) return res.data;
-  return mockTenant;
+  const res = await fetchApi<any>(`/api/v1/tenants/${tenantId}`);
+  if (res.ok && res.data) {
+    return {
+      ...res.data,
+      tenantId: res.data.tenantId || res.data.id || tenantId,
+    };
+  }
+  return IS_DEV_MOCK ? mockTenant : null;
 }
 
 /**
