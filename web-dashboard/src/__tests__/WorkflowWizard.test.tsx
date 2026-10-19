@@ -21,7 +21,7 @@ describe("WorkflowWizard Component", () => {
     expect(screen.getByText("1단계: 시작 트리거 이벤트 선택")).toBeDefined();
     expect(screen.getByText("플레이어 레벨업")).toBeDefined();
     expect(screen.getByText("발전과제 달성")).toBeDefined();
-    expect(screen.getByText("Workflow AST (JSONB)")).toBeDefined();
+    expect(screen.getByText("연동 규칙 데이터 구조 확인 (JSON)")).toBeDefined();
   });
 
   it("다음/이전 버튼 클릭 시 단계(Step)가 전환되어야 한다", () => {
@@ -32,7 +32,7 @@ describe("WorkflowWizard Component", () => {
     fireEvent.click(nextButton);
 
     expect(screen.getByText("2단계: 조건부 필터 설정 (선택)")).toBeDefined();
-    expect(screen.getByText("조건부 분기 노드 (CONDITION_BRANCH) 활성화")).toBeDefined();
+    expect(screen.getByText("특정 조건일 때만 실행하기")).toBeDefined();
 
     // 2단계 -> 3단계
     fireEvent.click(screen.getByText("다음"));

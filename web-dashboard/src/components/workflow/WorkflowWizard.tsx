@@ -550,14 +550,14 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
                   className="rounded border-border text-primary focus:ring-primary h-4 w-4 bg-background"
                 />
                 <label htmlFor="enableCondition" className="text-sm font-medium text-foreground cursor-pointer">
-                  조건부 분기 노드 (CONDITION_BRANCH) 활성화
+                  특정 조건일 때만 실행하기
                 </label>
               </div>
 
               {formState.enableCondition ? (
                 <div className="p-4 rounded-lg border border-border bg-card space-y-3.5">
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground">검사 대상 필드</label>
+                    <label className="text-xs font-semibold text-muted-foreground">검사할 항목</label>
                     <Input
                       value={formState.conditionField}
                       onChange={(e) => setFormState({ ...formState, conditionField: e.target.value })}
@@ -568,7 +568,7 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     <div>
-                      <label className="text-xs font-semibold text-muted-foreground">비교 연산자</label>
+                      <label className="text-xs font-semibold text-muted-foreground">비교 방식</label>
                       <select
                         value={formState.conditionOperator}
                         onChange={(e) =>
@@ -579,17 +579,17 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
                         }
                         className="mt-1.5 w-full rounded-md border border-border bg-background px-3 h-9 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                       >
-                        <option value="GREATER_OR_EQUAL">&gt;= (크거나 같음)</option>
-                        <option value="EQUALS">== (일치)</option>
-                        <option value="CONTAINS">포함 (Contains)</option>
+                        <option value="GREATER_OR_EQUAL">&gt;= (이상 / 크거나 같음)</option>
+                        <option value="EQUALS">== (완전 일치)</option>
+                        <option value="CONTAINS">포함</option>
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-muted-foreground">비교 기준값</label>
+                      <label className="text-xs font-semibold text-muted-foreground">기준값</label>
                       <Input
                         value={formState.conditionValue}
                         onChange={(e) => setFormState({ ...formState, conditionValue: e.target.value })}
-                        placeholder="30"
+                        placeholder="예: 30"
                         className="mt-1.5 h-9 bg-background border-border text-foreground text-sm"
                       />
                     </div>
@@ -597,7 +597,7 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
                 </div>
               ) : (
                 <div className="p-6 rounded-lg border border-dashed border-border text-center text-muted-foreground text-sm">
-                  조건 필터를 사용하지 않고 트리거 발생 시 즉시 3단계 액션을 실행합니다.
+                  조건 없이 이벤트가 일어날 때마다 항상 실행합니다.
                 </div>
               )}
             </div>
@@ -612,7 +612,7 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
                   { type: "DISCORD_SEND_MESSAGE", title: "Discord 메시지 전송", desc: "채널에 알림 메시지를 발송합니다." },
                   { type: "DISCORD_ADD_ROLE", title: "Discord 역할 부여", desc: "사용자에게 역할을 자동 부여합니다." },
                   { type: "MINECRAFT_DISPATCH_COMMAND", title: "Minecraft 명령 실행", desc: "서버 콘솔 명령어를 실행합니다." },
-                  { type: "ATTENDANCE_RESERVATION", title: "선착순 출석 예약", desc: "2-Tier Redis 한정 수량 출석을 처리합니다." },
+                  { type: "ATTENDANCE_RESERVATION", title: "선착순 출석 예약", desc: "정해진 인원수만큼만 선착순으로 접수합니다." },
                 ].map((item) => {
                   const isSelected = formState.actionType === item.type;
                   return (
@@ -822,11 +822,11 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
           </div>
         )}
 
-        {/* 고급 사용자용: AST (JSONB) 검사 아코디언 */}
+        {/* 고급 사용자용: JSON 데이터 구조 확인 아코디언 */}
         <details className="pt-2 text-xs text-muted-foreground group">
-          <summary className="cursor-pointer font-mono hover:text-foreground flex items-center gap-1 select-none">
+          <summary className="cursor-pointer hover:text-foreground flex items-center gap-1 select-none text-xs">
             <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
-            <span>Workflow AST (JSONB)</span>
+            <span>연동 규칙 데이터 구조 확인 (JSON)</span>
           </summary>
           <pre className="mt-2 p-3 rounded-lg bg-background border border-border text-[11px] font-mono text-emerald-600 dark:text-emerald-400 overflow-x-auto max-h-[220px]">
             {JSON.stringify(ast, null, 2)}
