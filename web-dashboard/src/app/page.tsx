@@ -620,12 +620,12 @@ export default function LandingPage() {
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden"
       >
-        {/* 4개 3D 파이프라인 도형 영역 배경 루비-샌드 그라디언트 */}
+        {/* 4개 3D 파이프라인 도형 영역 배경 딥 루비 앰비언트 라이트 */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 75% 50% at 50% 48%, rgba(212, 17, 83, 0.14) 0%, rgba(206, 178, 138, 0.13) 44%, transparent 76%)",
+              "radial-gradient(ellipse 65% 45% at 50% 50%, rgba(225, 29, 72, 0.05) 0%, transparent 68%)",
           }}
         />
 
@@ -647,11 +647,11 @@ export default function LandingPage() {
             >
               <defs>
                 <radialGradient id="nodeGlowRuby" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#E11D48" stopOpacity="0.28" />
+                  <stop offset="0%" stopColor="#E11D48" stopOpacity="0.14" />
                   <stop offset="100%" stopColor="#E11D48" stopOpacity="0" />
                 </radialGradient>
                 <radialGradient id="nodeGlowSand" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#CEB28A" stopOpacity="0.26" />
+                  <stop offset="0%" stopColor="#CEB28A" stopOpacity="0.08" />
                   <stop offset="100%" stopColor="#CEB28A" stopOpacity="0" />
                 </radialGradient>
               </defs>
@@ -757,18 +757,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 뷰포트 3: 좌측 3D 12슬롯 링버퍼 토러스 모델(루비-샌드 후광) + 우측 3대 기술 명세 */}
+      {/* 뷰포트 3: 좌측 2-Tier 아키텍처 모델 + 우측 3대 기술 명세 */}
       <section
         id="architecture"
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 border-b border-border/60 flex flex-col justify-center overflow-hidden"
       >
-        {/* 좌측 3D 링버퍼 모델 뒤편 루비-샌드 집중 그라디언트 */}
+        {/* 좌측 3D 모델 영역 딥 루비 단일 앰비언트 라이트 */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 28% 54%, rgba(212, 17, 83, 0.17) 0%, rgba(206, 178, 138, 0.15) 36%, transparent 68%)",
+              "radial-gradient(circle at 28% 52%, rgba(225, 29, 72, 0.05) 0%, transparent 64%)",
           }}
         />
 
@@ -790,9 +790,9 @@ export default function LandingPage() {
             >
               <defs>
                 <linearGradient id="layerGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#E11D48" stopOpacity="0.08" />
-                  <stop offset="50%" stopColor="#CEB28A" stopOpacity="0.12" />
-                  <stop offset="100%" stopColor="#E11D48" stopOpacity="0.08" />
+                  <stop offset="0%" stopColor="#E11D48" stopOpacity="0.04" />
+                  <stop offset="50%" stopColor="hsl(var(--sand))" stopOpacity="0.03" />
+                  <stop offset="100%" stopColor="#E11D48" stopOpacity="0.04" />
                 </linearGradient>
               </defs>
 
@@ -802,8 +802,8 @@ export default function LandingPage() {
                 d={parallelArch.topLayer}
                 fill="none"
                 stroke="#E11D48"
-                strokeOpacity="0.85"
-                strokeWidth="1.4"
+                strokeOpacity="0.9"
+                strokeWidth="1.3"
               />
 
               {/* 하단 레이어: RuBeacon 비동기 링버퍼 & WSS 파이프라인 */}
@@ -812,8 +812,8 @@ export default function LandingPage() {
                 d={parallelArch.botLayer}
                 fill="none"
                 stroke="hsl(var(--sand))"
-                strokeOpacity="0.75"
-                strokeWidth="1.3"
+                strokeOpacity="0.65"
+                strokeWidth="1.2"
               />
 
               {/* 수직 분기 격리 가이드 레일 (메인 틱 점유 시간 0.00ms 증명) */}
@@ -881,18 +881,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 뷰포트 4: 수직 비콘 광선 착지(루비-샌드 후광) + 직선 속도 비교 게이지 & 3단계 시작 */}
+      {/* 뷰포트 4: 실시간 미러링 쇼케이스 + 직선 속도 비교 게이지 & 3단계 시작 */}
       <section
         id="comparison"
         data-viewport-section
         className="relative py-24 md:py-0 md:min-h-[calc(100dvh-3.5rem)] px-6 flex flex-col justify-between overflow-hidden"
       >
-        {/* 상단 수직 비콘 착지 타겟 주변 루비-샌드 그라디언트 */}
+        {/* 상단 미러링 영역 주변 딥 루비 단일 앰비언트 라이트 */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 50% 22%, rgba(212, 17, 83, 0.16) 0%, rgba(206, 178, 138, 0.13) 38%, transparent 72%)",
+              "radial-gradient(circle at 50% 20%, rgba(225, 29, 72, 0.05) 0%, transparent 68%)",
           }}
         />
 

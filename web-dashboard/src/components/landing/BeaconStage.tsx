@@ -413,14 +413,14 @@ export function BeaconStage() {
       className="relative w-full h-[165dvh] border-b border-border/60 select-none"
     >
       <div className="sticky top-14 w-full h-[calc(100dvh-3.5rem)] min-h-[560px] flex flex-col items-center justify-between overflow-hidden">
-        {/* 심장박동과 연동되는 루비-샌드(Ruby-Sand) 듀얼 앰비언트 반사광 */}
+        {/* 심장박동과 연동되는 정제된 딥 루비 앰비언트 반사광 (탁한 샌드 혼합 배제) */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            opacity: activeGlow * 0.95,
-            transform: `scale(${1 + pulseBoost * 0.06})`,
+            opacity: activeGlow * 0.9,
+            transform: `scale(${1 + pulseBoost * 0.05})`,
             background:
-              "radial-gradient(circle at 50% 42%, rgba(212, 17, 83, 0.18) 0%, rgba(206, 178, 138, 0.12) 34%, transparent 72%)",
+              "radial-gradient(circle at 50% 45%, rgba(225, 29, 72, 0.08) 0%, rgba(225, 29, 72, 0.02) 42%, transparent 70%)",
           }}
         />
 
