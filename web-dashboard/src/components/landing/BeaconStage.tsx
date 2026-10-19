@@ -49,6 +49,7 @@ function buildCubeTierPaths(
   const half = (size * unit) / 2;
   const yBot = yTop - thickness;
 
+  // 4개 상단 코너 (0: -X,-Z / 1: +X,-Z / 2: +X,+Z / 3: -X,+Z)
   const topCorners = [
     projectIso(-half, yTop, -half, angleDeg, cx, cy),
     projectIso(half, yTop, -half, angleDeg, cx, cy),
@@ -56,6 +57,7 @@ function buildCubeTierPaths(
     projectIso(-half, yTop, half, angleDeg, cx, cy),
   ];
 
+  // 4개 하단 코너
   const botCorners = [
     projectIso(-half, yBot, -half, angleDeg, cx, cy),
     projectIso(half, yBot, -half, angleDeg, cx, cy),
@@ -65,49 +67,117 @@ function buildCubeTierPaths(
 
   const topPolygon = topCorners.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
 
-  const leftFace = [topCorners[3], topCorners[2], botCorners[2], botCorners[3]]
+  // 4개 수직 측면 정의:
+  // side 0: (+X 방향 면) top[1]->top[2]->bot[2]->bot[1]
+  // side 1: (+Z 방향 면) top[2]->top[3]->bot[3]->bot[2]
+  // side 2: (-X 방향 면) top[3]->top[0]->bot[0]->bot[3]
+  // side 3: (-Z 방향 면) top[0]->top[1]->bot[1]->bot[0]
+  const sides = [
+    {
+      poly: [topCorners[1], topCorners[2], botCorners[2], botCorners[1]],
+      // 2D 외적을 이용한 법선 벡터의 Z 방향 부호(Backface Culling)
+      // v1 = top[2] - top[1], v2 = bot[1] - top[1]
+      // crossZ = (x2-x1)*(yb1-y1) - (y2-y1)*(xb1-x1)
+      isFront:
+        (topCorners[2][0] - topCorners[1][0]) * (botCorners[1][1] - topCorners[1][1]) -
+          (topCorners[2][1] - topCorners[1][1]) * (botCorners[1][0] - topCorners[1][0]) >
+        0,
+      axis: "X+",
+    },
+    {
+      poly: [topCorners[2], topCorners[3], botCorners[3], botCorners[2]],
+      isFront:
+        (topCorners[3][0] - topCorners[2][0]) * (botCorners[2][1] - topCorners[2][1]) -
+          (topCorners[3][1] - topCorners[2][1]) * (botCorners[2][0] - topCorners[2][0]) >
+        0,
+      axis: "Z+",
+    },
+    {
+      poly: [topCorners[3], topCorners[0], botCorners[0], botCorners[3]],
+      isFront:
+        (topCorners[0][0] - topCorners[3][0]) * (botCorners[3][1] - topCorners[3][1]) -
+          (topCorners[0][1] - topCorners[3][1]) * (botCorners[3][0] - topCorners[3][0]) >
+        0,
+      axis: "X-",
+    },
+    {
+      poly: [topCorners[0], topCorners[1], botCorners[1], botCorners[0]],
+      isFront:
+        (topCorners[1][0] - topCorners[0][0]) * (botCorners[0][1] - topCorners[0][1]) -
+          (topCorners[1][1] - topCorners[0][0]) * (botCorners[0][0] - topCorners[0][0]) >
+        0,
+      axis: "Z-",
+    },
+  ];
+
+  // 카메라(화면 앞)를 향하고 있는 전면 2개 면 추출 (왼쪽 면과 오른쪽 면)
+  const visibleSides = sides.filter((s) => s.isFront);
+  const leftFace = (visibleSides[1] || sides[1]).poly
     .map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`)
     .join(" ");
-  const rightFace = [topCorners[1], topCorners[2], botCorners[2], botCorners[1]]
+  const rightFace = (visibleSides[0] || sides[0]).poly
     .map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`)
     .join(" ");
 
-  // 상단 면 N x N 격자선 + 측면 수직 정육면체 분할선
+  // 상단 면 N x N 격자선 + 카메라를 향하는 가시 측면의 수직 분할선 동적 계산
   const gridLines: string[] = [];
   for (let i = 1; i < size; i++) {
     const pos = -half + i * unit;
-    // 상단 X축 방향 분할
+
+    // 상단 면 내부 격자선
     const [x1, y1] = projectIso(pos, yTop, -half, angleDeg, cx, cy);
     const [x2, y2] = projectIso(pos, yTop, half, angleDeg, cx, cy);
     gridLines.push(`M${x1.toFixed(1)},${y1.toFixed(1)} L${x2.toFixed(1)},${y2.toFixed(1)}`);
 
-    // 좌측 전면 수직 블록 분할선 (z = +half 면)
-    const [xb2, yb2] = projectIso(pos, yBot, half, angleDeg, cx, cy);
-    gridLines.push(`M${x2.toFixed(1)},${y2.toFixed(1)} L${xb2.toFixed(1)},${yb2.toFixed(1)}`);
-
-    // 상단 Z축 방향 분할
     const [zx1, zy1] = projectIso(-half, yTop, pos, angleDeg, cx, cy);
     const [zx2, zy2] = projectIso(half, yTop, pos, angleDeg, cx, cy);
     gridLines.push(`M${zx1.toFixed(1)},${zy1.toFixed(1)} L${zx2.toFixed(1)},${zy2.toFixed(1)}`);
 
-    // 우측 전면 수직 블록 분할선 (x = +half 면)
-    const [zxb2, zyb2] = projectIso(half, yBot, pos, angleDeg, cx, cy);
-    gridLines.push(`M${zx2.toFixed(1)},${zy2.toFixed(1)} L${zxb2.toFixed(1)},${zyb2.toFixed(1)}`);
+    // 4개 측면 중 가시적인 전면 2개 면에만 수직 블록 분할선 동적 투영
+    if (sides[0].isFront) {
+      // x = +half 면
+      const [tA, tB] = projectIso(half, yTop, pos, angleDeg, cx, cy);
+      const [bA, bB] = projectIso(half, yBot, pos, angleDeg, cx, cy);
+      gridLines.push(`M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`);
+    }
+    if (sides[1].isFront) {
+      // z = +half 면
+      const [tA, tB] = projectIso(pos, yTop, half, angleDeg, cx, cy);
+      const [bA, bB] = projectIso(pos, yBot, half, angleDeg, cx, cy);
+      gridLines.push(`M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`);
+    }
+    if (sides[2].isFront) {
+      // x = -half 면
+      const [tA, tB] = projectIso(-half, yTop, pos, angleDeg, cx, cy);
+      const [bA, bB] = projectIso(-half, yBot, pos, angleDeg, cx, cy);
+      gridLines.push(`M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`);
+    }
+    if (sides[3].isFront) {
+      // z = -half 면
+      const [tA, tB] = projectIso(pos, yTop, -half, angleDeg, cx, cy);
+      const [bA, bB] = projectIso(pos, yBot, -half, angleDeg, cx, cy);
+      gridLines.push(`M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`);
+    }
   }
 
+  // 상단 4개 모서리 외곽선
   const edges: string[] = [];
   for (let i = 0; i < 4; i++) {
     const next = (i + 1) % 4;
     edges.push(
       `M${topCorners[i][0].toFixed(1)},${topCorners[i][1].toFixed(1)} L${topCorners[next][0].toFixed(1)},${topCorners[next][1].toFixed(1)}`
     );
-    edges.push(
-      `M${topCorners[i][0].toFixed(1)},${topCorners[i][1].toFixed(1)} L${botCorners[i][0].toFixed(1)},${botCorners[i][1].toFixed(1)}`
-    );
   }
-  edges.push(
-    `M${botCorners[3][0].toFixed(1)},${botCorners[3][1].toFixed(1)} L${botCorners[2][0].toFixed(1)},${botCorners[2][1].toFixed(1)} L${botCorners[1][0].toFixed(1)},${botCorners[1][1].toFixed(1)}`
-  );
+
+  // 가시 전면의 수직 모서리선 및 밑변선만 외곽선으로 추가 (뒤쪽 숨은선 제거)
+  sides.forEach((s) => {
+    if (s.isFront) {
+      const p = s.poly;
+      edges.push(`M${p[0][0].toFixed(1)},${p[0][1].toFixed(1)} L${p[3][0].toFixed(1)},${p[3][1].toFixed(1)}`);
+      edges.push(`M${p[1][0].toFixed(1)},${p[1][1].toFixed(1)} L${p[2][0].toFixed(1)},${p[2][1].toFixed(1)}`);
+      edges.push(`M${p[3][0].toFixed(1)},${p[3][1].toFixed(1)} L${p[2][0].toFixed(1)},${p[2][1].toFixed(1)}`);
+    }
+  });
 
   return {
     topPolygon,
