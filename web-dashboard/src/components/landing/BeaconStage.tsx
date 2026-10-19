@@ -67,57 +67,74 @@ function buildCubeTierPaths(
 
   const topPolygon = topCorners.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
 
-  // 4개 수직 측면 정의:
-  // side 0: (+X 방향 면) top[1]->top[2]->bot[2]->bot[1]
-  // side 1: (+Z 방향 면) top[2]->top[3]->bot[3]->bot[2]
-  // side 2: (-X 방향 면) top[3]->top[0]->bot[0]->bot[3]
-  // side 3: (-Z 방향 면) top[0]->top[1]->bot[1]->bot[0]
-  const sides = [
+  // 4개 측면의 정규 법선 벡터 정의 및 회전 후 카메라 가시성(Backface Culling) 판별
+  // 등각 투영(Isometric)에서 카메라는 (+X, +Z) 위쪽에서 원점을 바라봄.
+  // 따라서 Y축 회전 후 법선 벡터의 (rx + rz)가 양수이면 관측자를 향하는 전면(Front face)임.
+  const rad = (angleDeg * Math.PI) / 180;
+  const cosA = Math.cos(rad);
+  const sinA = Math.sin(rad);
+
+  const sideDefs = [
     {
-      poly: [topCorners[1], topCorners[2], botCorners[2], botCorners[1]],
-      // 2D 외적을 이용한 법선 벡터의 Z 방향 부호(Backface Culling)
-      // v1 = top[2] - top[1], v2 = bot[1] - top[1]
-      // crossZ = (x2-x1)*(yb1-y1) - (y2-y1)*(xb1-x1)
-      isFront:
-        (topCorners[2][0] - topCorners[1][0]) * (botCorners[1][1] - topCorners[1][1]) -
-          (topCorners[2][1] - topCorners[1][1]) * (botCorners[1][0] - topCorners[1][0]) >
-        0,
       axis: "X+",
+      poly: [topCorners[1], topCorners[2], botCorners[2], botCorners[1]],
+      // 법선 (1, 0): 회전 후 rx = cosA, rz = sinA
+      camDot: cosA + sinA,
+      screenXDir: cosA - sinA,
+      gridGen: (pos: number) => {
+        const [tA, tB] = projectIso(half, yTop, pos, angleDeg, cx, cy);
+        const [bA, bB] = projectIso(half, yBot, pos, angleDeg, cx, cy);
+        return `M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`;
+      },
     },
     {
-      poly: [topCorners[2], topCorners[3], botCorners[3], botCorners[2]],
-      isFront:
-        (topCorners[3][0] - topCorners[2][0]) * (botCorners[2][1] - topCorners[2][1]) -
-          (topCorners[3][1] - topCorners[2][1]) * (botCorners[2][0] - topCorners[2][0]) >
-        0,
       axis: "Z+",
+      poly: [topCorners[2], topCorners[3], botCorners[3], botCorners[2]],
+      // 법선 (0, 1): 회전 후 rx = -sinA, rz = cosA
+      camDot: -sinA + cosA,
+      screenXDir: -sinA - cosA,
+      gridGen: (pos: number) => {
+        const [tA, tB] = projectIso(pos, yTop, half, angleDeg, cx, cy);
+        const [bA, bB] = projectIso(pos, yBot, half, angleDeg, cx, cy);
+        return `M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`;
+      },
     },
     {
-      poly: [topCorners[3], topCorners[0], botCorners[0], botCorners[3]],
-      isFront:
-        (topCorners[0][0] - topCorners[3][0]) * (botCorners[3][1] - topCorners[3][1]) -
-          (topCorners[0][1] - topCorners[3][1]) * (botCorners[3][0] - topCorners[3][0]) >
-        0,
       axis: "X-",
+      poly: [topCorners[3], topCorners[0], botCorners[0], botCorners[3]],
+      // 법선 (-1, 0): 회전 후 rx = -cosA, rz = -sinA
+      camDot: -cosA - sinA,
+      screenXDir: -cosA + sinA,
+      gridGen: (pos: number) => {
+        const [tA, tB] = projectIso(-half, yTop, pos, angleDeg, cx, cy);
+        const [bA, bB] = projectIso(-half, yBot, pos, angleDeg, cx, cy);
+        return `M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`;
+      },
     },
     {
-      poly: [topCorners[0], topCorners[1], botCorners[1], botCorners[0]],
-      isFront:
-        (topCorners[1][0] - topCorners[0][0]) * (botCorners[0][1] - topCorners[0][1]) -
-          (topCorners[1][1] - topCorners[0][0]) * (botCorners[0][0] - topCorners[0][0]) >
-        0,
       axis: "Z-",
+      poly: [topCorners[0], topCorners[1], botCorners[1], botCorners[0]],
+      // 법선 (0, -1): 회전 후 rx = sinA, rz = -cosA
+      camDot: sinA - cosA,
+      screenXDir: sinA + cosA,
+      gridGen: (pos: number) => {
+        const [tA, tB] = projectIso(pos, yTop, -half, angleDeg, cx, cy);
+        const [bA, bB] = projectIso(pos, yBot, -half, angleDeg, cx, cy);
+        return `M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`;
+      },
     },
   ];
 
-  // 카메라(화면 앞)를 향하고 있는 전면 2개 면 추출 (왼쪽 면과 오른쪽 면)
-  const visibleSides = sides.filter((s) => s.isFront);
-  const leftFace = (visibleSides[1] || sides[1]).poly
-    .map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`)
-    .join(" ");
-  const rightFace = (visibleSides[0] || sides[0]).poly
-    .map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`)
-    .join(" ");
+  // 관측자 방향을 향하는 가시 전면들 (camDot >= -1e-4) 추출 후 화면 X 좌표 기준으로 정렬 (좌측 -> 우측)
+  const visibleSides = sideDefs
+    .filter((s) => s.camDot > -1e-4)
+    .sort((a, b) => a.screenXDir - b.screenXDir);
+
+  const leftSide = visibleSides[0] || sideDefs[1];
+  const rightSide = visibleSides[visibleSides.length - 1] || sideDefs[0];
+
+  const leftFace = leftSide.poly.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const rightFace = rightSide.poly.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
 
   // 상단 면 N x N 격자선 + 카메라를 향하는 가시 측면의 수직 분할선 동적 계산
   const gridLines: string[] = [];
@@ -133,31 +150,10 @@ function buildCubeTierPaths(
     const [zx2, zy2] = projectIso(half, yTop, pos, angleDeg, cx, cy);
     gridLines.push(`M${zx1.toFixed(1)},${zy1.toFixed(1)} L${zx2.toFixed(1)},${zy2.toFixed(1)}`);
 
-    // 4개 측면 중 가시적인 전면 2개 면에만 수직 블록 분할선 동적 투영
-    if (sides[0].isFront) {
-      // x = +half 면
-      const [tA, tB] = projectIso(half, yTop, pos, angleDeg, cx, cy);
-      const [bA, bB] = projectIso(half, yBot, pos, angleDeg, cx, cy);
-      gridLines.push(`M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`);
-    }
-    if (sides[1].isFront) {
-      // z = +half 면
-      const [tA, tB] = projectIso(pos, yTop, half, angleDeg, cx, cy);
-      const [bA, bB] = projectIso(pos, yBot, half, angleDeg, cx, cy);
-      gridLines.push(`M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`);
-    }
-    if (sides[2].isFront) {
-      // x = -half 면
-      const [tA, tB] = projectIso(-half, yTop, pos, angleDeg, cx, cy);
-      const [bA, bB] = projectIso(-half, yBot, pos, angleDeg, cx, cy);
-      gridLines.push(`M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`);
-    }
-    if (sides[3].isFront) {
-      // z = -half 면
-      const [tA, tB] = projectIso(pos, yTop, -half, angleDeg, cx, cy);
-      const [bA, bB] = projectIso(pos, yBot, -half, angleDeg, cx, cy);
-      gridLines.push(`M${tA.toFixed(1)},${tB.toFixed(1)} L${bA.toFixed(1)},${bB.toFixed(1)}`);
-    }
+    // 가시적인 전면 측면에만 수직 블록 분할선 동적 투영
+    visibleSides.forEach((s) => {
+      gridLines.push(s.gridGen(pos));
+    });
   }
 
   // 상단 4개 모서리 외곽선
@@ -170,13 +166,11 @@ function buildCubeTierPaths(
   }
 
   // 가시 전면의 수직 모서리선 및 밑변선만 외곽선으로 추가 (뒤쪽 숨은선 제거)
-  sides.forEach((s) => {
-    if (s.isFront) {
-      const p = s.poly;
-      edges.push(`M${p[0][0].toFixed(1)},${p[0][1].toFixed(1)} L${p[3][0].toFixed(1)},${p[3][1].toFixed(1)}`);
-      edges.push(`M${p[1][0].toFixed(1)},${p[1][1].toFixed(1)} L${p[2][0].toFixed(1)},${p[2][1].toFixed(1)}`);
-      edges.push(`M${p[3][0].toFixed(1)},${p[3][1].toFixed(1)} L${p[2][0].toFixed(1)},${p[2][1].toFixed(1)}`);
-    }
+  visibleSides.forEach((s) => {
+    const p = s.poly;
+    edges.push(`M${p[0][0].toFixed(1)},${p[0][1].toFixed(1)} L${p[3][0].toFixed(1)},${p[3][1].toFixed(1)}`);
+    edges.push(`M${p[1][0].toFixed(1)},${p[1][1].toFixed(1)} L${p[2][0].toFixed(1)},${p[2][1].toFixed(1)}`);
+    edges.push(`M${p[3][0].toFixed(1)},${p[3][1].toFixed(1)} L${p[2][0].toFixed(1)},${p[2][1].toFixed(1)}`);
   });
 
   return {
