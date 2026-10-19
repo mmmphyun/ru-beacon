@@ -119,11 +119,12 @@ function buildWireCube(size: number, angleDeg: number, cx: number, cy: number) {
 
 /**
  * 뷰포트 2 노드 02: LMAX Disruptor 상징 12슬롯 무잠금 회전 링버퍼 트랙(RingBuffer Dial)
+ * 트랙은 부드럽게 반대 방향으로 회전하고, 패킷(Dot)은 12개 슬롯을 틱-틱-틱 이산적으로 점프 전진함.
  */
-function buildDisruptorDial(radius: number, innerRadius: number, slots: number, angleDeg: number, cx: number, cy: number) {
+function buildDisruptorDial(radius: number, innerRadius: number, slots: number, trackAngleDeg: number, cx: number, cy: number) {
   const outerLines: string[] = [];
   const slotLines: string[] = [];
-  const radOffset = (angleDeg * Math.PI) / 180;
+  const radOffset = (trackAngleDeg * Math.PI) / 180;
   for (let i = 0; i < slots; i++) {
     const a1 = radOffset + (i / slots) * Math.PI * 2;
     const a2 = radOffset + ((i + 1) / slots) * Math.PI * 2;
@@ -139,11 +140,16 @@ function buildDisruptorDial(radius: number, innerRadius: number, slots: number, 
     outerLines.push(`M${i1x.toFixed(1)},${i1y.toFixed(1)} L${i2x.toFixed(1)},${i2y.toFixed(1)}`);
     slotLines.push(`M${o1x.toFixed(1)},${o1y.toFixed(1)} L${i1x.toFixed(1)},${i1y.toFixed(1)}`);
   }
-  const activeA = radOffset;
+
+  // 패킷 점(Dot): 틱-틱-틱 이산적(discrete)으로 시계 방향 슬롯을 순회 (12슬롯 스텝 전진)
+  const stepCount = 12;
+  const currentStep = Math.floor((-trackAngleDeg / 30)) % stepCount;
+  const dotStepAngle = (currentStep / stepCount) * Math.PI * 2;
   const activeDot = [
-    cx + Math.cos(activeA) * ((radius + innerRadius) / 2),
-    cy + Math.sin(activeA) * (((radius + innerRadius) / 2) * 0.58),
+    cx + Math.cos(dotStepAngle) * ((radius + innerRadius) / 2),
+    cy + Math.sin(dotStepAngle) * (((radius + innerRadius) / 2) * 0.58),
   ] as const;
+
   return {
     rings: outerLines.join(" "),
     slots: slotLines.join(" "),
@@ -152,24 +158,30 @@ function buildDisruptorDial(radius: number, innerRadius: number, slots: number, 
 }
 
 /**
- * 뷰포트 2 노드 03: WSS 게이트웨이 & Redis 인메모리 3단 캐시 스택
+ * 뷰포트 2 노드 03: WSS 게이트웨이 & Redis 인메모리 회전 육각 프리즘 타워
  */
-function buildCacheStack(cx: number, cy: number) {
+function buildCacheStack(angleDeg: number, cx: number, cy: number) {
+  // 상·중·하 3개 레이어가 입체적으로 회전하는 아이소메트릭 육각 프리즘
   const layers = [
-    { y: cy + 12 },
-    { y: cy },
-    { y: cy - 12 },
+    { y: cy - 18, rot: angleDeg * 1.2, r: 24 },
+    { y: cy, rot: -angleDeg * 1.5, r: 26 },
+    { y: cy + 18, rot: angleDeg * 1.2, r: 24 },
   ];
+
   const paths: string[] = [];
   layers.forEach((l) => {
-    paths.push(
-      `M ${cx - 26},${l.y} L ${cx},${l.y - 9} L ${cx + 26},${l.y} L ${cx},${l.y + 9} Z`
-    );
-    paths.push(
-      `M ${cx - 26},${l.y} L ${cx - 26},${l.y + 5} L ${cx},${l.y + 14} L ${cx + 26},${l.y + 5} L ${cx + 26},${l.y}`
-    );
-    paths.push(`M ${cx},${l.y + 9} L ${cx},${l.y + 14}`);
+    const pts: [number, number][] = [];
+    for (let i = 0; i < 6; i++) {
+      const a = ((l.rot + i * 60) * Math.PI) / 180;
+      pts.push([
+        cx + Math.cos(a) * l.r,
+        l.y + Math.sin(a) * (l.r * 0.55),
+      ]);
+    }
+    const poly = pts.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" L ");
+    paths.push(`M ${poly} Z`);
   });
+
   return paths.join(" ");
 }
 
@@ -205,11 +217,11 @@ function buildParallelArchitecture(phaseRad: number) {
   // 하단 평면 (RuBeacon Async Disruptor & WSS Pipeline - 무잠금 비동기 구역)
   const botLayer = "M 40,215 L 220,165 L 420,215 L 240,265 Z";
   
-  // 수직 분기 가이드라인 (메인 틱과 비동기 파이프라인 간의 데이터 단방향 낙하 격리)
+  // 수직 분기 가이드라인 (상단 평면 하단부와 하단 평면 상단부 사이 내부 공간에만 위치)
   const dropLanes = [
-    { x: 120, y1: 102, y2: 232 },
-    { x: 230, y1: 132, y2: 262 },
-    { x: 340, y1: 102, y2: 232 },
+    { x: 130, y1: 120, y2: 175 },
+    { x: 230, y1: 140, y2: 195 },
+    { x: 330, y1: 120, y2: 175 },
   ];
 
   // 실시간 하강하는 3개 패킷 좌표 (phaseRad 기반 수직 왕복 이동)
@@ -366,10 +378,18 @@ export default function LandingPage() {
 
   const node1Cube = buildWireCube(44, modelAngle, 95, 195);
   const node2Dial = buildDisruptorDial(34, 18, 12, -modelAngle * 1.5, 310, 95);
-  const node3Stack = buildCacheStack(560, 215);
-  const discordPulse = 1 + (Math.sin(phaseRad * 2.5) * 0.5 + 0.5) * 0.12;
+  const node3Stack = buildCacheStack(modelAngle, 560, 215);
+  const discordPulse = 1 + (Math.sin(phaseRad * 2.5) * 0.5 + 0.5) * 0.08;
+  const clydeRotDeg = Math.sin(phaseRad * 1.5) * 14;
 
   const parallelArch = buildParallelArchitecture(phaseRad);
+
+  // 뷰포트 4: 인게임 -> 디스코드 단방향 실시간 패킷 전송 및 디스코드 임베드 타이핑 반응
+  const syncProgress = ((modelAngle * 3) % 360) / 360; // 0 -> 1 무한 루프
+  const syncPacketX = 84 + syncProgress * (275 - 84);
+  const syncPacketGlow = Math.sin(syncProgress * Math.PI); // 중앙에서 최대 발광
+  const cubePulse = syncProgress < 0.15 ? 1 + (0.15 - syncProgress) * 0.8 : 1;
+  const embedTyping = syncProgress > 0.82 ? (syncProgress - 0.82) / 0.18 : 1;
 
   return (
     <div
@@ -671,30 +691,30 @@ export default function LandingPage() {
                 <circle cx={node2Dial.dot[0]} cy={node2Dial.dot[1]} r="4" fill="#E11D48" />
               </g>
 
-              {/* 노드 03: WSS 게이트웨이 & Redis (3단 인메모리 캐시 스택 + 양방향 소켓 라우팅) */}
+              {/* 노드 03: WSS 게이트웨이 & Redis (3D 회전 육각 프리즘 타워 + 코어 펄스) */}
               <g>
-                <path d={node3Stack} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.85" strokeWidth="1.2" />
+                <path d={node3Stack} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.85" strokeWidth="1.25" />
+                {/* 중심부 수직 코어 라인 */}
+                <line x1="560" y1="190" x2="560" y2="240" stroke="#E11D48" strokeWidth="1.5" strokeOpacity="0.75" />
+                <circle cx="560" cy="215" r="3.5" fill="#E11D48" />
                 {/* 양방향 WSS 소켓 통신 루비 레이저 */}
-                <line x1="538" y1="202" x2="582" y2="202" stroke="#E11D48" strokeWidth="1.6" strokeLinecap="round" />
-                <polygon points="538,202 543,198 543,206" fill="#E11D48" />
-                <polygon points="582,202 577,198 577,206" fill="#E11D48" />
+                <line x1="535" y1="215" x2="585" y2="215" stroke="#E11D48" strokeWidth="1.4" strokeDasharray="3 3" />
               </g>
 
-              {/* 노드 04: 디스코드 봇 서비스 (정규 Clyde 봇 헤드 마스크 라인 아트) */}
+              {/* 노드 04: 디스코드 봇 서비스 (정규 Clyde 봇 헤드 마스크 - 테크니컬 라인 아트 규격 & 부드러운 오실레이션) */}
               <g
-                transform={`translate(${795 - 28}, ${110 - 21}) scale(${discordPulse * 0.44})`}
-                style={{ transformOrigin: "28px 21px" }}
+                transform={`translate(795, 110) rotate(${clydeRotDeg}) scale(${discordPulse * 0.44}) translate(-64, -48)`}
               >
                 <path
                   d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07Z"
                   fill="none"
                   stroke="#E11D48"
-                  strokeWidth="4.2"
+                  strokeWidth="1.3"
                   strokeLinejoin="round"
                   strokeLinecap="round"
                 />
-                <ellipse cx="42.5" cy="53" rx="10" ry="12.5" fill="#E11D48" fillOpacity="0.88" />
-                <ellipse cx="84.5" cy="53" rx="10" ry="12.5" fill="#E11D48" fillOpacity="0.88" />
+                <ellipse cx="42.5" cy="53" rx="8" ry="10" fill="#E11D48" fillOpacity="0.85" />
+                <ellipse cx="84.5" cy="53" rx="8" ry="10" fill="#E11D48" fillOpacity="0.85" />
               </g>
             </svg>
 
@@ -785,9 +805,6 @@ export default function LandingPage() {
                 strokeOpacity="0.85"
                 strokeWidth="1.4"
               />
-              <text x="55" y="80" fill="#E11D48" fontSize="11" fontFamily="monospace" fontWeight="600" opacity="0.9">
-                [MAIN-TICK] 20.0 TPS STABLE
-              </text>
 
               {/* 하단 레이어: RuBeacon 비동기 링버퍼 & WSS 파이프라인 */}
               <polygon points="40,215 220,165 420,215 240,265" fill="url(#layerGrad)" />
@@ -798,9 +815,6 @@ export default function LandingPage() {
                 strokeOpacity="0.75"
                 strokeWidth="1.3"
               />
-              <text x="55" y="210" fill="hsl(var(--sand))" fontSize="11" fontFamily="monospace" fontWeight="600" opacity="0.9">
-                [ASYNC-PIPELINE] LOCK-FREE DISRUPTOR
-              </text>
 
               {/* 수직 분기 격리 가이드 레일 (메인 틱 점유 시간 0.00ms 증명) */}
               {parallelArch.dropLanes.map((lane, idx) => (
@@ -888,9 +902,9 @@ export default function LandingPage() {
             className="w-full max-w-[360px] h-24 overflow-visible"
             aria-hidden="true"
           >
-            {/* 좌측: 마인크래프트 인게임 이벤트 큐브 노드 */}
-            <g transform="translate(60, 60)">
-              <rect x="-24" y="-24" width="48" height="48" rx="6" fill="#E11D48" fillOpacity="0.1" stroke="#E11D48" strokeWidth="1.4" />
+            {/* 좌측: 마인크래프트 인게임 이벤트 큐브 노드 (이벤트 격발 시 펄스) */}
+            <g transform={`translate(60, 60) scale(${cubePulse})`}>
+              <rect x="-24" y="-24" width="48" height="48" rx="6" fill="#E11D48" fillOpacity="0.12" stroke="#E11D48" strokeWidth="1.4" />
               {/* 마인크래프트 검/블록 상징 대각선 라인 */}
               <line x1="-12" y1="12" x2="12" y2="-12" stroke="#E11D48" strokeWidth="1.6" strokeLinecap="round" />
               <text x="0" y="38" textAnchor="middle" fill="#E11D48" fontSize="10" fontFamily="monospace" fontWeight="600">
@@ -900,40 +914,60 @@ export default function LandingPage() {
 
             {/* 중앙: 초고속 직결 미러링 통로 (42ms 양방향 전송 레이저 및 이동 패킷) */}
             <line
-              x1="95"
+              data-animate-curve
+              x1="90"
               y1="60"
               x2="275"
               y2="60"
               stroke="hsl(var(--sand))"
-              strokeOpacity="0.4"
+              strokeOpacity="0.35"
               strokeWidth="1.2"
               strokeDasharray="4 4"
             />
-            {/* 왕복하는 루비 펄스 광선 */}
-            <line
-              data-animate-curve
-              x1="95"
-              y1="60"
-              x2="275"
-              y2="60"
-              stroke="#E11D48"
-              strokeWidth="2"
-              strokeDasharray="40 140"
-              strokeDashoffset="0"
-            />
-            <text x="185" y="52" textAnchor="middle" fill="hsl(var(--sand))" fontSize="10" fontFamily="monospace" fontWeight="bold">
+            {/* 실시간으로 인게임에서 디스코드로 질주하는 단방향 패킷 광선 */}
+            <circle cx={syncPacketX} cy="60" r="4.5" fill="#E11D48" />
+            <circle cx={syncPacketX} cy="60" r={8 + syncPacketGlow * 4} fill="none" stroke="#E11D48" strokeOpacity={0.25 + syncPacketGlow * 0.45} strokeWidth="1.2" />
+
+            <text x="182" y="50" textAnchor="middle" fill="hsl(var(--sand))" fontSize="10" fontFamily="monospace" fontWeight="bold">
               ⚡ 42ms SYNC
             </text>
 
-            {/* 우측: 디스코드 임베드 카드 노드 */}
+            {/* 우측: 디스코드 임베드 카드 노드 (패킷 도착 시 타이핑되는 라인) */}
             <g transform="translate(310, 60)">
               <rect x="-35" y="-26" width="70" height="52" rx="4" fill="hsl(var(--sand))" fillOpacity="0.08" stroke="hsl(var(--sand))" strokeWidth="1.3" />
-              {/* 디스코드 임베드 컬러 바 */}
-              <rect x="-31" y="-21" width="4" height="42" rx="1.5" fill="#E11D48" />
-              {/* 임베드 텍스트 모의 라인 */}
-              <line x1="-20" y1="-12" x2="22" y2="-12" stroke="hsl(var(--sand))" strokeOpacity="0.8" strokeWidth="2.5" strokeLinecap="round" />
-              <line x1="-20" y1="-2" x2="12" y2="-2" stroke="hsl(var(--sand))" strokeOpacity="0.45" strokeWidth="2" strokeLinecap="round" />
-              <line x1="-20" y1="8" x2="18" y2="8" stroke="hsl(var(--sand))" strokeOpacity="0.45" strokeWidth="2" strokeLinecap="round" />
+              {/* 디스코드 임베드 루비 컬러 바 (패킷 도달 시 발광) */}
+              <rect x="-31" y="-21" width="4" height="42" rx="1.5" fill="#E11D48" fillOpacity={0.6 + embedTyping * 0.4} />
+              {/* 실시간 타이핑되는 임베드 텍스트 모의 라인 */}
+              <line
+                x1="-20"
+                y1="-12"
+                x2={-20 + 42 * Math.min(1, embedTyping * 1.5)}
+                y2="-12"
+                stroke="hsl(var(--sand))"
+                strokeOpacity="0.85"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+              <line
+                x1="-20"
+                y1="-2"
+                x2={-20 + 32 * Math.max(0, Math.min(1, (embedTyping - 0.25) * 1.6))}
+                y2="-2"
+                stroke="hsl(var(--sand))"
+                strokeOpacity="0.55"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+              <line
+                x1="-20"
+                y1="8"
+                x2={-20 + 38 * Math.max(0, Math.min(1, (embedTyping - 0.5) * 2))}
+                y2="8"
+                stroke="hsl(var(--sand))"
+                strokeOpacity="0.4"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
               <text x="0" y="38" textAnchor="middle" fill="hsl(var(--sand))" fontSize="10" fontFamily="monospace" fontWeight="600">
                 DISCORD
               </text>
