@@ -119,12 +119,12 @@ function buildWireCube(size: number, angleDeg: number, cx: number, cy: number) {
 
 /**
  * 뷰포트 2 노드 02: LMAX Disruptor 상징 12슬롯 무잠금 회전 링버퍼 트랙(RingBuffer Dial)
- * 트랙은 부드럽게 반대 방향으로 회전하고, 패킷(Dot)은 12개 슬롯을 틱-틱-틱 이산적으로 점프 전진함.
+ * 링버퍼 트랙이 시계 방향으로 회전하고, 패킷(Dot)은 트랙의 슬롯과 일체화되어 틱-틱-틱 다음 슬롯으로 스텝 전진함.
  */
-function buildDisruptorDial(radius: number, innerRadius: number, slots: number, trackAngleDeg: number, cx: number, cy: number) {
+function buildDisruptorDial(radius: number, innerRadius: number, slots: number, angleDeg: number, cx: number, cy: number) {
   const outerLines: string[] = [];
   const slotLines: string[] = [];
-  const radOffset = (trackAngleDeg * Math.PI) / 180;
+  const radOffset = (angleDeg * Math.PI) / 180;
   for (let i = 0; i < slots; i++) {
     const a1 = radOffset + (i / slots) * Math.PI * 2;
     const a2 = radOffset + ((i + 1) / slots) * Math.PI * 2;
@@ -141,13 +141,14 @@ function buildDisruptorDial(radius: number, innerRadius: number, slots: number, 
     slotLines.push(`M${o1x.toFixed(1)},${o1y.toFixed(1)} L${i1x.toFixed(1)},${i1y.toFixed(1)}`);
   }
 
-  // 패킷 점(Dot): 틱-틱-틱 이산적(discrete)으로 시계 방향 슬롯을 순회 (12슬롯 스텝 전진)
-  const stepCount = 12;
-  const currentStep = Math.floor((-trackAngleDeg / 30)) % stepCount;
-  const dotStepAngle = (currentStep / stepCount) * Math.PI * 2;
+  // 패킷 점(Dot): 트랙과 결합된 슬롯 인덱스를 틱-틱-틱 스텝 전진하며 360도 전체를 끊김 없이 순회
+  const slotIndex = Math.floor((angleDeg / 30)) % slots;
+  const normalizedSlot = ((slotIndex % slots) + slots) % slots;
+  const dotAngle = radOffset + (normalizedSlot / slots) * Math.PI * 2 + (Math.PI / slots);
+  const midR = (radius + innerRadius) / 2;
   const activeDot = [
-    cx + Math.cos(dotStepAngle) * ((radius + innerRadius) / 2),
-    cy + Math.sin(dotStepAngle) * (((radius + innerRadius) / 2) * 0.58),
+    cx + Math.cos(dotAngle) * midR,
+    cy + Math.sin(dotAngle) * (midR * 0.58),
   ] as const;
 
   return {
@@ -216,7 +217,6 @@ function buildParallelArchitecture(phaseRad: number) {
   const topLayer = "M 40,85 L 220,35 L 420,85 L 240,135 Z";
   // 하단 평면 (RuBeacon Async Disruptor & WSS Pipeline - 무잠금 비동기 구역)
   const botLayer = "M 40,215 L 220,165 L 420,215 L 240,265 Z";
-  
   // 수직 분기 가이드라인 (상단 평면 하단부와 하단 평면 상단부 사이 내부 공간에만 위치)
   const dropLanes = [
     { x: 130, y1: 120, y2: 175 },
@@ -224,13 +224,15 @@ function buildParallelArchitecture(phaseRad: number) {
     { x: 330, y1: 120, y2: 175 },
   ];
 
-  // 실시간 하강하는 3개 패킷 좌표 (phaseRad 기반 수직 왕복 이동)
-  const packetProgress = (Math.sin(phaseRad * 2) * 0.5 + 0.5);
+  // 실시간 단방향 하강하는 3개 패킷 좌표 (phaseRad 기반 위에서 아래로만 부드럽게 무한 순환)
+  // phaseRad는 0에서 계속 증가하므로, 단방향 모듈로 연산으로 자연스럽게 상단에서 하단으로 낙하 순환
   const packets = dropLanes.map((lane, idx) => {
-    const offsetProg = (packetProgress + idx * 0.33) % 1;
+    const rawProgress = (phaseRad * 0.45 + idx * 0.33) % 1;
+    const offsetProg = ((rawProgress % 1) + 1) % 1; // 0 -> 1 단방향 보장
     return {
       x: lane.x,
       y: lane.y1 + (lane.y2 - lane.y1) * offsetProg,
+      opacity: Math.sin(offsetProg * Math.PI), // 상·하단 평면 경계에서 페이드인/페이드아웃으로 부드러운 전환
     };
   });
 
@@ -658,18 +660,18 @@ export default function LandingPage() {
               <circle cx="95" cy="195" r="70" fill="url(#nodeGlowRuby)" />
               <circle cx="310" cy="95" r="70" fill="url(#nodeGlowSand)" />
               <circle cx="560" cy="215" r="70" fill="url(#nodeGlowSand)" />
-              <circle cx="795" cy="110" r="75" fill="url(#nodeGlowRuby)" />
+              <circle cx="795" cy="75" r="75" fill="url(#nodeGlowRuby)" />
 
               <path
-                d="M 40,210 C 260,30 620,270 860,85"
+                d="M 40,210 C 260,30 600,270 860,120"
                 fill="none"
                 stroke="hsl(var(--sand))"
-                strokeOpacity="0.3"
+                strokeOpacity="0.25"
                 strokeWidth="1.1"
               />
               <path
                 data-animate-curve
-                d="M 40,195 C 260,15 620,255 860,70"
+                d="M 40,195 C 260,15 600,255 860,105"
                 fill="none"
                 stroke="#E11D48"
                 strokeWidth="2"
@@ -691,19 +693,17 @@ export default function LandingPage() {
                 <circle cx={node2Dial.dot[0]} cy={node2Dial.dot[1]} r="4" fill="#E11D48" />
               </g>
 
-              {/* 노드 03: WSS 게이트웨이 & Redis (3D 회전 육각 프리즘 타워 + 코어 펄스) */}
+              {/* 노드 03: WSS 게이트웨이 & Redis (3D 회전 육각 프리즘 타워) */}
               <g>
                 <path d={node3Stack} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.85" strokeWidth="1.25" />
-                {/* 중심부 수직 코어 라인 */}
-                <line x1="560" y1="190" x2="560" y2="240" stroke="#E11D48" strokeWidth="1.5" strokeOpacity="0.75" />
-                <circle cx="560" cy="215" r="3.5" fill="#E11D48" />
-                {/* 양방향 WSS 소켓 통신 루비 레이저 */}
-                <line x1="535" y1="215" x2="585" y2="215" stroke="#E11D48" strokeWidth="1.4" strokeDasharray="3 3" />
+                {/* 타워 중심 인메모리 액티브 코어 */}
+                <circle cx="560" cy="215" r="4.5" fill="#E11D48" />
+                <circle cx="560" cy="215" r="9" fill="none" stroke="#E11D48" strokeOpacity="0.35" strokeWidth="1" />
               </g>
 
               {/* 노드 04: 디스코드 봇 서비스 (정규 Clyde 봇 헤드 마스크 - 테크니컬 라인 아트 규격 & 부드러운 오실레이션) */}
               <g
-                transform={`translate(795, 110) rotate(${clydeRotDeg}) scale(${discordPulse * 0.44}) translate(-64, -48)`}
+                transform={`translate(795, 75) rotate(${clydeRotDeg}) scale(${discordPulse * 0.44}) translate(-64, -48)`}
               >
                 <path
                   d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07Z"
@@ -833,7 +833,7 @@ export default function LandingPage() {
 
               {/* 실시간으로 메인 틱에서 비동기 파이프라인으로 무지연 낙하하는 이벤트 패킷들 */}
               {parallelArch.packets.map((pkt, idx) => (
-                <g key={`pkt-${idx}`}>
+                <g key={`pkt-${idx}`} opacity={pkt.opacity}>
                   <circle cx={pkt.x} cy={pkt.y} r="5" fill="#E11D48" />
                   <circle cx={pkt.x} cy={pkt.y} r="9" fill="none" stroke="#E11D48" strokeOpacity="0.4" strokeWidth="1" />
                 </g>
