@@ -9,6 +9,7 @@ import { fetchUserProfile } from "@/lib/api";
 import { UserProfile } from "@/types/workflow";
 import { BeaconStage, useLatestRelease } from "@/components/landing/BeaconStage";
 import { ArrowRight, Download } from "lucide-react";
+import { RuBeaconLogo } from "@/components/brand/RuBeaconLogo";
 
 const COS30 = Math.cos(Math.PI / 6);
 const SIN30 = Math.sin(Math.PI / 6);
@@ -358,43 +359,7 @@ export default function LandingPage() {
       <header className="border-b border-border/30 bg-background/70 backdrop-blur-md sticky top-0 z-50 transition-colors">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* 등각 투영 큐브 뼈대와 비콘 빔이 결합된 기하학적 R 모노그램 심볼 */}
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              className="shrink-0 overflow-visible"
-              aria-label="Ru-Beacon Logo"
-            >
-              {/* 비콘 레이저 미니 방출 빔 */}
-              <circle cx="12" cy="1.8" r="1.4" fill="#E11D48" />
-              <line x1="12" y1="2" x2="12" y2="4.5" stroke="#E11D48" strokeWidth="1.4" strokeLinecap="round" />
-
-              {/* 좌측 메인 수직 기둥 (루비색) */}
-              <rect x="3.5" y="5" width="3.4" height="15" rx="0.8" fill="#E11D48" />
-
-              {/* 상단 큐브 면 / R 루프 (루비색) */}
-              <path
-                d="M 6.9 5 H 15.2 C 18.2 5 19.8 6.7 19.8 9.2 C 19.8 11.7 18.2 13.4 15.2 13.4 H 6.9"
-                stroke="#E11D48"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-
-              {/* R 대각선 다리 (샌드 골드 톤 광석 접지선) */}
-              <path
-                d="M 13.5 13.2 L 19.6 20"
-                stroke="hsl(var(--sand))"
-                strokeWidth="3.4"
-                strokeLinecap="round"
-              />
-
-              {/* 루프 내부 비콘 코어 점 */}
-              <circle cx="12.2" cy="9.2" r="1.5" fill="hsl(var(--sand))" />
-            </svg>
+            <RuBeaconLogo size={24} />
 
             <div className="flex items-center gap-2">
               <span className="headline text-base sm:text-lg tracking-tight text-foreground select-none">
