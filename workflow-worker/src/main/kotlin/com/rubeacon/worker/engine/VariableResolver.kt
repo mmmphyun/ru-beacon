@@ -1,6 +1,8 @@
 package com.rubeacon.worker.engine
 
 import java.time.OffsetDateTime
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * 템플릿 문자열 내 플레이스홀더 치환 및 미정의 변수 유효성 검증기.
@@ -19,7 +21,11 @@ object VariableResolver {
         "Discord_User",
         "Discord_User_ID",
         "Server_Name",
-        "Current_Time"
+        "Current_Time",
+        "Level",
+        "Advancement",
+        "Custom_ID",
+        "Command"
     )
 
     /**
@@ -29,22 +35,26 @@ object VariableResolver {
         val event = context.initialEvent
         val actor = event.actor
         val subject = event.subject
+        val payload = event.payload
         val defaults = mutableMapOf<String, String>()
 
-        // User_Nickname: actor 혹은 subject의 식별자나 payload 참조
+        // User_Nickname: context variable -> payload playerName -> actor/subject id -> fallback
         val nickname = context.variables["User_Nickname"]?.toString()
+            ?: payload["playerName"]?.jsonPrimitive?.contentOrNull
             ?: (if (actor?.type == "minecraft_player") actor.id else null)
             ?: (if (subject?.type == "minecraft_player") subject.id else null)
             ?: "UnknownPlayer"
         defaults["User_Nickname"] = nickname
 
         val mcUuid = context.variables["Minecraft_UUID"]?.toString()
+            ?: payload["playerUuid"]?.jsonPrimitive?.contentOrNull
             ?: (if (actor?.type == "minecraft_player") actor.id else null)
             ?: (if (subject?.type == "minecraft_player") subject.id else null)
             ?: "00000000-0000-0000-0000-000000000000"
         defaults["Minecraft_UUID"] = mcUuid
 
         val discordId = context.variables["Discord_User_ID"]?.toString()
+            ?: payload["user_id"]?.jsonPrimitive?.contentOrNull
             ?: (if (actor?.type == "discord_user") actor.id else null)
             ?: (if (subject?.type == "discord_user") subject.id else null)
             ?: "0"
@@ -56,6 +66,23 @@ object VariableResolver {
             ?: "DefaultServer"
         defaults["Current_Time"] = context.variables["Current_Time"]?.toString()
             ?: event.occurredAt.ifEmpty { OffsetDateTime.now().toString() }
+
+        defaults["Level"] = context.variables["Level"]?.toString()
+            ?: payload["newLevel"]?.jsonPrimitive?.contentOrNull
+            ?: payload["level"]?.jsonPrimitive?.contentOrNull
+            ?: "0"
+
+        defaults["Advancement"] = context.variables["Advancement"]?.toString()
+            ?: payload["advancementId"]?.jsonPrimitive?.contentOrNull
+            ?: ""
+
+        defaults["Custom_ID"] = context.variables["Custom_ID"]?.toString()
+            ?: payload["custom_id"]?.jsonPrimitive?.contentOrNull
+            ?: ""
+
+        defaults["Command"] = context.variables["Command"]?.toString()
+            ?: payload["command"]?.jsonPrimitive?.contentOrNull
+            ?: ""
 
         return defaults
     }

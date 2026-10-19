@@ -84,4 +84,55 @@ class VariableResolverTest {
         assertEquals("give Steve op Hacker diamond 1", resolved)
         assertTrue(!resolved.contains("\n") && !resolved.contains("\r"))
     }
+
+    @Test
+    fun `이벤트 페이로드로부터 newLevel advancementId custom_id 등이 안전하게 예약 변수로 바인딩되어야 한다`() {
+        val payloadEvent = sampleEvent.copy(
+            payload = kotlinx.serialization.json.buildJsonObject {
+                put("newLevel", kotlinx.serialization.json.JsonPrimitive(30))
+                put("playerName", kotlinx.serialization.json.JsonPrimitive("Alex"))
+                put("advancementId", kotlinx.serialization.json.JsonPrimitive("minecraft:story/mine_diamond"))
+                put("custom_id", kotlinx.serialization.json.JsonPrimitive("reward_claim_btn"))
+                put("command", kotlinx.serialization.json.JsonPrimitive("daily"))
+            }
+        )
+        val context = WorkflowContext(
+            tenantId = "tenant_test",
+            correlationId = "corr_02",
+            initialEvent = payloadEvent
+        )
+
+        val template = "Player {User_Nickname} reached level {Level} with {Advancement} button={Custom_ID} cmd={Command}"
+        val resolved = VariableResolver.resolve(template, context)
+
+        assertEquals(
+            "Player Alex reached level 30 with minecraft:story/mine_diamond button=reward_claim_btn cmd=daily",
+            resolved
+        )
+    }
+
+    @Test
+    fun `위저드 형태의 field 및 expected_value 조건 분기가 정상 평가되어야 한다`() = kotlinx.coroutines.test.runTest {
+        val payloadEvent = sampleEvent.copy(
+            payload = kotlinx.serialization.json.buildJsonObject {
+                put("newLevel", kotlinx.serialization.json.JsonPrimitive(42))
+            }
+        )
+        val context = WorkflowContext(
+            tenantId = "tenant_test",
+            correlationId = "corr_03",
+            initialEvent = payloadEvent
+        )
+
+        val executor = ConditionBranchExecutor()
+        val inputs = mapOf(
+            "field" to kotlinx.serialization.json.JsonPrimitive("Level"),
+            "operator" to kotlinx.serialization.json.JsonPrimitive("GREATER_OR_EQUAL"),
+            "expected_value" to kotlinx.serialization.json.JsonPrimitive("30")
+        )
+
+        val result = executor.execute(context, inputs) as NodeResult.Success
+        assertEquals("on_true", result.branch)
+        assertEquals(true, result.outputVariables["condition_result"])
+    }
 }

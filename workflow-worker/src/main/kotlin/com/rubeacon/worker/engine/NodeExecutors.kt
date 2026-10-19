@@ -43,9 +43,13 @@ class ConditionBranchExecutor : NodeExecutor {
         context: WorkflowContext,
         inputs: Map<String, JsonElement>
     ): NodeResult {
-        val leftRaw = inputs["left"]?.jsonPrimitive?.contentOrNull ?: ""
+        val leftRaw = inputs["left"]?.jsonPrimitive?.contentOrNull
+            ?: inputs["field"]?.jsonPrimitive?.contentOrNull?.let { "{$it}" }
+            ?: ""
         val operator = inputs["operator"]?.jsonPrimitive?.contentOrNull ?: "EQUALS"
-        val rightRaw = inputs["right"]?.jsonPrimitive?.contentOrNull ?: ""
+        val rightRaw = inputs["right"]?.jsonPrimitive?.contentOrNull
+            ?: inputs["expected_value"]?.jsonPrimitive?.contentOrNull
+            ?: ""
 
         val leftResolved = VariableResolver.resolve(leftRaw, context)
         val rightResolved = VariableResolver.resolve(rightRaw, context)
@@ -53,7 +57,7 @@ class ConditionBranchExecutor : NodeExecutor {
         val conditionMet = when (operator.uppercase()) {
             "EQUALS" -> leftResolved.equals(rightResolved, ignoreCase = true)
             "NOT_EQUALS" -> !leftResolved.equals(rightResolved, ignoreCase = true)
-            "GREATER_THAN_OR_EQUAL", "GTE" -> {
+            "GREATER_THAN_OR_EQUAL", "GREATER_OR_EQUAL", "GTE" -> {
                 val l = leftResolved.toDoubleOrNull()
                 val r = rightResolved.toDoubleOrNull()
                 if (l != null && r != null) l >= r else leftResolved >= rightResolved
