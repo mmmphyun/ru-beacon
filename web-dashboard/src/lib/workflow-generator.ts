@@ -9,7 +9,16 @@ export const ALLOWED_VARIABLES = [
   "Current_Time",
   "Level",
   "Advancement",
+  "Custom_ID",
+  "Command",
 ];
+
+export const TRIGGER_EVENT_MAP: Record<WizardFormState["triggerType"], string> = {
+  MINECRAFT_LEVEL_UP: "minecraft.player.level_up",
+  MINECRAFT_ADVANCEMENT_DONE: "minecraft.player.advancement_done",
+  DISCORD_BUTTON_CLICK: "discord.button.clicked",
+  DISCORD_SLASH_COMMAND: "discord.command.executed",
+};
 
 export interface ValidationResult {
   valid: boolean;
@@ -23,52 +32,51 @@ export interface ValidationResult {
 export function generateWorkflowAst(form: WizardFormState, version: number = 1): WorkflowDefinition {
   const triggerNodeId = "trigger_01";
   const conditionNodeId = "condition_01";
-  const actionNodeId = "action_01";
 
   const nodes: WorkflowNode[] = [];
+  let entryActionId = "action_01";
+
+  if (form.actionType === "DISCORD_SEND_MESSAGE") {
+    entryActionId = "action_msg";
+    nodes.push({ id: "action_msg", node_type: "DISCORD_SEND_MESSAGE", inputs: { channel_id: form.actionParams.channelId || "", message: form.actionParams.message || "" }, next_node_ids: [] });
+  } else if (form.actionType === "MINECRAFT_DISPATCH_COMMAND") {
+    entryActionId = "action_cmd";
+    nodes.push({ id: "action_cmd", node_type: "MINECRAFT_DISPATCH_COMMAND", inputs: { command: form.actionParams.command || "" }, next_node_ids: [] });
+  } else if (form.actionType === "COMMAND_AND_DISCORD") {
+    entryActionId = "action_cmd";
+    nodes.push({ id: "action_cmd", node_type: "MINECRAFT_DISPATCH_COMMAND", inputs: { command: form.actionParams.command || "" }, next_node_ids: ["action_msg"] });
+    nodes.push({ id: "action_msg", node_type: "DISCORD_SEND_MESSAGE", inputs: { channel_id: form.actionParams.channelId || "", message: form.actionParams.message || "" }, next_node_ids: [] });
+  } else if (form.actionType === "ATTENDANCE_REWARD_PIPELINE") {
+    entryActionId = "action_reserve";
+    const hasDiscordNotify = Boolean(form.actionParams.channelId && form.actionParams.message);
+    nodes.push({ id: "action_reserve", node_type: "ATTENDANCE_RESERVATION", inputs: { action: "RESERVE", total_limit: form.actionParams.totalLimit ?? 100 }, next_node_ids: ["action_cmd"] });
+    nodes.push({ id: "action_cmd", node_type: "MINECRAFT_DISPATCH_COMMAND", inputs: { command: form.actionParams.command || "give {User_Nickname} diamond 3" }, next_node_ids: ["action_commit"] });
+    nodes.push({ id: "action_commit", node_type: "ATTENDANCE_RESERVATION", inputs: { action: "COMMIT" }, next_node_ids: hasDiscordNotify ? ["action_msg"] : [] });
+    if (hasDiscordNotify) {
+      nodes.push({ id: "action_msg", node_type: "DISCORD_SEND_MESSAGE", inputs: { channel_id: form.actionParams.channelId || "", message: form.actionParams.message || "{User_Nickname}님의 출석체크 보상이 정상 지급되었습니다!" }, next_node_ids: [] });
+    }
+  }
 
   if (form.enableCondition) {
-    // 트리거 -> 조건 분기 -> 액션
-    nodes.push({
+    const rawOp = form.conditionOperator;
+    const operator = rawOp === "GREATER_OR_EQUAL" ? "GREATER_THAN_OR_EQUAL" : rawOp;
+    nodes.unshift({
       id: conditionNodeId,
       node_type: "CONDITION_BRANCH",
       inputs: {
-        field: form.conditionField,
-        operator: form.conditionOperator,
-        expected_value: form.conditionValue,
+        left: `{${form.conditionField}}`,
+        operator,
+        right: form.conditionValue,
       },
       branches: {
-        on_true: [actionNodeId],
+        on_true: [entryActionId],
         on_false: [],
       },
       next_node_ids: [],
     });
   }
 
-  // 액션 노드 구성
-  const actionInputs: Record<string, unknown> = {};
-  switch (form.actionType) {
-    case "DISCORD_SEND_MESSAGE":
-      actionInputs["channel_id"] = form.actionParams.channelId || "";
-      actionInputs["message"] = form.actionParams.message || "";
-      break;
-    case "DISCORD_ADD_ROLE":
-      actionInputs["role_id"] = form.actionParams.roleId || "";
-      break;
-    case "MINECRAFT_DISPATCH_COMMAND":
-      actionInputs["command"] = form.actionParams.command || "";
-      break;
-    case "ATTENDANCE_RESERVATION":
-      actionInputs["total_limit"] = form.actionParams.totalLimit ?? 100;
-      break;
-  }
-
-  nodes.push({
-    id: actionNodeId,
-    node_type: form.actionType,
-    inputs: actionInputs,
-    next_node_ids: [],
-  });
+  const mappedEventType = TRIGGER_EVENT_MAP[form.triggerType] || form.triggerType;
 
   return {
     version,
@@ -77,8 +85,8 @@ export function generateWorkflowAst(form: WizardFormState, version: number = 1):
     },
     trigger: {
       id: triggerNodeId,
-      event_type: form.triggerType,
-      next_node_ids: [form.enableCondition ? conditionNodeId : actionNodeId],
+      event_type: mappedEventType,
+      next_node_ids: [form.enableCondition ? conditionNodeId : entryActionId],
     },
     nodes,
   };
@@ -104,36 +112,31 @@ export function validateWorkflowState(form: WizardFormState): ValidationResult {
   }
 
   // 액션 필드 검증
-  if (form.actionType === "DISCORD_SEND_MESSAGE") {
-    if (!form.actionParams.channelId?.trim()) {
-      errors.push("메시지를 전송할 Discord 채널 ID가 필요합니다.");
-    }
-    if (!form.actionParams.message?.trim()) {
-      errors.push("전송할 메시지 본문을 입력해야 합니다.");
-    } else {
-      // 변수 플레이스홀더 검증: {Unknown_Var} 차단
-      const varMatches = form.actionParams.message.match(/\{([a-zA-Z0-9_]+)\}/g);
-      if (varMatches) {
-        for (const match of varMatches) {
-          const varName = match.slice(1, -1);
-          if (!ALLOWED_VARIABLES.includes(varName)) {
-            errors.push(`허용되지 않은 템플릿 변수: {${varName}} (허용 목록: ${ALLOWED_VARIABLES.join(", ")})`);
-          }
+  function checkTemplate(template?: string) {
+    if (!template) return;
+    const varMatches = template.match(/\{([a-zA-Z0-9_]+)\}/g);
+    if (varMatches) {
+      for (const match of varMatches) {
+        const varName = match.slice(1, -1);
+        if (!ALLOWED_VARIABLES.includes(varName)) {
+          errors.push(`허용되지 않은 템플릿 변수: {${varName}} (허용 목록: ${ALLOWED_VARIABLES.join(", ")})`);
         }
       }
     }
-  } else if (form.actionType === "DISCORD_ADD_ROLE") {
-    if (!form.actionParams.roleId?.trim()) {
-      errors.push("부여할 Discord 역할 ID가 필요합니다.");
-    }
-  } else if (form.actionType === "MINECRAFT_DISPATCH_COMMAND") {
-    if (!form.actionParams.command?.trim()) {
-      errors.push("실행할 Minecraft 명령어를 입력해야 합니다.");
-    }
-  } else if (form.actionType === "ATTENDANCE_RESERVATION") {
-    if ((form.actionParams.totalLimit ?? 0) <= 0) {
-      errors.push("선착순 정원은 1명 이상이어야 합니다.");
-    }
+  }
+
+  if (form.actionType === "DISCORD_SEND_MESSAGE" || form.actionType === "COMMAND_AND_DISCORD") {
+    if (!form.actionParams.channelId?.trim()) errors.push("메시지를 전송할 Discord 채널 ID가 필요합니다.");
+    if (!form.actionParams.message?.trim()) errors.push("전송할 메시지 본문을 입력해야 합니다.");
+    else checkTemplate(form.actionParams.message);
+  }
+  if (form.actionType === "MINECRAFT_DISPATCH_COMMAND" || form.actionType === "COMMAND_AND_DISCORD" || form.actionType === "ATTENDANCE_REWARD_PIPELINE") {
+    if (!form.actionParams.command?.trim()) errors.push("실행할 Minecraft 명령어를 입력해야 합니다.");
+    else checkTemplate(form.actionParams.command);
+  }
+  if (form.actionType === "ATTENDANCE_REWARD_PIPELINE") {
+    if ((form.actionParams.totalLimit ?? 0) <= 0) errors.push("선착순 정원은 1명 이상이어야 합니다.");
+    checkTemplate(form.actionParams.message);
   }
 
   return {
@@ -202,7 +205,7 @@ export const WORKFLOW_PRESETS: { label: string; state: WizardFormState }[] = [
       triggerType: "MINECRAFT_LEVEL_UP",
       triggerParams: {},
       enableCondition: true,
-      conditionField: "new_level",
+      conditionField: "Level",
       conditionOperator: "GREATER_OR_EQUAL",
       conditionValue: "30",
       actionType: "DISCORD_SEND_MESSAGE",
@@ -216,7 +219,7 @@ export const WORKFLOW_PRESETS: { label: string; state: WizardFormState }[] = [
     label: "Discord 버튼 클릭 100명 한정 선착순 출석체크",
     state: {
       workflowName: "일일 한정 출석체크",
-      description: "Discord 출석 버튼 클릭 시 Redis 2-Tier 쿼터를 통해 선착순 100명에게 보상을 예약합니다.",
+      description: "Discord 출석 버튼 클릭 시 Redis 2-Tier 쿼터를 통해 선착순 100명에게 보상을 예약 및 지급합니다.",
       triggerType: "DISCORD_BUTTON_CLICK",
       triggerParams: {
         customId: "btn_daily_attendance",
@@ -225,9 +228,12 @@ export const WORKFLOW_PRESETS: { label: string; state: WizardFormState }[] = [
       conditionField: "",
       conditionOperator: "EQUALS",
       conditionValue: "",
-      actionType: "ATTENDANCE_RESERVATION",
+      actionType: "ATTENDANCE_REWARD_PIPELINE",
       actionParams: {
         totalLimit: 100,
+        command: "give {User_Nickname} diamond 3",
+        channelId: "123456789012345678",
+        message: "{User_Nickname}님이 선착순 출석체크 보상을 수령했습니다!",
       },
     },
   },

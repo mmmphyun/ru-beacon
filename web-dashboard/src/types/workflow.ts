@@ -66,7 +66,11 @@ export interface WizardFormState {
   conditionOperator: "GREATER_OR_EQUAL" | "EQUALS" | "CONTAINS";
   conditionValue: string;
   // Step 3: Action
-  actionType: "DISCORD_SEND_MESSAGE" | "DISCORD_ADD_ROLE" | "MINECRAFT_DISPATCH_COMMAND" | "ATTENDANCE_RESERVATION";
+  actionType:
+    | "DISCORD_SEND_MESSAGE"
+    | "MINECRAFT_DISPATCH_COMMAND"
+    | "COMMAND_AND_DISCORD"
+    | "ATTENDANCE_REWARD_PIPELINE";
   actionParams: {
     channelId?: string;
     message?: string;

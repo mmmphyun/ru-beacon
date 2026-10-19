@@ -15,7 +15,7 @@ describe("Workflow Generator & AST Spec", () => {
       triggerType: "MINECRAFT_LEVEL_UP",
       triggerParams: {},
       enableCondition: true,
-      conditionField: "new_level",
+      conditionField: "Level",
       conditionOperator: "GREATER_OR_EQUAL",
       conditionValue: "30",
       actionType: "DISCORD_SEND_MESSAGE",
@@ -28,20 +28,23 @@ describe("Workflow Generator & AST Spec", () => {
     const ast = generateWorkflowAst(form, 1);
 
     expect(ast.version).toBe(1);
-    expect(ast.trigger.event_type).toBe("MINECRAFT_LEVEL_UP");
+    expect(ast.trigger.event_type).toBe("minecraft.player.level_up");
     expect(ast.trigger.next_node_ids).toEqual(["condition_01"]);
 
     expect(ast.nodes.length).toBe(2);
     const condNode = ast.nodes.find((n) => n.id === "condition_01");
     expect(condNode?.node_type).toBe("CONDITION_BRANCH");
-    expect(condNode?.branches?.on_true).toEqual(["action_01"]);
+    expect(condNode?.branches?.on_true).toEqual(["action_msg"]);
+    expect(condNode?.inputs?.left).toBe("{Level}");
+    expect(condNode?.inputs?.operator).toBe("GREATER_THAN_OR_EQUAL");
+    expect(condNode?.inputs?.right).toBe("30");
 
-    const actNode = ast.nodes.find((n) => n.id === "action_01");
+    const actNode = ast.nodes.find((n) => n.id === "action_msg");
     expect(actNode?.node_type).toBe("DISCORD_SEND_MESSAGE");
     expect(actNode?.inputs?.channel_id).toBe("999888777");
   });
 
-  it("조건이 비활성화된 경우 트리거가 액션 노드를 직접 가리켜야 한다", () => {
+  it("선착순 출석 보상 파이프라인 선택 시 4단계 액션 노드 체인이 생성되어야 한다", () => {
     const form: WizardFormState = {
       workflowName: "출석체크",
       description: "버튼 클릭 시",
@@ -51,17 +54,27 @@ describe("Workflow Generator & AST Spec", () => {
       conditionField: "",
       conditionOperator: "EQUALS",
       conditionValue: "",
-      actionType: "ATTENDANCE_RESERVATION",
-      actionParams: { totalLimit: 50 },
+      actionType: "ATTENDANCE_REWARD_PIPELINE",
+      actionParams: {
+        totalLimit: 50,
+        command: "give {User_Nickname} diamond 1",
+        channelId: "123456",
+        message: "{User_Nickname} 출석 완료",
+      },
     };
 
     const ast = generateWorkflowAst(form, 2);
 
     expect(ast.version).toBe(2);
-    expect(ast.trigger.next_node_ids).toEqual(["action_01"]);
-    expect(ast.nodes.length).toBe(1);
-    expect(ast.nodes[0].id).toBe("action_01");
-    expect(ast.nodes[0].inputs?.total_limit).toBe(50);
+    expect(ast.trigger.event_type).toBe("discord.button.clicked");
+    expect(ast.trigger.next_node_ids).toEqual(["action_reserve"]);
+    expect(ast.nodes.length).toBe(4);
+    expect(ast.nodes.map((n) => n.node_type)).toEqual([
+      "ATTENDANCE_RESERVATION",
+      "MINECRAFT_DISPATCH_COMMAND",
+      "ATTENDANCE_RESERVATION",
+      "DISCORD_SEND_MESSAGE",
+    ]);
   });
 
   it("허용되지 않은 템플릿 변수가 포함된 경우 유효성 검증에서 거부해야 한다", () => {
