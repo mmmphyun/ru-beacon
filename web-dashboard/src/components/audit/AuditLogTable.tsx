@@ -18,8 +18,8 @@ interface AuditLogTableProps {
 export function AuditLogTable({
   tenantId,
   adminSecret,
-  title = "비즈니스 감사 로그 (Audit Trail)",
-  description = "ISMS-P 기준을 준수하는 테넌트 내 주요 운영 및 자동화 실행 이력입니다.",
+  title = "활동 감사 기록 (Audit Trail)",
+  description = "서버 설정 변경, 규칙 적용, 관리자 작업 등 시스템에서 발생한 주요 작업 이력입니다.",
 }: AuditLogTableProps) {
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);

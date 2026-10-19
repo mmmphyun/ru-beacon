@@ -137,38 +137,38 @@ export default function TenantConsolePage() {
         </div>
       </header>
 
-      {/* 대시보드 3대 탭 네비게이션 */}
+      {/* 대시보드 3대 탭 네비게이션: 모바일 가로 스크롤 안전 처리 */}
       <div className="border-b border-border/40 bg-muted/20">
-        <div className="max-w-7xl mx-auto px-4 flex space-x-6">
+        <div className="max-w-7xl mx-auto px-4 flex space-x-6 overflow-x-auto whitespace-nowrap">
           <button
             onClick={() => setActiveTab("workflow")}
-            className={`py-3 px-1 border-b-2 font-medium text-xs flex items-center gap-2 transition-colors ${
+            className={`py-3 px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-2 transition-colors shrink-0 ${
               activeTab === "workflow"
                 ? "border-primary text-primary font-semibold"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Layers className="w-3.5 h-3.5" /> 워크플로우 자동화
+            <Layers className="w-3.5 h-3.5" /> 이벤트 연동 규칙
           </button>
           <button
             onClick={() => setActiveTab("onboarding")}
-            className={`py-3 px-1 border-b-2 font-medium text-xs flex items-center gap-2 transition-colors ${
+            className={`py-3 px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-2 transition-colors shrink-0 ${
               activeTab === "onboarding"
                 ? "border-primary text-primary font-semibold"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Settings className="w-3.5 h-3.5" /> 개요 & 온보딩
+            <Settings className="w-3.5 h-3.5" /> 서버 연결 설정
           </button>
           <button
             onClick={() => setActiveTab("audit")}
-            className={`py-3 px-1 border-b-2 font-medium text-xs flex items-center gap-2 transition-colors ${
+            className={`py-3 px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-2 transition-colors shrink-0 ${
               activeTab === "audit"
                 ? "border-primary text-primary font-semibold"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            <Shield className="w-3.5 h-3.5" /> 감사 로그 (Audit Trail)
+            <Shield className="w-3.5 h-3.5" /> 활동 감사 기록
           </button>
         </div>
       </div>
@@ -178,7 +178,7 @@ export default function TenantConsolePage() {
         {/* 탭 1: 워크플로우 자동화 (서브 세그먼트: 목록 <-> 위저드) */}
         {activeTab === "workflow" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-border/30">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/30">
               <div className="inline-flex rounded border border-border/60 bg-muted/40 p-0.5 text-xs">
                 <button
                   onClick={() => setWorkflowSubView("list")}
@@ -188,7 +188,7 @@ export default function TenantConsolePage() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <ListFilter className="w-3.5 h-3.5" /> 등록된 워크플로우 목록
+                  <ListFilter className="w-3.5 h-3.5" /> 연동 규칙 목록
                 </button>
                 <button
                   onClick={() => setWorkflowSubView("wizard")}
@@ -198,7 +198,7 @@ export default function TenantConsolePage() {
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <PlusCircle className="w-3.5 h-3.5 text-primary" /> 새 워크플로우 작성
+                  <PlusCircle className="w-3.5 h-3.5 text-primary" /> 새 규칙 만들기
                 </button>
               </div>
 
@@ -206,16 +206,20 @@ export default function TenantConsolePage() {
                 <Button
                   size="sm"
                   onClick={() => setWorkflowSubView("wizard")}
-                  className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1"
+                  className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-medium gap-1 self-start sm:self-auto"
                 >
                   <PlusCircle className="w-3.5 h-3.5" />
-                  새 워크플로우 빌드
+                  새 연동 규칙 만들기
                 </Button>
               )}
             </div>
 
             {workflowSubView === "list" ? (
-              <WorkflowList tenantId={currentTenant.tenantId} refreshTrigger={refreshTrigger} />
+              <WorkflowList
+                tenantId={currentTenant.tenantId}
+                refreshTrigger={refreshTrigger}
+                onCreateNew={() => setWorkflowSubView("wizard")}
+              />
             ) : (
               <WorkflowWizard tenantId={currentTenant.tenantId} onWorkflowSaved={handleWorkflowSaved} />
             )}
@@ -227,9 +231,9 @@ export default function TenantConsolePage() {
           <div className="space-y-4">
             {!isOwner && (
               <div className="p-3 rounded border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-amber-400" />
+                <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
                 <span>
-                  현재 관리자(ADMIN) 권한으로 접속 중입니다. 마인크래프트 서버 인스턴스 인증 토큰 발급 및 온보딩 설정 저장은 소유자(OWNER)만 가능합니다.
+                  현재 관리자(ADMIN) 권한으로 확인 중입니다. 서버 연결 키 발급 및 기본 설정 변경은 서버 소유자(OWNER)만 가능합니다.
                 </span>
               </div>
             )}
@@ -246,7 +250,7 @@ export default function TenantConsolePage() {
           <AuditLogTable
             tenantId={currentTenant.tenantId}
             title={`${currentTenant.guildName} 활동 감사 이력`}
-            description="해당 테넌트에서 수행된 워크플로우 배포, 토큰 발급 및 인게임 명령 디스패치 내역입니다."
+            description="서버에서 수행된 규칙 적용, 연결 키 발급, 인게임 명령어 실행 등 모든 활동 이력입니다."
           />
         )}
       </main>

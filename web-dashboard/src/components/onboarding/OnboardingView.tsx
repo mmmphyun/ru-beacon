@@ -19,6 +19,7 @@ import {
   Activity,
   Server,
   Zap,
+  HelpCircle,
 } from "lucide-react";
 
 interface OnboardingViewProps {
@@ -32,7 +33,7 @@ export function OnboardingView({ tenantId, isOwner = true, onComplete }: Onboard
 
   const [config, setConfig] = useState<TenantConfig>({
     tenantId,
-    name: "루비콘 공식 마인크래프트 서버",
+    name: "Ru-Beacon 공식 마인크래프트 서버",
     discordGuildId: "",
     policyMode: "MONITOR",
     authChannelId: "112233445566778899",
@@ -59,7 +60,7 @@ export function OnboardingView({ tenantId, isOwner = true, onComplete }: Onboard
       if (res) {
         setConfig({
           tenantId: res.tenantId,
-          name: res.name || "루비콘 공식 마인크래프트 서버",
+          name: res.name || "Ru-Beacon 공식 마인크래프트 서버",
           discordGuildId: res.discordGuildId || "",
           policyMode: res.policyMode || "MONITOR",
           authChannelId: res.authChannelId || "112233445566778899",
@@ -254,7 +255,7 @@ ring_buffer_size: 4096
                 <Input
                   value={config.name}
                   onChange={(e) => setConfig({ ...config, name: e.target.value })}
-                  placeholder="루비콘 공식 마인크래프트 서버"
+                  placeholder="Ru-Beacon 공식 마인크래프트 서버"
                 />
               </div>
             </div>
@@ -391,12 +392,27 @@ ring_buffer_size: 4096
               </div>
 
               {!isOnline ? (
-                <div className="space-y-1">
-                  <div className="font-semibold text-sm text-foreground">하트비트 신호 대기 중</div>
-                  <p className="text-xs text-muted-foreground max-w-md mx-auto font-mono">
-                    게이트웨이(wss://api.rubeacon.com/ws/minecraft/v1)로부터 하트비트 신호를 수신 중입니다.
-                  </p>
-                  <div className="pt-2">
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <div className="font-semibold text-sm text-foreground">하트비트 신호 대기 중</div>
+                    <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                      마인크래프트 서버에서 보낸 첫 번째 연결 신호를 기다리고 있습니다.
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded border border-border/60 bg-card/60 text-left text-xs space-y-1.5 max-w-md mx-auto">
+                    <div className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
+                      <HelpCircle className="w-3.5 h-3.5 text-primary shrink-0" />
+                      연결 신호가 감지되지 않나요?
+                    </div>
+                    <ul className="list-disc list-inside text-muted-foreground space-y-1 text-[11px] leading-relaxed">
+                      <li>서버의 <code className="text-foreground font-mono font-semibold">plugins/</code> 폴더에 플러그인 JAR 파일이 있는지 확인하세요.</li>
+                      <li><code className="text-foreground font-mono font-semibold">plugins/RuBeacon/config.yml</code>에 발급받은 토큰이 올바르게 적혔는지 확인하세요.</li>
+                      <li>마인크래프트 서버 콘솔에서 <code className="text-foreground font-mono font-semibold">/rubeacon reload</code>를 실행하거나 서버를 재시작하세요.</li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-1">
                     <Button
                       variant="outline"
                       size="sm"
