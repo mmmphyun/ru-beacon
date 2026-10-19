@@ -249,16 +249,16 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
     switch (formState.actionType) {
       case "DISCORD_SEND_MESSAGE":
         return "Discord 알림 메시지 발송";
-      case "DISCORD_ADD_ROLE":
-        return `Discord 역할 부여 (ID: ${formState.actionParams?.roleId || "-"})`;
       case "MINECRAFT_DISPATCH_COMMAND":
         return "마인크래프트 서버 콘솔 명령어 실행";
-      case "ATTENDANCE_RESERVATION":
-        return `선착순 출석 예약 (정원: ${formState.actionParams?.totalLimit ?? 100}명)`;
+      case "COMMAND_AND_DISCORD":
+        return "마인크래프트 명령 실행 + Discord 알림";
+      case "ATTENDANCE_REWARD_PIPELINE":
+        return `선착순 출석 보상 파이프라인 (정원: ${formState.actionParams?.totalLimit ?? 100}명)`;
       default:
         return formState.actionType;
     }
-  }, [formState.actionType, formState.actionParams?.roleId, formState.actionParams?.totalLimit]);
+  }, [formState.actionType, formState.actionParams?.totalLimit]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -610,30 +610,14 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {[
                   { type: "DISCORD_SEND_MESSAGE", title: "Discord 메시지 전송", desc: "채널에 알림 메시지를 발송합니다." },
-                  { type: "DISCORD_ADD_ROLE", title: "Discord 역할 부여", desc: "사용자에게 역할을 자동 부여합니다." },
                   { type: "MINECRAFT_DISPATCH_COMMAND", title: "Minecraft 명령 실행", desc: "서버 콘솔 명령어를 실행합니다." },
-                  { type: "ATTENDANCE_RESERVATION", title: "선착순 출석 예약", desc: "정해진 인원수만큼만 선착순으로 접수합니다." },
+                  { type: "COMMAND_AND_DISCORD", title: "명령 실행 + Discord 알림", desc: "서버 명령 실행 후 디스코드 채널로 알림을 동시 전송합니다." },
+                  { type: "ATTENDANCE_REWARD_PIPELINE", title: "선착순 출석 보상 파이프라인", desc: "중복 체크, 선착순 정원 검증 후 인게임 보상과 디스코드 알림을 일괄 처리합니다." },
                 ].map((item) => {
                   const isSelected = formState.actionType === item.type;
                   return (
-                    <div
-                      key={item.type}
-                      onClick={() =>
-                        setFormState({
-                          ...formState,
-                          actionType: item.type as WizardFormState["actionType"],
-                        })
-                      }
-                      className={`cursor-pointer p-4 rounded-lg border transition-colors ${
-                        isSelected
-                          ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/40"
-                          : "border-border hover:border-border/80 bg-background/50 text-muted-foreground"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-sm text-foreground">{item.title}</span>
-                        {isSelected && <Check className="w-4 h-4 text-primary" />}
-                      </div>
+                    <div key={item.type} onClick={() => setFormState({ ...formState, actionType: item.type as WizardFormState["actionType"] })} className={`cursor-pointer p-4 rounded-lg border transition-colors ${isSelected ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary/40" : "border-border hover:border-border/80 bg-background/50 text-muted-foreground"}`}>
+                      <div className="flex items-center justify-between"><span className="font-semibold text-sm text-foreground">{item.title}</span>{isSelected && <Check className="w-4 h-4 text-primary" />}</div>
                       <div className="text-xs text-muted-foreground mt-1">{item.desc}</div>
                     </div>
                   );
@@ -679,23 +663,6 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
                   </>
                 )}
 
-                {formState.actionType === "DISCORD_ADD_ROLE" && (
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground">부여할 역할 ID</label>
-                    <Input
-                      value={formState.actionParams.roleId || ""}
-                      onChange={(e) =>
-                        setFormState({
-                          ...formState,
-                          actionParams: { ...formState.actionParams, roleId: e.target.value },
-                        })
-                      }
-                      placeholder="987654321012345678"
-                      className="mt-1.5 h-9 bg-background border-border text-foreground text-sm"
-                    />
-                  </div>
-                )}
-
                 {formState.actionType === "MINECRAFT_DISPATCH_COMMAND" && (
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">콘솔 실행 명령어</label>
@@ -713,24 +680,43 @@ export function WorkflowWizard({ tenantId, onWorkflowSaved }: WorkflowWizardProp
                   </div>
                 )}
 
-                {formState.actionType === "ATTENDANCE_RESERVATION" && (
-                  <div>
-                    <label className="text-xs font-semibold text-muted-foreground">일일 선착순 정원 (N명)</label>
-                    <Input
-                      type="number"
-                      value={formState.actionParams.totalLimit ?? 100}
-                      onChange={(e) =>
-                        setFormState({
-                          ...formState,
-                          actionParams: {
-                            ...formState.actionParams,
-                            totalLimit: parseInt(e.target.value, 10) || 0,
-                          },
-                        })
-                      }
-                      className="mt-1.5 h-9 bg-background border-border text-foreground text-sm"
-                    />
-                  </div>
+                {formState.actionType === "COMMAND_AND_DISCORD" && (
+                  <>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground">콘솔 실행 명령어</label>
+                      <Input value={formState.actionParams.command || ""} onChange={(e) => setFormState({ ...formState, actionParams: { ...formState.actionParams, command: e.target.value } })} placeholder="give {User_Nickname} diamond 1" className="mt-1.5 h-9 bg-background border-border text-foreground text-sm font-mono" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground">알림 전송 채널 ID</label>
+                      <Input value={formState.actionParams.channelId || ""} onChange={(e) => setFormState({ ...formState, actionParams: { ...formState.actionParams, channelId: e.target.value } })} placeholder="123456789012345678" className="mt-1.5 h-9 bg-background border-border text-foreground text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground">메시지 내용</label>
+                      <textarea value={formState.actionParams.message || ""} onChange={(e) => setFormState({ ...formState, actionParams: { ...formState.actionParams, message: e.target.value } })} rows={3} placeholder="축하합니다! {User_Nickname}님에게 다이아몬드가 지급되었습니다!" className="mt-1.5 w-full rounded-md border border-border bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                      <div className="text-xs text-muted-foreground mt-1">사용 가능 변수: {ALLOWED_VARIABLES.map((v) => `{${v}}`).join(", ")}</div>
+                    </div>
+                  </>
+                )}
+
+                {formState.actionType === "ATTENDANCE_REWARD_PIPELINE" && (
+                  <>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground">일일 선착순 정원 (N명)</label>
+                      <Input type="number" value={formState.actionParams.totalLimit ?? 100} onChange={(e) => setFormState({ ...formState, actionParams: { ...formState.actionParams, totalLimit: parseInt(e.target.value, 10) || 0 } })} className="mt-1.5 h-9 bg-background border-border text-foreground text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground">출석 완료 시 지급 명령어</label>
+                      <Input value={formState.actionParams.command || ""} onChange={(e) => setFormState({ ...formState, actionParams: { ...formState.actionParams, command: e.target.value } })} placeholder="give {User_Nickname} iron_ingot 5" className="mt-1.5 h-9 bg-background border-border text-foreground text-sm font-mono" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground">결과 안내 채널 ID (선택)</label>
+                      <Input value={formState.actionParams.channelId || ""} onChange={(e) => setFormState({ ...formState, actionParams: { ...formState.actionParams, channelId: e.target.value } })} placeholder="123456789012345678" className="mt-1.5 h-9 bg-background border-border text-foreground text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground">안내 메시지 내용 (선택)</label>
+                      <textarea value={formState.actionParams.message || ""} onChange={(e) => setFormState({ ...formState, actionParams: { ...formState.actionParams, message: e.target.value } })} rows={2} placeholder="{User_Nickname}님이 오늘 출석 체크를 완료했습니다!" className="mt-1.5 w-full rounded-md border border-border bg-background p-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                    </div>
+                  </>
                 )}
               </div>
             </div>

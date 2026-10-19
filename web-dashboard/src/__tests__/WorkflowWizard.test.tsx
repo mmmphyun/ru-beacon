@@ -214,4 +214,15 @@ describe("WorkflowWizard Component", () => {
       screen.getByText("요청 한도를 초과했습니다 (분당 2회, 일일 5회 제한). 잠시 후 다시 시도해주세요.")
     ).toBeDefined();
   });
+
+  it("3단계에서 복합 액션 및 출석체크 보상 파이프라인 옵션이 정상 렌더링되어야 한다", () => {
+    render(<WorkflowWizard tenantId="tenant_test" />);
+
+    // 1단계 -> 2단계 -> 3단계 이동
+    fireEvent.click(screen.getByText("다음"));
+    fireEvent.click(screen.getByText("다음"));
+
+    expect(screen.getByText("명령 실행 + Discord 알림")).toBeDefined();
+    expect(screen.getByText("선착순 출석 보상 파이프라인")).toBeDefined();
+  });
 });
