@@ -570,39 +570,7 @@ export function BeaconStage() {
                 />
               </g>
 
-              {/* 4. 수직 루비 비콘 광선 (심장박동에 맞춰 폭과 광도가 은은하게 맥동) */}
-              {tiers.beamScale > 0.01 && (
-                <g>
-                  <rect
-                    x={cx - beamHalfWidth}
-                    y={beaconTopY - 340 * tiers.beamScale}
-                    width={beamHalfWidth * 2}
-                    height={340 * tiers.beamScale}
-                    fill="url(#rubyBeamGrad)"
-                  />
-                  <line
-                    x1={cx}
-                    y1={beaconTopY}
-                    x2={cx}
-                    y2={beaconTopY - 360 * tiers.beamScale}
-                    stroke="url(#rubyCoreLine)"
-                    strokeWidth={1.5 + pulseBoost * 1.1}
-                  />
-                  {/* 심장박동 코어 파동 링 */}
-                  <ellipse
-                    cx={cx}
-                    cy={beaconTopY + UNIT * 0.4}
-                    rx={14 + pulseBoost * 24}
-                    ry={8 + pulseBoost * 13}
-                    fill="none"
-                    stroke="#F43F5E"
-                    strokeOpacity={Math.max(0, 0.55 - pulseBoost * 0.5)}
-                    strokeWidth="1"
-                  />
-                </g>
-              )}
-
-              {/* 5. 최상단 1x1 정육면체 루비 비콘 코어 블록 */}
+              {/* 4. 최상단 1x1 정육면체 루비 비콘 코어 블록 (광선의 발원체이므로 광선보다 먼저/뒤편에 입체 렌더링) */}
               <g>
                 <polygon
                   points={sBeacon.leftFace}
@@ -627,6 +595,27 @@ export function BeaconStage() {
                   fill="none"
                 />
               </g>
+
+              {/* 5. 비콘 블록 상단 면에서 뿜어져 나오는 수직 루비 비콘 광선 */}
+              {tiers.beamScale > 0.01 && (
+                <g>
+                  <rect
+                    x={cx - beamHalfWidth}
+                    y={beaconTopY - 340 * tiers.beamScale}
+                    width={beamHalfWidth * 2}
+                    height={340 * tiers.beamScale}
+                    fill="url(#rubyBeamGrad)"
+                  />
+                  <line
+                    x1={cx}
+                    y1={beaconTopY}
+                    x2={cx}
+                    y2={beaconTopY - 360 * tiers.beamScale}
+                    stroke="url(#rubyCoreLine)"
+                    strokeWidth={1.5 + pulseBoost * 1.1}
+                  />
+                </g>
+              )}
             </svg>
           </div>
         </div>
