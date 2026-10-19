@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { TenantConfig, InstanceItem } from "@/types/workflow";
-import { saveOnboarding, issueInstanceToken, fetchTenantDetail } from "@/lib/api";
+import { saveOnboarding, issueInstanceToken, fetchTenantDetail, fetchUserProfile, IS_DEV_MOCK } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,19 +22,26 @@ import {
   HelpCircle,
 } from "lucide-react";
 
+interface TenantConfigWithAdmin extends TenantConfig {
+  adminRoleId?: string;
+}
+
 interface OnboardingViewProps {
   tenantId: string;
   isOwner?: boolean;
+  ownedGuilds?: { id: string; name: string }[];
   onComplete?: () => void;
 }
 
-export function OnboardingView({ tenantId, isOwner = true, onComplete }: OnboardingViewProps) {
+export function OnboardingView({ tenantId, isOwner = true, ownedGuilds, onComplete }: OnboardingViewProps) {
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+  const [guildsList, setGuildsList] = useState<{ id: string; name: string }[]>(ownedGuilds || []);
 
-  const [config, setConfig] = useState<TenantConfig>({
+  const [config, setConfig] = useState<TenantConfigWithAdmin>({
     tenantId,
     name: "Ru-Beacon 공식 마인크래프트 서버",
     discordGuildId: "",
+    adminRoleId: "",
     policyMode: "MONITOR",
     authChannelId: "112233445566778899",
   });
@@ -56,15 +63,28 @@ export function OnboardingView({ tenantId, isOwner = true, onComplete }: Onboard
     : "#";
 
   useEffect(() => {
+    if (ownedGuilds && ownedGuilds.length > 0) {
+      setGuildsList(ownedGuilds);
+    } else {
+      fetchUserProfile().then((u) => {
+        if (u?.ownedGuilds && u.ownedGuilds.length > 0) {
+          setGuildsList(u.ownedGuilds);
+        }
+      });
+    }
+  }, [ownedGuilds]);
+
+  useEffect(() => {
     fetchTenantDetail(tenantId).then((res) => {
       if (res) {
-        setConfig({
+        setConfig((prev) => ({
+          ...prev,
           tenantId: res.tenantId,
-          name: res.name || "Ru-Beacon 공식 마인크래프트 서버",
-          discordGuildId: res.discordGuildId || "",
-          policyMode: res.policyMode || "MONITOR",
-          authChannelId: res.authChannelId || "112233445566778899",
-        });
+          name: res.name || prev.name,
+          discordGuildId: res.discordGuildId || prev.discordGuildId,
+          policyMode: res.policyMode || prev.policyMode,
+          authChannelId: res.authChannelId || prev.authChannelId,
+        }));
         if (res.instances && res.instances.length > 0) {
           const firstInst = res.instances[0];
           setNewInstanceId(firstInst.id);
@@ -241,6 +261,40 @@ ring_buffer_size: 4096
               </a>
             </div>
 
+            {guildsList.length > 0 && (
+              <div className="space-y-1.5 p-3 rounded border border-border/80 bg-surface/50">
+                <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                  <span>소유한 Discord 서버 빠른 선택</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">자동 완성</span>
+                </label>
+                <select
+                  aria-label="소유한 Discord 서버 선택"
+                  className="w-full text-xs rounded border border-input bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary h-9"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const selected = guildsList.find((g) => g.id === e.target.value);
+                    if (selected) {
+                      setConfig((prev) => ({
+                        ...prev,
+                        discordGuildId: selected.id,
+                        name: selected.name,
+                        tenantId: `tenant_${selected.id.slice(-6)}`,
+                      }));
+                    }
+                  }}
+                >
+                  <option value="" disabled>
+                    연동할 Discord 서버를 선택하세요
+                  </option>
+                  {guildsList.map((guild) => (
+                    <option key={guild.id} value={guild.id}>
+                      {guild.name} ({guild.id})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">서버 고유 식별자(길드 ID)</label>
@@ -257,6 +311,34 @@ ring_buffer_size: 4096
                   onChange={(e) => setConfig({ ...config, name: e.target.value })}
                   placeholder="Ru-Beacon 공식 마인크래프트 서버"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">관리자 역할 ID (adminRoleId)</label>
+                <Input
+                  value={config.adminRoleId || ""}
+                  onChange={(e) => setConfig({ ...config, adminRoleId: e.target.value })}
+                  placeholder="Discord 관리자 역할 ID (선택)"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-foreground">2FA 보안 정책 모드</label>
+                <select
+                  aria-label="2FA 보안 정책 모드"
+                  value={config.policyMode}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      policyMode: e.target.value as "MONITOR" | "ENFORCE",
+                    })
+                  }
+                  className="w-full text-xs rounded border border-input bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-1 focus:ring-primary h-9"
+                >
+                  <option value="MONITOR">MONITOR (감시 및 알림 전용)</option>
+                  <option value="ENFORCE">ENFORCE (2FA 미인증 시 차단)</option>
+                </select>
               </div>
             </div>
           </CardContent>
@@ -412,16 +494,18 @@ ring_buffer_size: 4096
                     </ul>
                   </div>
 
-                  <div className="pt-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={simulatePing}
-                      className="h-7 text-[11px] border-border hover:bg-card text-muted-foreground font-mono"
-                    >
-                      테스트 핑 수신 시뮬레이션
-                    </Button>
-                  </div>
+                  {IS_DEV_MOCK && (
+                    <div className="pt-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={simulatePing}
+                        className="h-7 text-[11px] border-border hover:bg-card text-muted-foreground font-mono"
+                      >
+                        테스트 핑 수신 시뮬레이션
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2">

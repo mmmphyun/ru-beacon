@@ -16,6 +16,15 @@ vi.mock("@/lib/api", () => ({
     instanceId: "inst_test_01",
     token: "mock_jwt_token_12345",
   }),
+  fetchUserProfile: vi.fn().mockResolvedValue({
+    discordUserId: "user_test",
+    username: "TestUser",
+    avatar: null,
+    isPlatformSuperAdmin: false,
+    tenants: [],
+    ownedGuilds: [],
+  }),
+  IS_DEV_MOCK: true,
 }));
 
 describe("OnboardingView 3-Step Wizard", () => {
@@ -77,5 +86,28 @@ describe("OnboardingView 3-Step Wizard", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /대시보드로 이동하기/ }));
     expect(onCompleteMock).toHaveBeenCalled();
+  });
+
+  it("ownedGuilds가 전달되면 길드 선택 드롭다운이 표시되고 선택 시 자동 완성되어야 한다", async () => {
+    const ownedGuilds = [
+      { id: "guild_auto_111", name: "내 야생 서버" },
+      { id: "guild_auto_222", name: "내 미니게임 서버" },
+    ];
+
+    render(<OnboardingView tenantId="test_tenant" ownedGuilds={ownedGuilds} />);
+
+    expect(screen.getByText("소유한 Discord 서버 빠른 선택")).toBeDefined();
+    const select = screen.getByLabelText("소유한 Discord 서버 선택");
+    expect(select).toBeDefined();
+
+    fireEvent.change(select, { target: { value: "guild_auto_111" } });
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("guild_auto_111")).toBeDefined();
+      expect(screen.getByDisplayValue("내 야생 서버")).toBeDefined();
+    });
+
+    expect(screen.getByPlaceholderText("Discord 관리자 역할 ID (선택)")).toBeDefined();
+    expect(screen.getByLabelText("2FA 보안 정책 모드")).toBeDefined();
   });
 });
