@@ -61,6 +61,11 @@
   --radius: 6px;
 }
 
+html {
+  scroll-behavior: smooth;
+  scroll-snap-type: y proximity;
+}
+
 body {
   color: hsl(var(--foreground));
   background-color: hsl(var(--background));

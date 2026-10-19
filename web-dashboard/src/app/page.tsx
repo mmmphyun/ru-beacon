@@ -10,6 +10,7 @@ import { UserProfile } from "@/types/workflow";
 import { BeaconStage, useLatestRelease } from "@/components/landing/BeaconStage";
 import { ArrowRight, Download } from "lucide-react";
 import { RuBeaconLogo } from "@/components/brand/RuBeaconLogo";
+import { LANDING_COPY_KO } from "@/content/landing-copy";
 
 const COS30 = Math.cos(Math.PI / 6);
 const SIN30 = Math.sin(Math.PI / 6);
@@ -396,7 +397,7 @@ export default function LandingPage() {
   return (
     <div
       ref={pageRef}
-      className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground font-sans break-keep scroll-smooth [scroll-snap-type:y_proximity]"
+      className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground font-sans break-keep"
     >
       {/* 상단 고정 헤더: 실선 경계 제거 + 부드러운 페이드 글래스모피즘 그라데이션 */}
       <header className="sticky top-0 z-50 bg-gradient-to-b from-background/95 via-background/70 to-transparent backdrop-blur-md transition-colors">
@@ -420,30 +421,15 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-6">
             <nav className="hidden sm:flex items-center gap-6">
-              <Link
-                href="#pipeline"
-                className="relative py-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-200 after:origin-center"
-              >
-                작동 방식
-              </Link>
-              <Link
-                href="#architecture"
-                className="relative py-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-200 after:origin-center"
-              >
-                핵심 기술
-              </Link>
-              <Link
-                href="#comparison"
-                className="relative py-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-200 after:origin-center"
-              >
-                성능 비교
-              </Link>
-              <Link
-                href="#setup"
-                className="relative py-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-200 after:origin-center"
-              >
-                시작하기
-              </Link>
+              {LANDING_COPY_KO.header.nav.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="relative py-1 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-primary after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-200 after:origin-center"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </nav>
 
             <div className="flex items-center gap-3">
@@ -453,7 +439,7 @@ export default function LandingPage() {
                   size="sm"
                   className="h-9 px-4 text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-1.5 shadow-sm transition-all"
                 >
-                  {user ? "대시보드 이동" : "콘솔 시작하기"}
+                  {user ? LANDING_COPY_KO.header.ctaConsole : LANDING_COPY_KO.header.ctaStart}
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Button>
               </Link>
@@ -487,15 +473,15 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center my-auto">
           <div className="lg:col-span-7 space-y-6" data-animate-item>
             <div className="text-xs sm:text-sm font-medium tracking-[0.18em] text-primary uppercase">
-              초저지연 마인크래프트-디스코드 브릿지
+              {LANDING_COPY_KO.hero.category}
             </div>
 
             <h1 className="text-3xl sm:text-5xl md:text-[3.5rem] font-bold tracking-tight text-foreground leading-[1.15] text-balance">
-              서버 TPS 저하 없는 마인크래프트-디스코드 실시간 연동
+              {LANDING_COPY_KO.hero.headline}
             </h1>
 
             <p className="text-base sm:text-lg font-normal text-muted-foreground leading-relaxed max-w-xl">
-              서버에 이벤트가 몰려도 렉이 걸리지 않습니다. 게임 속 사건을 디스코드 알림과 역할에 곧바로 반영합니다.
+              {LANDING_COPY_KO.hero.description}
             </p>
 
             <div className="pt-3 flex flex-wrap items-center gap-3">
@@ -504,7 +490,7 @@ export default function LandingPage() {
                   size="lg"
                   className="h-11 px-6 text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
                 >
-                  Ru-Beacon 콘솔 시작하기
+                  {LANDING_COPY_KO.hero.ctaPrimary}
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
@@ -515,7 +501,7 @@ export default function LandingPage() {
                   className="h-11 px-6 text-xs sm:text-sm border-border hover:bg-muted/40 transition-colors gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  플러그인 다운로드 ({release.tagName})
+                  {LANDING_COPY_KO.hero.ctaSecondary} ({release.tagName})
                 </Button>
               </a>
             </div>
@@ -574,49 +560,43 @@ export default function LandingPage() {
             <div className="mt-3 flex items-center gap-6 text-xs sm:text-sm font-normal tracking-[0.14em] text-muted-foreground">
               <span className="flex items-center gap-2">
                 <span className="w-3 h-[2px] bg-primary inline-block" />
-                20.0 TPS 수평 유지
+                {LANDING_COPY_KO.hero.waveLegends.tpsStable}
               </span>
               <span className="flex items-center gap-2">
                 <span
                   className="w-3 h-[1.5px] inline-block"
                   style={{ backgroundColor: "hsl(var(--sand))" }}
                 />
-                인게임 이벤트 폭증 파형
+                {LANDING_COPY_KO.hero.waveLegends.eventSurge}
               </span>
             </div>
           </div>
         </div>
 
-        {/* 하단: 3대 실측 지표 (라벨 크기 상향) */}
+        {/* 하단: 3대 실측 지표 */}
         <div className="relative z-10 max-w-6xl mx-auto w-full pt-8 pb-10 border-t border-border/60 grid grid-cols-3 gap-6">
-          <div data-animate-item>
-            <div className="font-mono tabular-nums font-bold text-2xl sm:text-4xl text-primary tracking-tight">
-              0.00ms
+          {LANDING_COPY_KO.hero.metrics.map((metric, idx) => (
+            <div
+              key={metric.label}
+              data-animate-item
+              className={idx === 1 ? "text-center" : idx === 2 ? "text-right" : undefined}
+            >
+              <div
+                className={`font-mono tabular-nums font-bold text-2xl sm:text-4xl tracking-tight ${
+                  idx === 0 ? "text-primary" : "text-foreground"
+                }`}
+              >
+                {metric.value}
+              </div>
+              <div className="mt-1.5 text-xs sm:text-sm font-normal tracking-[0.12em] text-muted-foreground">
+                {metric.label}
+              </div>
             </div>
-            <div className="mt-1.5 text-xs sm:text-sm font-normal tracking-[0.12em] text-muted-foreground">
-              메인 틱 점유
-            </div>
-          </div>
-          <div data-animate-item className="text-center">
-            <div className="font-mono tabular-nums font-bold text-2xl sm:text-4xl text-foreground tracking-tight">
-              0.08ms
-            </div>
-            <div className="mt-1.5 text-xs sm:text-sm font-normal tracking-[0.12em] text-muted-foreground">
-              링버퍼 큐잉
-            </div>
-          </div>
-          <div data-animate-item className="text-right">
-            <div className="font-mono tabular-nums font-bold text-2xl sm:text-4xl text-foreground tracking-tight">
-              40ms
-            </div>
-            <div className="mt-1.5 text-xs sm:text-sm font-normal tracking-[0.12em] text-muted-foreground">
-              디스코드 도달
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* 뷰포트 2: 우측 정렬 헤더 + 4가지 3D 도형 궤적 + 중앙 루비-샌드 오로라 그라디언트 */}
+      {/* 뷰포트 2: 우측 정렬 헤더 + 4가지 3D 도형 궤적 */}
       <section
         id="pipeline"
         data-viewport-section
@@ -634,10 +614,10 @@ export default function LandingPage() {
         <div className="relative z-10 max-w-6xl mx-auto w-full space-y-12 md:space-y-16">
           <div className="ml-auto text-left md:text-right max-w-xl space-y-2.5" data-animate-item>
             <div className="text-xs sm:text-sm font-medium tracking-[0.18em] text-primary uppercase">
-              Signal Trajectory
+              {LANDING_COPY_KO.pipeline.tag}
             </div>
             <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
-              이벤트가 처리되는 실제 런타임 경로
+              {LANDING_COPY_KO.pipeline.title}
             </h2>
           </div>
 
@@ -721,39 +701,29 @@ export default function LandingPage() {
             </svg>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-4">
-              <div data-animate-item className="space-y-1.5">
-                <div className="font-mono text-xs sm:text-sm text-primary font-semibold">
-                  01 // 0.00ms (완전 비동기)
+              {LANDING_COPY_KO.pipeline.steps.map((st, idx) => (
+                <div
+                  key={st.step}
+                  data-animate-item
+                  className={`space-y-1.5 ${
+                    idx === 1 ? "md:pt-8" : idx === 3 ? "md:pt-8 md:text-right" : ""
+                  }`}
+                >
+                  <div
+                    className={`font-mono text-xs sm:text-sm font-semibold ${
+                      idx === 0
+                        ? "text-primary"
+                        : idx === 3
+                        ? "text-emerald-500"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {st.step} // {st.metric}
+                  </div>
+                  <h3 className="font-semibold text-base sm:text-lg text-foreground">{st.title}</h3>
+                  <p className="text-sm font-normal text-muted-foreground">{st.desc}</p>
                 </div>
-                <h3 className="font-semibold text-base sm:text-lg text-foreground">마인크래프트 서버</h3>
-                <p className="text-sm font-normal text-muted-foreground">
-                  메인 틱 중단 없이 사건 즉시 분리
-                </p>
-              </div>
-
-              <div data-animate-item className="space-y-1.5 md:pt-8">
-                <div className="font-mono text-xs sm:text-sm text-muted-foreground">02 // 0.08ms Queue</div>
-                <h3 className="font-semibold text-base sm:text-lg text-foreground">LMAX Disruptor</h3>
-                <p className="text-sm font-normal text-muted-foreground">
-                  수만 건의 이벤트를 무잠금 정렬
-                </p>
-              </div>
-
-              <div data-animate-item className="space-y-1.5">
-                <div className="font-mono text-xs sm:text-sm text-muted-foreground">03 // Single-Hop</div>
-                <h3 className="font-semibold text-base sm:text-lg text-foreground">WSS 게이트웨이 & Redis</h3>
-                <p className="text-sm font-normal text-muted-foreground">
-                  상시 열린 웹소켓 통로로 직결 전송
-                </p>
-              </div>
-
-              <div data-animate-item className="space-y-1.5 md:pt-8 md:text-right">
-                <div className="font-mono text-xs sm:text-sm text-emerald-500 font-semibold">04 // 42ms Ack</div>
-                <h3 className="font-semibold text-base sm:text-lg text-foreground">디스코드 봇 서비스</h3>
-                <p className="text-sm font-normal text-muted-foreground">
-                  채널 알림 및 유저 역할 즉시 반영
-                </p>
-              </div>
+              ))}
             </div>
           </div>
         </div>
@@ -778,10 +748,10 @@ export default function LandingPage() {
           <div className="lg:col-span-6 flex flex-col items-center lg:items-start" data-animate-model>
             <div className="space-y-2.5 mb-6" data-animate-item>
               <div className="text-xs sm:text-sm font-medium tracking-[0.18em] text-primary uppercase">
-                Core Engine
+                {LANDING_COPY_KO.architecture.tag}
               </div>
               <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
-                초저지연 비동기 인프라 명세
+                {LANDING_COPY_KO.architecture.title}
               </h2>
             </div>
 
@@ -844,41 +814,19 @@ export default function LandingPage() {
           </div>
 
           <div className="lg:col-span-6 divide-y divide-border/70 border-y border-border/70">
-            <div data-animate-item className="py-7 space-y-2">
-              <div className="text-xs sm:text-sm font-medium tracking-[0.16em] text-primary uppercase">
-                01 / Direct Socket
+            {LANDING_COPY_KO.architecture.items.map((item, idx) => (
+              <div
+                key={item.tag}
+                data-animate-item
+                className={`py-7 space-y-2 ${idx === 1 ? "lg:pl-8" : idx === 2 ? "lg:pl-16" : ""}`}
+              >
+                <div className="text-xs sm:text-sm font-medium tracking-[0.16em] text-primary uppercase">
+                  {item.tag}
+                </div>
+                <h3 className="font-semibold text-lg sm:text-xl text-foreground">{item.title}</h3>
+                <p className="text-sm sm:text-base font-normal text-muted-foreground">{item.desc}</p>
               </div>
-              <h3 className="font-semibold text-lg sm:text-xl text-foreground">
-                WSS 단일 계층 게이트웨이
-              </h3>
-              <p className="text-sm sm:text-base font-normal text-muted-foreground">
-                중계 서버 없이 플러그인과 관제 서버가 직접 연결됩니다.
-              </p>
-            </div>
-
-            <div data-animate-item className="py-7 space-y-2 lg:pl-8">
-              <div className="text-xs sm:text-sm font-medium tracking-[0.16em] text-primary uppercase">
-                02 / Lock-Free Ring
-              </div>
-              <h3 className="font-semibold text-lg sm:text-xl text-foreground">
-                LMAX Disruptor 인메모리 링버퍼
-              </h3>
-              <p className="text-sm sm:text-base font-normal text-muted-foreground">
-                대규모 전투·채굴 이벤트도 대기 시간 없이 메모리에서 즉시 소화합니다.
-              </p>
-            </div>
-
-            <div data-animate-item className="py-7 space-y-2 lg:pl-16">
-              <div className="text-xs sm:text-sm font-medium tracking-[0.16em] text-primary uppercase">
-                03 / Instant Role Sync
-              </div>
-              <h3 className="font-semibold text-lg sm:text-xl text-foreground">
-                디스코드 권한 실시간 동기화
-              </h3>
-              <p className="text-sm sm:text-base font-normal text-muted-foreground">
-                인게임 달성 조건을 감지하는 즉시 디스코드 역할과 칭호를 바꿉니다.
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
@@ -981,13 +929,13 @@ export default function LandingPage() {
           <div className="space-y-6">
             <div className="text-center space-y-2" data-animate-item>
               <div className="text-xs sm:text-sm font-medium tracking-[0.18em] text-primary uppercase">
-                Benchmark Contrast
+                {LANDING_COPY_KO.comparison.tag}
               </div>
               <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-foreground">
-                기존 연동 방식과의 기술적 격차
+                {LANDING_COPY_KO.comparison.title}
               </h2>
               <p className="text-sm font-normal text-muted-foreground">
-                마인크래프트 메인 틱 점유 시간
+                {LANDING_COPY_KO.comparison.subtitle}
               </p>
             </div>
 
@@ -998,7 +946,9 @@ export default function LandingPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="font-semibold text-foreground">RuBeacon</span>
-                  <span className="font-mono font-bold text-primary">0.00ms (완전 비동기)</span>
+                  <span className="font-mono font-bold text-primary">
+                    {LANDING_COPY_KO.comparison.rubeaconSpeed}
+                  </span>
                 </div>
                 <div className="w-full h-2 bg-muted/70 overflow-hidden">
                   <div
@@ -1010,8 +960,8 @@ export default function LandingPage() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-                  <span className="font-normal">기존 웹훅 플러그인</span>
-                  <span className="font-mono">15 - 50ms (동기 블로킹 렉 유발)</span>
+                  <span className="font-normal">{LANDING_COPY_KO.comparison.legacyTitle}</span>
+                  <span className="font-mono">{LANDING_COPY_KO.comparison.legacySpeed}</span>
                 </div>
                 <div className="w-full h-2 bg-muted/70 overflow-hidden">
                   <div
@@ -1027,32 +977,24 @@ export default function LandingPage() {
           <div id="setup" className="space-y-5">
             <div className="text-center" data-animate-item>
               <span className="text-xs sm:text-sm font-medium tracking-[0.18em] text-muted-foreground uppercase">
-                빠른 3단계 연동 안내
+                {LANDING_COPY_KO.comparison.setupGuideTag}
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-              <div data-animate-item className="space-y-1.5 pt-4 border-t border-border/60">
-                <div className="font-mono text-xs sm:text-sm text-primary font-bold">01</div>
-                <h3 className="font-semibold text-base text-foreground">디스코드 봇 초대</h3>
-                <p className="text-sm font-normal text-muted-foreground">전용 봇을 서버에 추가</p>
-              </div>
-              <div data-animate-item className="space-y-1.5 pt-4 border-t border-border/60">
-                <div className="font-mono text-xs sm:text-sm text-primary font-bold">02</div>
-                <h3 className="font-semibold text-base text-foreground">인스턴스 토큰 발급</h3>
-                <p className="text-sm font-normal text-muted-foreground">플러그인 설정에 토큰 등록</p>
-              </div>
-              <div data-animate-item className="space-y-1.5 pt-4 border-t border-border/60">
-                <div className="font-mono text-xs sm:text-sm text-primary font-bold">03</div>
-                <h3 className="font-semibold text-base text-foreground">실시간 하트비트 확인</h3>
-                <p className="text-sm font-normal text-muted-foreground">서버 가동 즉시 온라인 연결</p>
-              </div>
+              {LANDING_COPY_KO.comparison.setupSteps.map((stp) => (
+                <div key={stp.num} data-animate-item className="space-y-1.5 pt-4 border-t border-border/60">
+                  <div className="font-mono text-xs sm:text-sm text-primary font-bold">{stp.num}</div>
+                  <h3 className="font-semibold text-base text-foreground">{stp.title}</h3>
+                  <p className="text-sm font-normal text-muted-foreground">{stp.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
 
           <div data-animate-item className="text-center space-y-5 pt-2">
             <h3 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-              서버 렉 없는 디스코드 커뮤니티, 지금 즉시 연결하세요.
+              {LANDING_COPY_KO.comparison.ctaHeadline}
             </h3>
 
             <div className="flex flex-wrap items-center justify-center gap-3">
@@ -1063,7 +1005,7 @@ export default function LandingPage() {
                   className="h-11 px-6 text-xs sm:text-sm border-border hover:bg-muted/40 font-medium gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  플러그인 JAR 다운로드 ({release.tagName})
+                  {LANDING_COPY_KO.comparison.ctaPluginDownload} ({release.tagName})
                 </Button>
               </a>
               <Link href="/app">
@@ -1071,7 +1013,7 @@ export default function LandingPage() {
                   size="lg"
                   className="h-11 px-7 text-xs sm:text-sm bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-2"
                 >
-                  루비콘 콘솔 열기
+                  {LANDING_COPY_KO.comparison.ctaStart}
                   <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
@@ -1083,15 +1025,11 @@ export default function LandingPage() {
         <footer className="relative z-10 max-w-6xl mx-auto w-full pt-8 pb-6 border-t border-border/50 text-xs font-normal tracking-wider text-muted-foreground flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>RUBEACON &copy; 2026</div>
           <div className="flex gap-6">
-            <Link href="#pipeline" className="hover:text-foreground transition-colors">
-              작동 방식
-            </Link>
-            <Link href="#architecture" className="hover:text-foreground transition-colors">
-              핵심 기술
-            </Link>
-            <Link href="#comparison" className="hover:text-foreground transition-colors">
-              성능 비교
-            </Link>
+            {LANDING_COPY_KO.header.nav.map((item) => (
+              <Link key={item.href} href={item.href} className="hover:text-foreground transition-colors">
+                {item.label}
+              </Link>
+            ))}
             <Link href="/admin" className="hover:text-foreground transition-colors">
               관리 콘솔
             </Link>
