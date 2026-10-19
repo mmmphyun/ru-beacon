@@ -118,28 +118,63 @@ function buildWireCube(size: number, angleDeg: number, cx: number, cy: number) {
 }
 
 /**
- * 뷰포트 2 노드 02: LMAX Disruptor 상징 소형 3D 동심원 링(Ring)
+ * 뷰포트 2 노드 02: LMAX Disruptor 상징 12슬롯 무잠금 회전 링버퍼 트랙(RingBuffer Dial)
  */
-function buildMiniRing(radius: number, angleDeg: number, cx: number, cy: number) {
-  const segs = 8;
-  const inner = radius * 0.52;
-  const lines: string[] = [];
-  for (let i = 0; i < segs; i++) {
-    const a1 = (i / segs) * Math.PI * 2;
-    const a2 = ((i + 1) / segs) * Math.PI * 2;
-    const o1 = isoPoint(Math.cos(a1) * radius, 0, Math.sin(a1) * radius, angleDeg, cx, cy);
-    const o2 = isoPoint(Math.cos(a2) * radius, 0, Math.sin(a2) * radius, angleDeg, cx, cy);
-    const i1 = isoPoint(Math.cos(a1) * inner, 0, Math.sin(a1) * inner, angleDeg, cx, cy);
-    const i2 = isoPoint(Math.cos(a2) * inner, 0, Math.sin(a2) * inner, angleDeg, cx, cy);
-    lines.push(`M${o1[0].toFixed(1)},${o1[1].toFixed(1)} L${o2[0].toFixed(1)},${o2[1].toFixed(1)}`);
-    lines.push(`M${i1[0].toFixed(1)},${i1[1].toFixed(1)} L${i2[0].toFixed(1)},${i2[1].toFixed(1)}`);
-    lines.push(`M${o1[0].toFixed(1)},${o1[1].toFixed(1)} L${i1[0].toFixed(1)},${i1[1].toFixed(1)}`);
+function buildDisruptorDial(radius: number, innerRadius: number, slots: number, angleDeg: number, cx: number, cy: number) {
+  const outerLines: string[] = [];
+  const slotLines: string[] = [];
+  const radOffset = (angleDeg * Math.PI) / 180;
+  for (let i = 0; i < slots; i++) {
+    const a1 = radOffset + (i / slots) * Math.PI * 2;
+    const a2 = radOffset + ((i + 1) / slots) * Math.PI * 2;
+    const o1x = cx + Math.cos(a1) * radius;
+    const o1y = cy + Math.sin(a1) * (radius * 0.58);
+    const o2x = cx + Math.cos(a2) * radius;
+    const o2y = cy + Math.sin(a2) * (radius * 0.58);
+    const i1x = cx + Math.cos(a1) * innerRadius;
+    const i1y = cy + Math.sin(a1) * (innerRadius * 0.58);
+    const i2x = cx + Math.cos(a2) * innerRadius;
+    const i2y = cy + Math.sin(a2) * (innerRadius * 0.58);
+    outerLines.push(`M${o1x.toFixed(1)},${o1y.toFixed(1)} L${o2x.toFixed(1)},${o2y.toFixed(1)}`);
+    outerLines.push(`M${i1x.toFixed(1)},${i1y.toFixed(1)} L${i2x.toFixed(1)},${i2y.toFixed(1)}`);
+    slotLines.push(`M${o1x.toFixed(1)},${o1y.toFixed(1)} L${i1x.toFixed(1)},${i1y.toFixed(1)}`);
   }
-  return lines.join(" ");
+  const activeA = radOffset;
+  const activeDot = [
+    cx + Math.cos(activeA) * ((radius + innerRadius) / 2),
+    cy + Math.sin(activeA) * (((radius + innerRadius) / 2) * 0.58),
+  ] as const;
+  return {
+    rings: outerLines.join(" "),
+    slots: slotLines.join(" "),
+    dot: activeDot,
+  };
 }
 
 /**
- * 뷰포트 2 노드 03: WSS 게이트웨이 상징 3D 팔면체 다이아몬드(Octahedron)
+ * 뷰포트 2 노드 03: WSS 게이트웨이 & Redis 인메모리 3단 캐시 스택
+ */
+function buildCacheStack(cx: number, cy: number) {
+  const layers = [
+    { y: cy + 12 },
+    { y: cy },
+    { y: cy - 12 },
+  ];
+  const paths: string[] = [];
+  layers.forEach((l) => {
+    paths.push(
+      `M ${cx - 26},${l.y} L ${cx},${l.y - 9} L ${cx + 26},${l.y} L ${cx},${l.y + 9} Z`
+    );
+    paths.push(
+      `M ${cx - 26},${l.y} L ${cx - 26},${l.y + 5} L ${cx},${l.y + 14} L ${cx + 26},${l.y + 5} L ${cx + 26},${l.y}`
+    );
+    paths.push(`M ${cx},${l.y + 9} L ${cx},${l.y + 14}`);
+  });
+  return paths.join(" ");
+}
+
+/**
+ * 3D 팔면체 다이아몬드(Octahedron)
  */
 function buildWireOctahedron(radius: number, angleDeg: number, cx: number, cy: number) {
   const topApex = isoPoint(0, radius * 1.15, 0, angleDeg, cx, cy);
@@ -162,48 +197,37 @@ function buildWireOctahedron(radius: number, angleDeg: number, cx: number, cy: n
 }
 
 /**
- * 뷰포트 3 전용: LMAX Disruptor 12슬롯 대형 3D 링버퍼 토러스 모델
+ * 뷰포트 3: 2-Tier 메인 틱 분리 아키텍처 모델 (상단: 20.0 TPS 메인 루프, 하단: 비동기 링버퍼 파이프라인, 수직 패킷 분기)
  */
-function buildWireRingBuffer(angleDeg: number, cx: number, cy: number) {
-  const segments = 12;
-  const outerR = 115;
-  const innerR = 62;
-  const height = 28;
-  const lines: string[] = [];
+function buildParallelArchitecture(phaseRad: number) {
+  // 상단 평면 (Minecraft Main Server Tick - 20.0 TPS 안정 구역)
+  const topLayer = "M 40,85 L 220,35 L 420,85 L 240,135 Z";
+  // 하단 평면 (RuBeacon Async Disruptor & WSS Pipeline - 무잠금 비동기 구역)
+  const botLayer = "M 40,215 L 220,165 L 420,215 L 240,265 Z";
+  
+  // 수직 분기 가이드라인 (메인 틱과 비동기 파이프라인 간의 데이터 단방향 낙하 격리)
+  const dropLanes = [
+    { x: 120, y1: 102, y2: 232 },
+    { x: 230, y1: 132, y2: 262 },
+    { x: 340, y1: 102, y2: 232 },
+  ];
 
-  for (let i = 0; i < segments; i++) {
-    const a1 = (i / segments) * Math.PI * 2;
-    const a2 = ((i + 1) / segments) * Math.PI * 2;
+  // 실시간 하강하는 3개 패킷 좌표 (phaseRad 기반 수직 왕복 이동)
+  const packetProgress = (Math.sin(phaseRad * 2) * 0.5 + 0.5);
+  const packets = dropLanes.map((lane, idx) => {
+    const offsetProg = (packetProgress + idx * 0.33) % 1;
+    return {
+      x: lane.x,
+      y: lane.y1 + (lane.y2 - lane.y1) * offsetProg,
+    };
+  });
 
-    const ox1 = Math.cos(a1) * outerR;
-    const oz1 = Math.sin(a1) * outerR;
-    const ox2 = Math.cos(a2) * outerR;
-    const oz2 = Math.sin(a2) * outerR;
-
-    const ix1 = Math.cos(a1) * innerR;
-    const iz1 = Math.sin(a1) * innerR;
-    const ix2 = Math.cos(a2) * innerR;
-    const iz2 = Math.sin(a2) * innerR;
-
-    const oTop1 = isoPoint(ox1, height / 2, oz1, angleDeg, cx, cy);
-    const oTop2 = isoPoint(ox2, height / 2, oz2, angleDeg, cx, cy);
-    const oBot1 = isoPoint(ox1, -height / 2, oz1, angleDeg, cx, cy);
-    const oBot2 = isoPoint(ox2, -height / 2, oz2, angleDeg, cx, cy);
-
-    const iTop1 = isoPoint(ix1, height / 2, iz1, angleDeg, cx, cy);
-    const iTop2 = isoPoint(ix2, height / 2, iz2, angleDeg, cx, cy);
-    const iBot1 = isoPoint(ix1, -height / 2, iz1, angleDeg, cx, cy);
-
-    lines.push(`M${oTop1[0].toFixed(1)},${oTop1[1].toFixed(1)} L${oTop2[0].toFixed(1)},${oTop2[1].toFixed(1)}`);
-    lines.push(`M${oBot1[0].toFixed(1)},${oBot1[1].toFixed(1)} L${oBot2[0].toFixed(1)},${oBot2[1].toFixed(1)}`);
-    lines.push(`M${oTop1[0].toFixed(1)},${oTop1[1].toFixed(1)} L${oBot1[0].toFixed(1)},${oBot1[1].toFixed(1)}`);
-
-    lines.push(`M${iTop1[0].toFixed(1)},${iTop1[1].toFixed(1)} L${iTop2[0].toFixed(1)},${iTop2[1].toFixed(1)}`);
-    lines.push(`M${oTop1[0].toFixed(1)},${oTop1[1].toFixed(1)} L${iTop1[0].toFixed(1)},${iTop1[1].toFixed(1)}`);
-    lines.push(`M${iTop1[0].toFixed(1)},${iTop1[1].toFixed(1)} L${iBot1[0].toFixed(1)},${iBot1[1].toFixed(1)}`);
-  }
-
-  return lines.join(" ");
+  return {
+    topLayer,
+    botLayer,
+    dropLanes,
+    packets,
+  };
 }
 
 export default function LandingPage() {
@@ -341,14 +365,11 @@ export default function LandingPage() {
   const tpsWaveModel = buildTpsWaveModel(phaseRad, 250, 165);
 
   const node1Cube = buildWireCube(44, modelAngle, 95, 195);
-  const node2Ring = buildMiniRing(30, -modelAngle * 1.4, 310, 95);
-  const node3Octa = buildWireOctahedron(28, modelAngle * 1.1, 560, 215);
-  const pulseRadius = 14 + (Math.sin(phaseRad * 2) * 0.5 + 0.5) * 14;
+  const node2Dial = buildDisruptorDial(34, 18, 12, -modelAngle * 1.5, 310, 95);
+  const node3Stack = buildCacheStack(560, 215);
+  const discordPulse = 1 + (Math.sin(phaseRad * 2.5) * 0.5 + 0.5) * 0.12;
 
-  const ringBufferPath = buildWireRingBuffer(modelAngle * 0.5, 230, 190);
-  const ringCoreOcta = buildWireOctahedron(32, -modelAngle * 1.2, 230, 190);
-
-  const targetOcta = buildWireOctahedron(20, modelAngle, 120, 88);
+  const parallelArch = buildParallelArchitecture(phaseRad);
 
   return (
     <div
@@ -642,50 +663,38 @@ export default function LandingPage() {
                 <path d={node1Cube.path} fill="none" stroke="#E11D48" strokeOpacity="0.9" strokeWidth="1.25" />
               </g>
 
-              {/* 노드 02: LMAX Disruptor (3D 샌드 원형 링버퍼) */}
+              {/* 노드 02: LMAX Disruptor (12슬롯 무잠금 회전 링버퍼 트랙) */}
               <g>
-                <path d={node2Ring} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.85" strokeWidth="1.25" />
-                <circle cx="310" cy="95" r="4.5" fill="#E11D48" />
+                <path d={node2Dial.rings} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.88" strokeWidth="1.2" />
+                <path d={node2Dial.slots} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.45" strokeWidth="0.9" />
+                {/* 실시간 큐잉 중인 이벤트 패킷 점 */}
+                <circle cx={node2Dial.dot[0]} cy={node2Dial.dot[1]} r="4" fill="#E11D48" />
               </g>
 
-              {/* 노드 03: WSS 게이트웨이 (3D 샌드-루비 팔면체 다이아몬드 게이트) */}
+              {/* 노드 03: WSS 게이트웨이 & Redis (3단 인메모리 캐시 스택 + 양방향 소켓 라우팅) */}
               <g>
-                <polygon points={node3Octa.midPoly} fill="#E11D48" fillOpacity="0.18" />
-                <path d={node3Octa.path} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.88" strokeWidth="1.25" />
+                <path d={node3Stack} fill="none" stroke="hsl(var(--sand))" strokeOpacity="0.85" strokeWidth="1.2" />
+                {/* 양방향 WSS 소켓 통신 루비 레이저 */}
+                <line x1="538" y1="202" x2="582" y2="202" stroke="#E11D48" strokeWidth="1.6" strokeLinecap="round" />
+                <polygon points="538,202 543,198 543,206" fill="#E11D48" />
+                <polygon points="582,202 577,198 577,206" fill="#E11D48" />
               </g>
 
-              {/* 노드 04: 디스코드 봇 서비스 (동심원 신호 파동 안테나) */}
-              <g>
-                <circle
-                  cx="795"
-                  cy="110"
-                  r={pulseRadius}
+              {/* 노드 04: 디스코드 봇 서비스 (정규 Clyde 봇 헤드 마스크 라인 아트) */}
+              <g
+                transform={`translate(${795 - 28}, ${110 - 21}) scale(${discordPulse * 0.44})`}
+                style={{ transformOrigin: "28px 21px" }}
+              >
+                <path
+                  d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07Z"
                   fill="none"
                   stroke="#E11D48"
-                  strokeOpacity="0.5"
-                  strokeWidth="1.1"
+                  strokeWidth="4.2"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
                 />
-                <ellipse
-                  cx="795"
-                  cy="110"
-                  rx="22"
-                  ry="11"
-                  fill="none"
-                  stroke="#E11D48"
-                  strokeOpacity="0.8"
-                  strokeWidth="1.2"
-                />
-                <ellipse
-                  cx="795"
-                  cy="110"
-                  rx="11"
-                  ry="22"
-                  fill="none"
-                  stroke="hsl(var(--sand))"
-                  strokeOpacity="0.7"
-                  strokeWidth="1.1"
-                />
-                <circle cx="795" cy="110" r="5" fill="#E11D48" />
+                <ellipse cx="42.5" cy="53" rx="10" ry="12.5" fill="#E11D48" fillOpacity="0.88" />
+                <ellipse cx="84.5" cy="53" rx="10" ry="12.5" fill="#E11D48" fillOpacity="0.88" />
               </g>
             </svg>
 
@@ -755,46 +764,66 @@ export default function LandingPage() {
             </div>
 
             <svg
-              viewBox="0 0 460 360"
+              viewBox="0 0 460 320"
               className="w-full max-w-[440px] h-auto overflow-visible"
               aria-hidden="true"
             >
               <defs>
-                <radialGradient id="torusGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#E11D48" stopOpacity="0.26" />
-                  <stop offset="55%" stopColor="#CEB28A" stopOpacity="0.14" />
-                  <stop offset="100%" stopColor="#CEB28A" stopOpacity="0" />
-                </radialGradient>
+                <linearGradient id="layerGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#E11D48" stopOpacity="0.08" />
+                  <stop offset="50%" stopColor="#CEB28A" stopOpacity="0.12" />
+                  <stop offset="100%" stopColor="#E11D48" stopOpacity="0.08" />
+                </linearGradient>
               </defs>
-              <circle cx="230" cy="190" r="175" fill="url(#torusGlow)" />
 
+              {/* 상단 레이어: 마인크래프트 메인 틱 (Tick Thread - 20.0 TPS 안정) */}
+              <polygon points="40,85 220,35 420,85 240,135" fill="url(#layerGrad)" />
               <path
-                data-animate-curve
-                d="M 25,240 C 90,60 370,60 435,140 C 380,310 110,320 25,240"
+                d={parallelArch.topLayer}
                 fill="none"
                 stroke="#E11D48"
-                strokeOpacity="0.7"
-                strokeWidth="1.6"
-                strokeDasharray="1400"
-                strokeDashoffset="0"
+                strokeOpacity="0.85"
+                strokeWidth="1.4"
               />
-              {/* 12슬롯 샌드(Sand) 와이어프레임 링버퍼 */}
+              <text x="55" y="80" fill="#E11D48" fontSize="11" fontFamily="monospace" fontWeight="600" opacity="0.9">
+                [MAIN-TICK] 20.0 TPS STABLE
+              </text>
+
+              {/* 하단 레이어: RuBeacon 비동기 링버퍼 & WSS 파이프라인 */}
+              <polygon points="40,215 220,165 420,215 240,265" fill="url(#layerGrad)" />
               <path
-                d={ringBufferPath}
+                d={parallelArch.botLayer}
                 fill="none"
                 stroke="hsl(var(--sand))"
-                strokeOpacity="0.55"
-                strokeWidth="1.05"
+                strokeOpacity="0.75"
+                strokeWidth="1.3"
               />
-              {/* 중심부 루비 코어 팔면체 */}
-              <polygon points={ringCoreOcta.midPoly} fill="#E11D48" fillOpacity="0.3" />
-              <path
-                d={ringCoreOcta.path}
-                fill="none"
-                stroke="#E11D48"
-                strokeOpacity="0.92"
-                strokeWidth="1.35"
-              />
+              <text x="55" y="210" fill="hsl(var(--sand))" fontSize="11" fontFamily="monospace" fontWeight="600" opacity="0.9">
+                [ASYNC-PIPELINE] LOCK-FREE DISRUPTOR
+              </text>
+
+              {/* 수직 분기 격리 가이드 레일 (메인 틱 점유 시간 0.00ms 증명) */}
+              {parallelArch.dropLanes.map((lane, idx) => (
+                <line
+                  key={`lane-${idx}`}
+                  x1={lane.x}
+                  y1={lane.y1}
+                  x2={lane.x}
+                  y2={lane.y2}
+                  stroke="hsl(var(--sand))"
+                  strokeOpacity="0.3"
+                  strokeWidth="1"
+                  strokeDasharray="4 4"
+                />
+              ))}
+
+              {/* 실시간으로 메인 틱에서 비동기 파이프라인으로 무지연 낙하하는 이벤트 패킷들 */}
+              {parallelArch.packets.map((pkt, idx) => (
+                <g key={`pkt-${idx}`}>
+                  <circle cx={pkt.x} cy={pkt.y} r="5" fill="#E11D48" />
+                  <circle cx={pkt.x} cy={pkt.y} r="9" fill="none" stroke="#E11D48" strokeOpacity="0.4" strokeWidth="1" />
+                </g>
+              ))}
             </svg>
           </div>
 
@@ -855,31 +884,60 @@ export default function LandingPage() {
 
         <div className="relative z-10 flex flex-col items-center pt-2" data-animate-model>
           <svg
-            viewBox="0 0 240 120"
-            className="w-48 h-24 overflow-visible"
+            viewBox="0 0 380 120"
+            className="w-full max-w-[360px] h-24 overflow-visible"
             aria-hidden="true"
           >
-            <defs>
-              <linearGradient id="landingBeamGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#E11D48" stopOpacity="0" />
-                <stop offset="60%" stopColor="#E11D48" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#E11D48" stopOpacity="0.6" />
-              </linearGradient>
-            </defs>
-            <rect x="108" y="0" width="24" height="88" fill="url(#landingBeamGrad)" />
+            {/* 좌측: 마인크래프트 인게임 이벤트 큐브 노드 */}
+            <g transform="translate(60, 60)">
+              <rect x="-24" y="-24" width="48" height="48" rx="6" fill="#E11D48" fillOpacity="0.1" stroke="#E11D48" strokeWidth="1.4" />
+              {/* 마인크래프트 검/블록 상징 대각선 라인 */}
+              <line x1="-12" y1="12" x2="12" y2="-12" stroke="#E11D48" strokeWidth="1.6" strokeLinecap="round" />
+              <text x="0" y="38" textAnchor="middle" fill="#E11D48" fontSize="10" fontFamily="monospace" fontWeight="600">
+                IN-GAME
+              </text>
+            </g>
+
+            {/* 중앙: 초고속 직결 미러링 통로 (42ms 양방향 전송 레이저 및 이동 패킷) */}
+            <line
+              x1="95"
+              y1="60"
+              x2="275"
+              y2="60"
+              stroke="hsl(var(--sand))"
+              strokeOpacity="0.4"
+              strokeWidth="1.2"
+              strokeDasharray="4 4"
+            />
+            {/* 왕복하는 루비 펄스 광선 */}
             <line
               data-animate-curve
-              x1="120"
-              y1="0"
-              x2="120"
-              y2="88"
+              x1="95"
+              y1="60"
+              x2="275"
+              y2="60"
               stroke="#E11D48"
-              strokeWidth="1.8"
-              strokeDasharray="1400"
+              strokeWidth="2"
+              strokeDasharray="40 140"
               strokeDashoffset="0"
             />
-            <polygon points={targetOcta.midPoly} fill="#E11D48" fillOpacity="0.28" />
-            <path d={targetOcta.path} fill="none" stroke="hsl(var(--sand))" strokeWidth="1.25" />
+            <text x="185" y="52" textAnchor="middle" fill="hsl(var(--sand))" fontSize="10" fontFamily="monospace" fontWeight="bold">
+              ⚡ 42ms SYNC
+            </text>
+
+            {/* 우측: 디스코드 임베드 카드 노드 */}
+            <g transform="translate(310, 60)">
+              <rect x="-35" y="-26" width="70" height="52" rx="4" fill="hsl(var(--sand))" fillOpacity="0.08" stroke="hsl(var(--sand))" strokeWidth="1.3" />
+              {/* 디스코드 임베드 컬러 바 */}
+              <rect x="-31" y="-21" width="4" height="42" rx="1.5" fill="#E11D48" />
+              {/* 임베드 텍스트 모의 라인 */}
+              <line x1="-20" y1="-12" x2="22" y2="-12" stroke="hsl(var(--sand))" strokeOpacity="0.8" strokeWidth="2.5" strokeLinecap="round" />
+              <line x1="-20" y1="-2" x2="12" y2="-2" stroke="hsl(var(--sand))" strokeOpacity="0.45" strokeWidth="2" strokeLinecap="round" />
+              <line x1="-20" y1="8" x2="18" y2="8" stroke="hsl(var(--sand))" strokeOpacity="0.45" strokeWidth="2" strokeLinecap="round" />
+              <text x="0" y="38" textAnchor="middle" fill="hsl(var(--sand))" fontSize="10" fontFamily="monospace" fontWeight="600">
+                DISCORD
+              </text>
+            </g>
           </svg>
         </div>
 
