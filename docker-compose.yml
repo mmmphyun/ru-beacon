@@ -99,21 +99,26 @@ services:
       redis:
         condition: service_healthy
 
+  # ----------------------------------------------------------------------------
+  # Tier 1.5: Frontend Dashboard (핫 리로드 기본 기동 - docker compose up -d)
+  # ----------------------------------------------------------------------------
   web-dashboard:
     build:
       context: ./web-dashboard
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: rubeacon-web
-    profiles: ["app", "full"]
     restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
     environment:
       PORT: ${WEB_PORT:-3000}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
-      NEXT_PUBLIC_DEV_MOCK: ${NEXT_PUBLIC_DEV_MOCK:-false}
-    ports:
-      - "${WEB_PORT:-3000}:3000"
-    depends_on:
-      - api-service
+      NEXT_PUBLIC_DEV_MOCK: ${NEXT_PUBLIC_DEV_MOCK:-true}
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./web-dashboard:/app
+      - /app/node_modules
+      - /app/.next
 
 volumes:
   rubeacon_pgdata:
