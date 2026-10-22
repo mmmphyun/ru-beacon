@@ -1,0 +1,122 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Tier 1: State Infrastructure (기본 실행 - docker compose up -d)
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: rubeacon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rubeacon}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - rubeacon_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-rubeacon}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rubeacon-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - rubeacon_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # Tier 2: Microservices (프로필 실행 - docker compose --profile app up -d)
+  # ----------------------------------------------------------------------------
+  api-service:
+    build:
+      context: .
+      dockerfile: api-service/Dockerfile
+    container_name: rubeacon-api
+    profiles: ["app", "full"]
+    restart: unless-stopped
+    environment:
+      PORT: ${API_PORT:-8080}
+      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/rubeacon}
+      DATABASE_USER: ${POSTGRES_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      DEV_MOCK_AUTH: ${DEV_MOCK_AUTH:-true}
+      ENABLE_SIMULATION: ${ENABLE_SIMULATION:-true}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  workflow-worker:
+    build:
+      context: .
+      dockerfile: workflow-worker/Dockerfile
+    container_name: rubeacon-worker
+    profiles: ["app", "full"]
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://postgres:5432/rubeacon}
+      DATABASE_USER: ${POSTGRES_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      METRICS_PORT: ${WORKER_METRICS_PORT:-8081}
+    ports:
+      - "${WORKER_METRICS_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  bot-service:
+    build:
+      context: .
+      dockerfile: bot-service/Dockerfile
+    container_name: rubeacon-bot
+    profiles: ["app", "full"]
+    restart: unless-stopped
+    environment:
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web-dashboard:
+    build:
+      context: ./web-dashboard
+      dockerfile: Dockerfile
+    container_name: rubeacon-web
+    profiles: ["app", "full"]
+    restart: unless-stopped
+    environment:
+      PORT: ${WEB_PORT:-3000}
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8080}
+      NEXT_PUBLIC_DEV_MOCK: ${NEXT_PUBLIC_DEV_MOCK:-false}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - api-service
+
+volumes:
+  rubeacon_pgdata:
+    name: rubeacon_pgdata
+  rubeacon_redisdata:
+    name: rubeacon_redisdata
