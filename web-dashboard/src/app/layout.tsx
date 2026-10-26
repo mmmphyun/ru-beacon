@@ -16,7 +16,17 @@ export default function RootLayout({
       <head>
         <link
           rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css"
+        />
+        <link
+          rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/hada0127/hada-type/css/levelup.css"
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+          rel="stylesheet"
         />
         <script
           dangerouslySetInnerHTML={{

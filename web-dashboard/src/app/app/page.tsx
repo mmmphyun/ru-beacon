@@ -83,12 +83,12 @@ export default function TenantConsolePage() {
               마인크래프트 서버와 디스코드 연동 관리를 위해 Discord 계정으로 로그인해 주세요.
             </p>
           </div>
-          <Button
-            asChild
-            className="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium py-2 rounded-lg transition-colors text-xs"
+          <a
+            href={getDiscordLoginUrl()}
+            className="w-full inline-flex items-center justify-center bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium py-2 rounded-lg transition-colors text-xs"
           >
-            <a href={getDiscordLoginUrl()}>Discord로 로그인</a>
-          </Button>
+            Discord로 로그인
+          </a>
           <p className="text-[10px] text-muted-foreground">
             서버 소유자 또는 관리자 역할을 보유한 계정만 접근 가능합니다.
           </p>

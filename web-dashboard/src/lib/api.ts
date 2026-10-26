@@ -3,6 +3,7 @@ import {
   WorkflowDetail,
   TenantConfig,
   InstanceItem,
+  TenantMemberItem,
   UserProfile,
   AuditLogPage,
   AuditLogItem,
