@@ -29,6 +29,9 @@ describe("LandingPage UI & Copywriting", () => {
     render(<LandingPage />);
 
     expect(screen.getByText("초저지연 마인크래프트-디스코드 브릿지")).toBeDefined();
+    expect(screen.getByText("REAL-TIME PIPELINE PREVIEW")).toBeDefined();
+    expect(screen.getByText("Minecraft In-Game")).toBeDefined();
+    expect(screen.getByText("Discord Rich Embed")).toBeDefined();
     expect(
       screen.getByText("서버 TPS 저하 없는 마인크래프트-디스코드 실시간 연동")
     ).toBeDefined();

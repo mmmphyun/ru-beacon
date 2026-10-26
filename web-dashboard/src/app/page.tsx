@@ -408,8 +408,12 @@ export default function LandingPage() {
             <div className="flex items-center gap-2">
               <span className="headline text-base sm:text-lg tracking-tight text-foreground select-none">
                 Ru
-                <span className="opacity-45 line-through decoration-primary decoration-[1.8px] -mx-[0.03em]">
-                  by
+                <span className="relative inline-flex items-center mx-[1px]">
+                  <span className="opacity-40">by</span>
+                  <span
+                    className="absolute left-[-2px] right-[-2px] top-1/2 -translate-y-1/2 h-[3.5px] bg-primary rounded-xs -rotate-6 shadow-[0_0_8px_rgba(225,29,72,0.6)]"
+                    aria-hidden="true"
+                  />
                 </span>
                 Beacon
               </span>
@@ -483,6 +487,38 @@ export default function LandingPage() {
             <p className="text-base sm:text-lg font-normal text-muted-foreground leading-relaxed max-w-xl">
               {LANDING_COPY_KO.hero.description}
             </p>
+
+            {/* 인게임 - 디스코드 2-Pane 실시간 동기화 프리뷰 목업 */}
+            <div className="p-3.5 bg-muted/15 border border-border/60 rounded-xs font-mono text-xs space-y-2">
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground border-b border-border/40 pb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  REAL-TIME PIPELINE PREVIEW
+                </span>
+                <span className="text-primary font-semibold">0.00ms TICK BLOCKING</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11.5px]">
+                <div className="p-2.5 bg-background/80 border border-border/40 rounded-xs">
+                  <div className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider font-mono">
+                    Minecraft In-Game
+                  </div>
+                  <div className="text-foreground flex items-center gap-1.5 font-sans">
+                    <span className="text-emerald-500 font-mono font-bold">[Boss]</span>
+                    <span>Steve &gt; Ender Dragon 처치</span>
+                  </div>
+                </div>
+                <div className="p-2.5 bg-background/80 border border-primary/30 rounded-xs shadow-[0_0_12px_rgba(225,29,72,0.06)]">
+                  <div className="text-[10px] text-primary mb-1 uppercase tracking-wider font-mono flex items-center justify-between">
+                    <span>Discord Rich Embed</span>
+                    <span className="text-[9px] text-muted-foreground">⚡ 12ms</span>
+                  </div>
+                  <div className="text-foreground flex items-center gap-1.5 font-sans">
+                    <span className="text-[#5865F2] font-semibold">RuBeacon</span>
+                    <span className="text-muted-foreground text-xs truncate">🏆 엔더 드래곤 토벌 알림 발송</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div className="pt-3 flex flex-wrap items-center gap-3">
               <Link href="/app">
@@ -813,18 +849,27 @@ export default function LandingPage() {
             </svg>
           </div>
 
-          <div className="lg:col-span-6 divide-y divide-border/70 border-y border-border/70">
+          <div className="lg:col-span-6 divide-y divide-border/60">
             {LANDING_COPY_KO.architecture.items.map((item, idx) => (
               <div
                 key={item.tag}
                 data-animate-item
-                className={`py-7 space-y-2 ${idx === 1 ? "lg:pl-8" : idx === 2 ? "lg:pl-16" : ""}`}
+                className="py-8 grid grid-cols-12 gap-4 items-baseline"
               >
-                <div className="text-xs sm:text-sm font-medium tracking-[0.16em] text-primary uppercase">
-                  {item.tag}
+                <div className="col-span-2 font-mono text-2xl sm:text-3xl font-bold text-primary/80">
+                  0{idx + 1}
                 </div>
-                <h3 className="font-semibold text-lg sm:text-xl text-foreground">{item.title}</h3>
-                <p className="text-sm sm:text-base font-normal text-muted-foreground">{item.desc}</p>
+                <div className="col-span-10 space-y-1.5">
+                  <div className="text-[11px] sm:text-xs font-mono font-medium tracking-[0.16em] text-muted-foreground uppercase">
+                    {item.tag}
+                  </div>
+                  <h3 className="font-semibold text-lg sm:text-xl text-foreground tracking-tight">
+                    {item.title}
+                  </h3>
+                  <p className="text-sm font-normal text-muted-foreground leading-relaxed">
+                    {item.desc}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -937,37 +982,54 @@ export default function LandingPage() {
               </p>
             </div>
 
+            {/* 터프티 스타일 가로선 미니멀 기술 비교 매트릭스 */}
             <div
               data-animate-item
-              className="max-w-2xl mx-auto space-y-5 border-y border-border/70 py-6"
+              className="max-w-3xl mx-auto w-full pt-2"
             >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <span className="font-semibold text-foreground">RuBeacon</span>
-                  <span className="font-mono font-bold text-primary">
-                    {LANDING_COPY_KO.comparison.rubeaconSpeed}
-                  </span>
-                </div>
-                <div className="w-full h-2 bg-muted/70 overflow-hidden">
-                  <div
-                    data-gauge-fast
-                    className="w-full h-full bg-primary origin-left"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
-                  <span className="font-normal">{LANDING_COPY_KO.comparison.legacyTitle}</span>
-                  <span className="font-mono">{LANDING_COPY_KO.comparison.legacySpeed}</span>
-                </div>
-                <div className="w-full h-2 bg-muted/70 overflow-hidden">
-                  <div
-                    data-gauge-slow
-                    className="w-full h-full origin-left"
-                    style={{ backgroundColor: "hsl(var(--sand-strong))" }}
-                  />
-                </div>
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-border/80 text-muted-foreground font-mono text-[11px] sm:text-xs uppercase tracking-wider">
+                      <th className="py-3.5 px-4 font-normal">비교 항목</th>
+                      <th className="py-3.5 px-4 font-normal">
+                        {LANDING_COPY_KO.comparison.legacyTitle}
+                      </th>
+                      <th className="py-3.5 px-4 font-semibold text-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-primary inline-block animate-pulse" />
+                          RuBeacon
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/40 font-mono">
+                    <tr>
+                      <td className="py-3.5 px-4 font-sans font-medium text-foreground">메인 틱 점유 시간</td>
+                      <td className="py-3.5 px-4 text-muted-foreground">
+                        {LANDING_COPY_KO.comparison.legacySpeed}
+                      </td>
+                      <td data-gauge-fast className="py-3.5 px-4 text-primary font-bold">
+                        {LANDING_COPY_KO.comparison.rubeaconSpeed}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="py-3.5 px-4 font-sans font-medium text-foreground">통신 프로토콜</td>
+                      <td className="py-3.5 px-4 text-muted-foreground">단방향 HTTP Push (폴링)</td>
+                      <td className="py-3.5 px-4 text-foreground font-semibold">전이중 WebSocket 스트림</td>
+                    </tr>
+                    <tr>
+                      <td className="py-3.5 px-4 font-sans font-medium text-foreground">네트워크 단절 시</td>
+                      <td className="py-3.5 px-4 text-muted-foreground">이벤트 유실 및 스레드 블로킹</td>
+                      <td className="py-3.5 px-4 text-foreground font-semibold">인메모리 링버퍼 자동 보존</td>
+                    </tr>
+                    <tr>
+                      <td className="py-3.5 px-4 font-sans font-medium text-foreground">연동 설정 방식</td>
+                      <td className="py-3.5 px-4 text-muted-foreground">복잡한 수동 YAML 수정</td>
+                      <td className="py-3.5 px-4 text-foreground font-semibold">1회 인스턴스 토큰 핸드셰이크</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

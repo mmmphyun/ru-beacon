@@ -513,10 +513,10 @@ export function BeaconStage() {
               <em>
                 <span>Ru</span>
                 <span className="relative inline-flex items-center mx-1 sm:mx-1.5">
-                  <span className="opacity-20 font-normal">by</span>
-                  {/* by 위를 가로지르며 Ru-Beacon의 하이픈(-) 역할을 겸하는 루비 취소선 */}
+                  <span className="opacity-25 font-normal">by</span>
+                  {/* by 위를 가로지르며 Ru-Beacon의 하이픈(-) 역할을 겸하는 굵고 선명한 루비 하이픈 스트라이크 */}
                   <span
-                    className="absolute left-[-8%] right-[-8%] top-1/2 -translate-y-1/2 h-[3px] sm:h-[5px] bg-primary rounded-full shadow-[0_0_16px_rgba(225,29,72,0.85)]"
+                    className="absolute left-[-10%] right-[-10%] top-1/2 -translate-y-1/2 h-[4px] sm:h-[6px] bg-primary rounded-xs -rotate-6 shadow-[0_0_16px_rgba(225,29,72,0.9)]"
                     aria-hidden="true"
                   />
                 </span>
