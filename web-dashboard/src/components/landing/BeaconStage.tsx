@@ -501,9 +501,9 @@ export function BeaconStage() {
     <section
       ref={containerRef}
       aria-label="RuBeacon Signal Stage"
-      className="relative w-full overflow-x-hidden min-h-[calc(100dvh-3.5rem)] border-b border-border/60 select-none flex flex-col justify-between"
+      className="relative w-full overflow-hidden h-[calc(100dvh-3.5rem)] max-h-[calc(100dvh-3.5rem)] border-b border-border/60 select-none flex flex-col justify-between snap-start scroll-mt-14"
     >
-      <div className="w-full flex-1 flex flex-col items-center justify-between overflow-hidden py-4 sm:py-6">
+      <div className="w-full h-full flex flex-col items-center justify-between overflow-hidden py-3 sm:py-5">
         {/* 심장박동과 연동되는 정제된 딥 루비 앰비언트 반사광 (탁한 샌드 혼합 배제) */}
         <div
           className="pointer-events-none absolute inset-0"
@@ -516,13 +516,13 @@ export function BeaconStage() {
         />
 
         {/* 네 모서리 코너 프레이밍 (안티앨리어싱 깨짐 방지를 위해 크기 및 굵기 상향) */}
-        <div className="w-full max-w-6xl mx-auto px-6 pt-6 flex items-center justify-between text-xs sm:text-[13px] font-normal tracking-[0.22em] text-muted-foreground uppercase z-20">
+        <div className="w-full max-w-6xl mx-auto px-6 pt-4 sm:pt-6 flex items-center justify-between text-xs sm:text-[13px] font-normal tracking-[0.22em] text-muted-foreground uppercase z-20">
           <span>0.00ms Tick Occupancy</span>
           <span>LMAX Disruptor Core</span>
         </div>
 
         {/* 중앙 무대: 광선 축 90도 회전 타이포그래피(배경/오버랩) + 정중앙 정육면체 루비 비콘 피라미드(전경) */}
-        <div className="relative w-full max-w-5xl flex-1 flex items-center justify-center px-4 overflow-hidden">
+        <div className="relative w-full max-w-5xl flex-1 flex items-center justify-center px-4 overflow-hidden min-h-0">
           {/*
             1) 광선 축 회전 브랜드 워드마크: 초기 -90도(수직)에서 피라미드 조립과 동시에 0도(수평)로 회전
           */}
@@ -568,7 +568,7 @@ export function BeaconStage() {
           </div>
 
           {/* 정중앙 정육면체(1:1:1) 7x7, 5x5, 3x3 피라미드 & 심장박동 광선 SVG (전경 z-10 배치로 타이포와 입체적 오버랩) */}
-          <div className="relative z-10 w-full max-w-[580px] aspect-[6/5] flex items-center justify-center pointer-events-none">
+          <div className="relative z-10 w-full max-w-[560px] max-h-[52vh] aspect-[6/5] flex items-center justify-center pointer-events-none min-h-0">
             <svg
               viewBox="0 0 600 460"
               className="w-full h-full overflow-visible"

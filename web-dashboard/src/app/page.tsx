@@ -452,10 +452,8 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* 뷰포트 0: 정육면체 비콘 피라미드 (스크롤 조립 인터랙션을 위해 자석 스냅 제외: snap-none) */}
-      <div className="snap-none">
-        <BeaconStage />
-      </div>
+      {/* 뷰포트 0: 정육면체 비콘 피라미드 (100dvh 고정 및 스냅 앵커) */}
+      <BeaconStage />
 
       {/* 뷰포트 1: 좌측 헤드라인 / 우측 [3D 이벤트 파형 vs 20.0 TPS 수평 레이저] (소프트 앵커 스냅: snap-start) */}
       <section

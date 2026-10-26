@@ -46,7 +46,8 @@ describe("BeaconStage & useLatestRelease", () => {
     expect(screen.getByRole("button", { name: "아래로 스크롤" })).toBeDefined();
     const stage = screen.getByLabelText("RuBeacon Signal Stage");
     expect(stage).toBeDefined();
-    expect(stage.className).toContain("overflow-x-hidden");
+    expect(stage.className).toContain("overflow-hidden");
+    expect(stage.className).toContain("h-[calc(100dvh-3.5rem)]");
   });
 
   it("일반 환경(reduce-motion 미적용)에서 초기 렌더링 시 세로 타이틀 회전 컨테이너가 정상 마운트되어야 한다", () => {
