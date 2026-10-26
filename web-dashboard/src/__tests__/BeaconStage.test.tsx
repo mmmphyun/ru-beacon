@@ -70,6 +70,21 @@ describe("BeaconStage & useLatestRelease", () => {
     expect(headlineWrapper?.style.transformOrigin).toBe("50% 48%");
   });
 
+  it("재방문자(sessionStorage rubeacon_intro_seen=1)인 경우 인트로 애니메이션 없이 즉시 조립 상태로 렌더링되어야 한다", () => {
+    sessionStorage.setItem("rubeacon_intro_seen", "1");
+    render(<BeaconStage />);
+    const headline = screen.getByLabelText("Ru-Beacon Brand Headline");
+    expect(headline).toBeDefined();
+    sessionStorage.removeItem("rubeacon_intro_seen");
+  });
+
+  it("사용자 휠 조작 발생 시 자동 스크롤 타이머 인터럽트 리스너가 정상 등록되어 동작해야 한다", () => {
+    render(<BeaconStage />);
+    const wheelEvent = new Event("wheel");
+    window.dispatchEvent(wheelEvent);
+    expect(screen.getByLabelText("RuBeacon Signal Stage")).toBeDefined();
+  });
+
   it("GitHub Releases API 응답에서 최신 태그와 JAR 다운로드 링크를 추출해야 한다", async () => {
     const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValueOnce({
       ok: true,

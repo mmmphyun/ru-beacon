@@ -251,6 +251,8 @@ export function BeaconStage() {
 
   const hasDockedRef = useRef(false);
   const heartbeatAnimRef = useRef<anime.AnimeInstance | null>(null);
+  const userInteractedRef = useRef(false);
+  const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const animStateRef = useRef({
     t7Offset: -14,
@@ -316,10 +318,14 @@ export function BeaconStage() {
       update: syncState,
       complete: () => {
         startHeartbeatLoop();
-        // 타임라인 완료 후 B2C 핵심 요소 뷰포트(#hero)로 자동 부드러운 스크롤 이동
+        try {
+          sessionStorage.setItem("rubeacon_intro_seen", "1");
+        } catch {}
+
+        // 타임라인 완료 후 사용자 입력이 없었을 때만 B2C 핵심 요소 뷰포트(#hero)로 자동 부드러운 스크롤 이동
         if (typeof window !== "undefined") {
-          setTimeout(() => {
-            if (window.scrollY < window.innerHeight * 0.5) {
+          autoScrollTimerRef.current = setTimeout(() => {
+            if (!userInteractedRef.current && window.scrollY < window.innerHeight * 0.5) {
               const hero = document.getElementById("hero");
               if (hero && typeof hero.scrollIntoView === "function") {
                 hero.scrollIntoView({ behavior: "smooth" });
@@ -373,7 +379,24 @@ export function BeaconStage() {
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    if (prefersReduced) {
+    let alreadySeen = false;
+    try {
+      alreadySeen = typeof window !== "undefined" && sessionStorage.getItem("rubeacon_intro_seen") === "1";
+    } catch {}
+
+    const onUserInteraction = () => {
+      userInteractedRef.current = true;
+      if (autoScrollTimerRef.current) {
+        clearTimeout(autoScrollTimerRef.current);
+        autoScrollTimerRef.current = null;
+      }
+    };
+
+    window.addEventListener("wheel", onUserInteraction, { passive: true });
+    window.addEventListener("touchstart", onUserInteraction, { passive: true });
+    window.addEventListener("keydown", onUserInteraction, { passive: true });
+
+    if (prefersReduced || alreadySeen) {
       hasDockedRef.current = true;
       setTiers({
         t7: { size: 7, baseY: -UNIT * 2, offsetY: 0, angleDeg: 0, height: UNIT },
@@ -386,7 +409,11 @@ export function BeaconStage() {
         headerAngle: 0,
         sloganOpacity: 1,
       });
-      return;
+      return () => {
+        window.removeEventListener("wheel", onUserInteraction);
+        window.removeEventListener("touchstart", onUserInteraction);
+        window.removeEventListener("keydown", onUserInteraction);
+      };
     }
 
     // 진입 120ms 후 3D 비콘 층 조립 및 세로 타이틀 회전 타임라인 자동 기동
@@ -396,6 +423,12 @@ export function BeaconStage() {
 
     return () => {
       clearTimeout(timer);
+      if (autoScrollTimerRef.current) {
+        clearTimeout(autoScrollTimerRef.current);
+      }
+      window.removeEventListener("wheel", onUserInteraction);
+      window.removeEventListener("touchstart", onUserInteraction);
+      window.removeEventListener("keydown", onUserInteraction);
       if (heartbeatAnimRef.current) {
         heartbeatAnimRef.current.pause();
         heartbeatAnimRef.current = null;
