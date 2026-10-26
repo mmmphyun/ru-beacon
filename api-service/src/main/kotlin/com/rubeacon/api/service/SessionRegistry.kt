@@ -162,5 +162,10 @@ class SessionRegistry {
         } catch (_: Exception) {}
         subscriberJob?.cancel()
     }
+
+    /**
+     * Pub/Sub 브로드캐스트 구독이 실제로 Redis에 확정되었는지 여부를 반환함.
+     */
+    fun isBroadcastSubscribed(): Boolean = pubSub?.isSubscribed == true
 }
 

@@ -24,6 +24,7 @@ import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
@@ -212,7 +213,13 @@ class DistributedSessionAndCommandRoutingIntegrationTest : BaseIntegrationTest()
         val podBSessionRegistry = SessionRegistry()
         val testScope = CoroutineScope(Dispatchers.IO)
         val podBJob = podBSessionRegistry.startBroadcastSubscriber(jedis, testScope)
-        delay(300) // Pub/Sub 구독 확정 대기
+        
+        // Pub/Sub 구독이 실제 확정될 때까지 최대 5초간 동적 폴링 대기
+        val deadline = System.currentTimeMillis() + 5000
+        while (!podBSessionRegistry.isBroadcastSubscribed() && System.currentTimeMillis() < deadline) {
+            delay(50)
+        }
+        assertTrue(podBSessionRegistry.isBroadcastSubscribed(), "Pod B의 Redis Pub/Sub 구독이 정상 확정되어야 한다")
 
         // Pod A의 컨슈머
         val podAConsumer = RedisCommandConsumer(jedis, podASessionRegistry, consumerId = "pod-a-consumer")
@@ -266,8 +273,8 @@ class DistributedSessionAndCommandRoutingIntegrationTest : BaseIntegrationTest()
             val processed = podAConsumer.processBatch(count = 1)
             assertEquals(1, processed)
 
-            // Pod B가 Pub/Sub을 통해 메시지를 수신하여 WSS 클라이언트로 전달했는지 검증
-            val cmdIncoming = withTimeout(5000) { incoming.receive() }
+            // Pod B가 Pub/Sub을 통해 메시지를 수신하여 WSS 클라이언트로 전달했는지 검증 (CI 환경 고려 15초 대기)
+            val cmdIncoming = withTimeout(15000) { incoming.receive() }
             assertTrue(cmdIncoming is Frame.Text)
             val receivedFrame = RuBeaconJson.default.decodeFromString<WebSocketFrame>(cmdIncoming.readText())
             assertEquals(Opcode.COMMAND_REQ, receivedFrame.op)
@@ -280,8 +287,12 @@ class DistributedSessionAndCommandRoutingIntegrationTest : BaseIntegrationTest()
             close()
         }
 
-        podBSessionRegistry.stopBroadcastSubscriber()
-        podBJob.cancel()
+        try {
+            podBSessionRegistry.stopBroadcastSubscriber()
+            podBJob.cancel()
+        } finally {
+            testScope.cancel()
+        }
     }
 
     @Test
