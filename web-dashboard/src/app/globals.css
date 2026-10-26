@@ -64,9 +64,11 @@
 html {
   scroll-behavior: smooth;
   scroll-snap-type: y proximity;
+  overflow-x: hidden;
 }
 
 body {
+  overflow-x: hidden;
   color: hsl(var(--foreground));
   background-color: hsl(var(--background));
   background-image:

@@ -44,7 +44,30 @@ describe("BeaconStage & useLatestRelease", () => {
     expect(screen.getByText("0.00ms Tick Occupancy")).toBeDefined();
     expect(screen.getByText("Scroll")).toBeDefined();
     expect(screen.getByRole("button", { name: "아래로 스크롤" })).toBeDefined();
-    expect(screen.getByLabelText("RuBeacon Signal Stage")).toBeDefined();
+    const stage = screen.getByLabelText("RuBeacon Signal Stage");
+    expect(stage).toBeDefined();
+    expect(stage.className).toContain("overflow-x-hidden");
+  });
+
+  it("일반 환경(reduce-motion 미적용)에서 초기 렌더링 시 세로 타이틀 회전 컨테이너가 정상 마운트되어야 한다", () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation(() => ({
+        matches: false,
+        media: "(prefers-reduced-motion: reduce)",
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+
+    render(<BeaconStage />);
+    const headlineWrapper = screen.getByLabelText("Ru-Beacon Brand Headline").parentElement;
+    expect(headlineWrapper).toBeDefined();
+    expect(headlineWrapper?.style.transformOrigin).toBe("50% 48%");
   });
 
   it("GitHub Releases API 응답에서 최신 태그와 JAR 다운로드 링크를 추출해야 한다", async () => {

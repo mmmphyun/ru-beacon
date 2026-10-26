@@ -235,6 +235,8 @@ export function BeaconStage() {
     beamScale: number;
     glowOpacity: number;
     heartbeat: number;
+    headerAngle: number;
+    sloganOpacity: number;
   }>({
     t7: { size: 7, baseY: -UNIT * 2, offsetY: -14, angleDeg: -12, height: UNIT },
     t5: { size: 5, baseY: -UNIT, offsetY: -6, angleDeg: 16, height: UNIT },
@@ -243,10 +245,10 @@ export function BeaconStage() {
     beamScale: 0,
     glowOpacity: 0,
     heartbeat: 0,
+    headerAngle: -90,
+    sloganOpacity: 0,
   });
 
-  // 스크롤 진행률 (0: 초기 90도 수직 헤더 상태 -> 1: 비콘과 헤더가 동반 회전하여 0도 수평 정렬 완료)
-  const [scrollProgress, setScrollProgress] = useState(0);
   const hasDockedRef = useRef(false);
   const heartbeatAnimRef = useRef<anime.AnimeInstance | null>(null);
 
@@ -259,6 +261,8 @@ export function BeaconStage() {
     t3Angle: -20,
     beaconOffset: 44,
     beaconAngle: 45,
+    headerAngle: -90,
+    sloganOpacity: 0,
     beamScale: 0,
     glowOpacity: 0,
     heartbeat: 0,
@@ -277,6 +281,8 @@ export function BeaconStage() {
         angleDeg: state.beaconAngle,
         height: UNIT,
       },
+      headerAngle: state.headerAngle,
+      sloganOpacity: state.sloganOpacity,
       beamScale: state.beamScale,
       glowOpacity: state.glowOpacity,
       heartbeat: state.heartbeat,
@@ -310,6 +316,17 @@ export function BeaconStage() {
       update: syncState,
       complete: () => {
         startHeartbeatLoop();
+        // 타임라인 완료 후 B2C 핵심 요소 뷰포트(#hero)로 자동 부드러운 스크롤 이동
+        if (typeof window !== "undefined") {
+          setTimeout(() => {
+            if (window.scrollY < window.innerHeight * 0.5) {
+              const hero = document.getElementById("hero");
+              if (hero && typeof hero.scrollIntoView === "function") {
+                hero.scrollIntoView({ behavior: "smooth" });
+              }
+            }
+          }, 350);
+        }
       },
     });
 
@@ -323,6 +340,8 @@ export function BeaconStage() {
       t5Offset: 0,
       t3Offset: 0,
       beaconOffset: 0,
+      headerAngle: 0,
+      sloganOpacity: 1,
       duration: 850,
       easing: "easeInOutQuart",
     }).add({
@@ -364,30 +383,19 @@ export function BeaconStage() {
         beamScale: 1,
         glowOpacity: 1,
         heartbeat: 0.3,
+        headerAngle: 0,
+        sloganOpacity: 1,
       });
       return;
     }
 
-    // 진입 120ms 후 3D 비콘 층 조립 시퀀스 즉각 자동 기동
+    // 진입 120ms 후 3D 비콘 층 조립 및 세로 타이틀 회전 타임라인 자동 기동
     const timer = setTimeout(() => {
       triggerDockingSequence();
     }, 120);
 
-    const onScroll = () => {
-      if (!hasDockedRef.current) {
-        triggerDockingSequence();
-      }
-      const y = window.scrollY;
-      const vh = window.innerHeight || 800;
-      // 스크롤 진행에 따른 피라미드 동반 회전 제어
-      const rotProgress = Math.max(0, Math.min(1, y / (vh * 0.65)));
-      setScrollProgress(rotProgress);
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
       clearTimeout(timer);
-      window.removeEventListener("scroll", onScroll);
       if (heartbeatAnimRef.current) {
         heartbeatAnimRef.current.pause();
         heartbeatAnimRef.current = null;
@@ -398,21 +406,12 @@ export function BeaconStage() {
   const cx = 300;
   const cy = 285;
 
-  // 스크롤에 따라 비콘 피라미드 회전 (0deg -> 90deg)
-  const scrollRotationDeg = scrollProgress * 90;
-  // 사람이 읽기 편한 0도 수평 정렬 고정
-  const headerRotationDeg = 0;
-
-  // 한글 서브 슬로건: 첫 화면에서 즉시 정방향 노출
-  const sloganOpacity = 1;
-  const sloganLiftY = 0;
-
   const s7 = buildCubeTierPaths(
     7,
     UNIT,
     tiers.t7.baseY + tiers.t7.offsetY,
     tiers.t7.height,
-    tiers.t7.angleDeg + scrollRotationDeg,
+    tiers.t7.angleDeg,
     cx,
     cy
   );
@@ -421,7 +420,7 @@ export function BeaconStage() {
     UNIT,
     tiers.t5.baseY + tiers.t5.offsetY,
     tiers.t5.height,
-    tiers.t5.angleDeg + scrollRotationDeg,
+    tiers.t5.angleDeg,
     cx,
     cy
   );
@@ -430,7 +429,7 @@ export function BeaconStage() {
     UNIT,
     tiers.t3.baseY + tiers.t3.offsetY,
     tiers.t3.height,
-    tiers.t3.angleDeg + scrollRotationDeg,
+    tiers.t3.angleDeg,
     cx,
     cy
   );
@@ -439,7 +438,7 @@ export function BeaconStage() {
     UNIT,
     tiers.beacon.baseY + tiers.beacon.offsetY,
     tiers.beacon.height,
-    tiers.beacon.angleDeg + scrollRotationDeg,
+    tiers.beacon.angleDeg,
     cx,
     cy
   );
@@ -448,7 +447,7 @@ export function BeaconStage() {
     0,
     tiers.beacon.baseY + tiers.beacon.offsetY,
     0,
-    tiers.beacon.angleDeg + scrollRotationDeg,
+    tiers.beacon.angleDeg,
     cx,
     cy
   );
@@ -469,7 +468,7 @@ export function BeaconStage() {
     <section
       ref={containerRef}
       aria-label="RuBeacon Signal Stage"
-      className="relative w-full min-h-[calc(100dvh-3.5rem)] border-b border-border/60 select-none flex flex-col justify-between"
+      className="relative w-full overflow-x-hidden min-h-[calc(100dvh-3.5rem)] border-b border-border/60 select-none flex flex-col justify-between"
     >
       <div className="w-full flex-1 flex flex-col items-center justify-between overflow-hidden py-4 sm:py-6">
         {/* 심장박동과 연동되는 정제된 딥 루비 앰비언트 반사광 (탁한 샌드 혼합 배제) */}
@@ -490,14 +489,14 @@ export function BeaconStage() {
         </div>
 
         {/* 중앙 무대: 광선 축 90도 회전 타이포그래피(배경/오버랩) + 정중앙 정육면체 루비 비콘 피라미드(전경) */}
-        <div className="relative w-full max-w-5xl flex-1 flex items-center justify-center px-4">
+        <div className="relative w-full max-w-5xl flex-1 flex items-center justify-center px-4 overflow-hidden">
           {/*
-            1) 광선 축 회전 브랜드 워드마크 (z-0: 비콘 블록 뒤편에 입체적으로 오버랩됨)
+            1) 광선 축 회전 브랜드 워드마크: 초기 -90도(수직)에서 피라미드 조립과 동시에 0도(수평)로 회전
           */}
           <div
             className="pointer-events-none absolute inset-0 flex items-center justify-center z-0"
             style={{
-              transform: `rotate(${headerRotationDeg}deg)`,
+              transform: `rotate(${tiers.headerAngle}deg)`,
               transformOrigin: "50% 48%",
             }}
           >
@@ -521,14 +520,13 @@ export function BeaconStage() {
           </div>
 
           {/*
-            2) 정방향 유지 한글 서브 슬로건: 로고 회전 공간 확보 시점부터 알파값 상승 페이드인
+            2) 정방향 유지 한글 서브 슬로건: 타이틀 회전과 함께 페이드인
           */}
           <div
             className="pointer-events-none absolute inset-0 flex items-center justify-center z-20"
             style={{
-              transform: `translateY(${sloganLiftY}px)`,
-              opacity: sloganOpacity,
-              transition: "opacity 120ms ease-out, transform 120ms ease-out",
+              opacity: tiers.sloganOpacity,
+              transition: "opacity 160ms ease-out",
             }}
           >
             <p className="translate-y-[170px] sm:translate-y-[195px] md:translate-y-[218px] text-sm sm:text-base font-medium tracking-[0.22em] text-foreground/90 whitespace-nowrap">

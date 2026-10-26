@@ -397,7 +397,7 @@ export default function LandingPage() {
   return (
     <div
       ref={pageRef}
-      className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground font-sans break-keep"
+      className="min-h-screen w-full overflow-x-hidden flex flex-col bg-background text-foreground selection:bg-primary selection:text-primary-foreground font-sans break-keep"
     >
       {/* 상단 고정 헤더: 실선 경계 제거 + 부드러운 페이드 글래스모피즘 그라데이션 */}
       <header className="sticky top-0 z-50 bg-gradient-to-b from-background/95 via-background/70 to-transparent backdrop-blur-md transition-colors">
