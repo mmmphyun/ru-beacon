@@ -36,5 +36,6 @@ describe("Ruby-Sand Design Tokens & SSOT Bridge", () => {
     expect(content).toContain(".headline");
     expect(content).toContain(".score");
     expect(content).toContain("--sand:");
+    expect(content).toContain("--background: 35 12% 9%;");
   });
 });

@@ -368,17 +368,18 @@ export function BeaconStage() {
       return;
     }
 
+    // 진입 120ms 후 3D 비콘 층 조립 시퀀스 즉각 자동 기동
     const timer = setTimeout(() => {
       triggerDockingSequence();
-    }, 300);
+    }, 120);
 
     const onScroll = () => {
-      const y = window.scrollY;
-      if (y > 5 && !hasDockedRef.current) {
+      if (!hasDockedRef.current) {
         triggerDockingSequence();
       }
+      const y = window.scrollY;
       const vh = window.innerHeight || 800;
-      // 스크롤 0 ~ 0.65vh 구간 동안 광선 옆 -90도 헤더와 비콘이 함께 90도 회전하여 0도 수평 정렬됨
+      // 스크롤 진행에 따른 피라미드 동반 회전 제어
       const rotProgress = Math.max(0, Math.min(1, y / (vh * 0.65)));
       setScrollProgress(rotProgress);
     };
