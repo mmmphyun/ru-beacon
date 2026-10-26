@@ -397,20 +397,14 @@ export function BeaconStage() {
   const cx = 300;
   const cy = 285;
 
-  // 스크롤에 따라 비콘 피라미드 전체가 헤더와 함께 동반 회전 (0deg -> 90deg)
+  // 스크롤에 따라 비콘 피라미드 회전 (0deg -> 90deg)
   const scrollRotationDeg = scrollProgress * 90;
-  // 광선 옆에 -90도로 서 있던 헤더가 스크롤에 따라 사람이 읽기 편한 0도 수평으로 회전 (-90deg -> 0deg)
-  const headerRotationDeg = -90 + scrollProgress * 90;
+  // 사람이 읽기 편한 0도 수평 정렬 고정
+  const headerRotationDeg = 0;
 
-  // 한글 서브 슬로건: 애초에 정방향(0deg 수평) 유지
-  // 로고가 -90도(수직)에서 회전하여 6시 방향 공간이 완전히 비어나는 시점(0.50)부터 알파값을 0 -> 1로 점진적으로 높여 노출
-  const SLOGAN_START_THRESHOLD = 0.5;
-  const sloganProgress = Math.max(
-    0,
-    Math.min(1, (scrollProgress - SLOGAN_START_THRESHOLD) / (1 - SLOGAN_START_THRESHOLD))
-  );
-  const sloganOpacity = sloganProgress;
-  const sloganLiftY = (1 - sloganProgress) * 18;
+  // 한글 서브 슬로건: 첫 화면에서 즉시 정방향 노출
+  const sloganOpacity = 1;
+  const sloganLiftY = 0;
 
   const s7 = buildCubeTierPaths(
     7,
@@ -474,9 +468,9 @@ export function BeaconStage() {
     <section
       ref={containerRef}
       aria-label="RuBeacon Signal Stage"
-      className="relative w-full h-[165dvh] border-b border-border/60 select-none"
+      className="relative w-full min-h-[calc(100dvh-3.5rem)] border-b border-border/60 select-none flex flex-col justify-between"
     >
-      <div className="sticky top-14 w-full h-[calc(100dvh-3.5rem)] min-h-[560px] flex flex-col items-center justify-between overflow-hidden">
+      <div className="w-full flex-1 flex flex-col items-center justify-between overflow-hidden py-4 sm:py-6">
         {/* 심장박동과 연동되는 정제된 딥 루비 앰비언트 반사광 (탁한 샌드 혼합 배제) */}
         <div
           className="pointer-events-none absolute inset-0"
@@ -502,7 +496,7 @@ export function BeaconStage() {
           <div
             className="pointer-events-none absolute inset-0 flex items-center justify-center z-0"
             style={{
-              transform: `rotate(${headerRotationDeg}deg) translateY(${(1 - scrollProgress) * -22}px)`,
+              transform: `rotate(${headerRotationDeg}deg)`,
               transformOrigin: "50% 48%",
             }}
           >
@@ -512,11 +506,11 @@ export function BeaconStage() {
             >
               <em>
                 <span>Ru</span>
-                <span className="relative inline-flex items-center mx-1 sm:mx-1.5">
+                <span className="relative inline-flex items-center mx-1 sm:mx-2">
                   <span className="opacity-25 font-normal">by</span>
-                  {/* by 위를 가로지르며 Ru-Beacon의 하이픈(-) 역할을 겸하는 굵고 선명한 루비 하이픈 스트라이크 */}
+                  {/* by 위를 가로지르며 Ru-Beacon의 하이픈(-) 역할을 겸하는 굵고 선명한 수평 루비 하이픈 스트라이크 */}
                   <span
-                    className="absolute left-[-10%] right-[-10%] top-1/2 -translate-y-1/2 h-[4px] sm:h-[6px] bg-primary rounded-xs -rotate-6 shadow-[0_0_16px_rgba(225,29,72,0.9)]"
+                    className="absolute left-[-12%] right-[-12%] top-1/2 -translate-y-1/2 h-[6px] sm:h-[8px] md:h-[12px] bg-primary rounded-xs shadow-[0_0_16px_rgba(225,29,72,0.9)]"
                     aria-hidden="true"
                   />
                 </span>

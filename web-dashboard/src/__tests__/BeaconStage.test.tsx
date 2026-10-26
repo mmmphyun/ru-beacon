@@ -44,6 +44,7 @@ describe("BeaconStage & useLatestRelease", () => {
     expect(screen.getByText("0.00ms Tick Occupancy")).toBeDefined();
     expect(screen.getByText("Scroll")).toBeDefined();
     expect(screen.getByRole("button", { name: "아래로 스크롤" })).toBeDefined();
+    expect(screen.getByLabelText("RuBeacon Signal Stage")).toBeDefined();
   });
 
   it("GitHub Releases API 응답에서 최신 태그와 JAR 다운로드 링크를 추출해야 한다", async () => {

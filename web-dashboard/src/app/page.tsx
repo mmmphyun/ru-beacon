@@ -411,7 +411,7 @@ export default function LandingPage() {
                 <span className="relative inline-flex items-center mx-[1px]">
                   <span className="opacity-40">by</span>
                   <span
-                    className="absolute left-[-2px] right-[-2px] top-1/2 -translate-y-1/2 h-[3.5px] bg-primary rounded-xs -rotate-6 shadow-[0_0_8px_rgba(225,29,72,0.6)]"
+                    className="absolute left-[-2px] right-[-2px] top-1/2 -translate-y-1/2 h-[3.5px] bg-primary rounded-xs shadow-[0_0_8px_rgba(225,29,72,0.6)]"
                     aria-hidden="true"
                   />
                 </span>
