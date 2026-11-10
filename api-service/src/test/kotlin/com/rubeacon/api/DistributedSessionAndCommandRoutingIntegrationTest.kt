@@ -386,4 +386,90 @@ class DistributedSessionAndCommandRoutingIntegrationTest : BaseIntegrationTest()
             close()
         }
     }
+
+    @Test
+    fun `Redis PubSub으로 PUBSUB_DISCORD_DELIVERED 발행 시 해당 테넌트의 활성 WSS 세션으로 DISCORD_DELIVERED 프레임이 역전송되어야 한다`() = testApplication {
+        val tenantId = "tenant_ack_01"
+        val networkId = "net_ack_01"
+        val instanceId = "paper_ack_01"
+        val rawToken = "ack_token_12345"
+        registerTestInstance(tenantId, networkId, instanceId, rawToken)
+
+        val sessionRegistry = SessionRegistry()
+        val scope = CoroutineScope(Dispatchers.IO)
+        val consumerJob = sessionRegistry.startBroadcastSubscriber(jedis, scope)
+
+        var attempts = 0
+        while (!sessionRegistry.isBroadcastSubscribed() && attempts < 50) {
+            delay(100)
+            attempts++
+        }
+        assertTrue(sessionRegistry.isBroadcastSubscribed(), "PubSub 구독이 활성화되어야 함")
+
+        application {
+            module(
+                database = database,
+                jedis = jedis,
+                authService = authService,
+                sessionRegistry = sessionRegistry,
+                startRedisCommandConsumer = false
+            )
+        }
+
+        val client = createClient {
+            install(WebSockets)
+        }
+
+        client.webSocket(
+            urlString = "/ws/minecraft/v1",
+            request = {
+                header(TransportConstants.HEADER_TENANT_ID, tenantId)
+                header(TransportConstants.HEADER_INSTANCE_ID, instanceId)
+                header(TransportConstants.HEADER_INSTANCE_TOKEN, rawToken)
+            }
+        ) {
+            val ping = WebSocketFrame.ping(traceId = "trc_ping_ack")
+            send(Frame.Text(RuBeaconJson.default.encodeToString(ping)))
+            incoming.receive() // PONG
+
+            assertEquals(1, sessionRegistry.activeCount)
+
+            // Pub/Sub으로 DISCORD_DELIVERED 브로드캐스트 발행
+            val ackPayload = com.rubeacon.common.transport.DiscordDeliveredPayload(
+                eventId = "evt_ack_01",
+                eventType = "minecraft.block.break",
+                playerName = "Steve",
+                messageId = "123456789012345678",
+                channelName = "#인게임-실시간-로그",
+                occurredAt = "2026-11-10T12:00:00Z",
+                confirmedAt = "2026-11-10T12:00:00.120Z",
+                rttMs = 120L,
+                summary = "Steve 님이 다이아몬드 원석을 채굴했습니다!"
+            )
+            val broadcastMsg = com.rubeacon.common.transport.DiscordDeliveredBroadcastMessage(
+                tenantId = tenantId,
+                instanceId = instanceId,
+                payload = ackPayload
+            )
+            jedis.publish(
+                RedisNamespaces.PUBSUB_DISCORD_DELIVERED,
+                RuBeaconJson.default.encodeToString(broadcastMsg)
+            )
+
+            val inc = withTimeout(5000) { incoming.receive() }
+            assertTrue(inc is Frame.Text)
+            val receivedFrame = RuBeaconJson.default.decodeFromString<WebSocketFrame>(inc.readText())
+            assertEquals(Opcode.DISCORD_DELIVERED, receivedFrame.op)
+            val decodedAck = receivedFrame.decodePayload<com.rubeacon.common.transport.DiscordDeliveredPayload>()
+            assertEquals("123456789012345678", decodedAck.messageId)
+            assertEquals(120L, decodedAck.rttMs)
+            assertEquals("Steve", decodedAck.playerName)
+
+            close()
+        }
+
+        sessionRegistry.stopBroadcastSubscriber()
+        consumerJob.cancel()
+        scope.cancel()
+    }
 }

@@ -4,6 +4,7 @@ import com.rubeacon.common.redis.RedisNamespaces
 import com.rubeacon.common.serialization.RuBeaconJson
 import com.rubeacon.common.transport.CommandBroadcastMessage
 import com.rubeacon.common.transport.CommandRequestPayload
+import com.rubeacon.common.transport.DiscordDeliveredBroadcastMessage
 import com.rubeacon.common.transport.WebSocketFrame
 import io.ktor.server.websocket.DefaultWebSocketServerSession
 import io.ktor.websocket.CloseReason
@@ -112,7 +113,34 @@ class SessionRegistry {
     fun startBroadcastSubscriber(jedis: JedisPooled, scope: CoroutineScope): Job {
         val ps = object : JedisPubSub() {
             override fun onMessage(channel: String?, message: String?) {
-                if (channel != RedisNamespaces.PUBSUB_COMMANDS_BROADCAST || message.isNullOrBlank()) return
+                if (message.isNullOrBlank()) return
+
+                if (channel == RedisNamespaces.PUBSUB_DISCORD_DELIVERED) {
+                    scope.launch {
+                        try {
+                            val deliveryMsg = RuBeaconJson.default.decodeFromString<DiscordDeliveredBroadcastMessage>(message)
+                            val frame = WebSocketFrame.discordDelivered(
+                                payload = deliveryMsg.payload,
+                                traceId = deliveryMsg.payload.eventId
+                            )
+                            val targetInstance = deliveryMsg.instanceId
+                            if (targetInstance != null && sessions.containsKey(targetInstance)) {
+                                send(targetInstance, frame)
+                            } else {
+                                for ((id, tId) in instanceTenants) {
+                                    if (tId == deliveryMsg.tenantId) {
+                                        send(id, frame)
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            log.warn("DISCORD_DELIVERED 브로드캐스트 수신 처리 실패: {}", e.message)
+                        }
+                    }
+                    return
+                }
+
+                if (channel != RedisNamespaces.PUBSUB_COMMANDS_BROADCAST) return
                 scope.launch {
                     try {
                         val broadcast = RuBeaconJson.default.decodeFromString<CommandBroadcastMessage>(message)
@@ -144,7 +172,7 @@ class SessionRegistry {
         pubSub = ps
         val job = scope.launch(Dispatchers.IO) {
             try {
-                jedis.subscribe(ps, RedisNamespaces.PUBSUB_COMMANDS_BROADCAST)
+                jedis.subscribe(ps, RedisNamespaces.PUBSUB_COMMANDS_BROADCAST, RedisNamespaces.PUBSUB_DISCORD_DELIVERED)
             } catch (_: Exception) {
                 // 구독 종료
             }
