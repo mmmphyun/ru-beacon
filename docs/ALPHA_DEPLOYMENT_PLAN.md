@@ -70,6 +70,10 @@
   - 공용망 경유 1,000 RPS 피크 버스트 주입 완료.
   - 실측 결과 문서(`deploy/load-test/BENCHMARK_REPORT.md`) 커밋 완료.
 - [x] **Step 5: 베타 전환 4대 보안 및 인프라 과제 수행**
+- [ ] **Step 6: 단일 제휴 서버 14일 파일럿 실증 및 운영 지표 수집**
+  - 동시 접속 20-50명 규모의 단일 PaperMC 실운영 서버 1곳 섭외 및 플러그인 연동.
+  - 테넌트 격리(`X-Tenant-Id`) 및 동적 토큰 버킷 Rate Limiter 가드 하에서 14일 연속 가동.
+  - 네트워크 단절 시의 WSS 세션 복구 안정성 및 틱 간섭 0ms 무결성 실측 데이터 확보.
 
 ---
 
@@ -104,3 +108,19 @@
   - `Application.kt`: Ktor 요청 파이프라인 인터셉터에 테넌트(`X-Tenant-Id`)·유저(`discordUserId`)·비인증 IP(`X-Forwarded-For`/`remoteHost`) 3단계 동적 가드 연동 완료.
   - 한도 초과 시 `HTTP 429 Too Many Requests` 및 표준 헤더(`Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining`) 반환 및 Fail-Open 고가용성 보장.
   - `RateLimitingIntegrationTest`: Testcontainers Redis 7 환경에서 단위 및 E2E 통합 테스트 100% 통과 확인.
+
+---
+
+## 6. 제휴 서버 파일럿 운영 및 실증 지침 (Pilot Partnership Protocol)
+
+실운영 트래픽 검증과 기술 포트폴리오 가치 극대화를 위해 외부 서버 연동 시 다음 원칙을 강제한다.
+
+### 6.1 단일 서버(1-Server) 격리 연동 원칙
+- **선정 기준**: PaperMC 1.20.4+ 기반, 동시 접속 20-50명 규모의 단 1개 커뮤니티 서버로 제한.
+- **운영 경계**: 신규 기능 추가 요구는 전면 배제하며, 기존 이벤트(출석, 상점, 접속) 수집 및 디스코드 동기화 안정성 검증에만 집중.
+- **자원 방어**: OCI K3s 클러스터의 Always Free 자원 보호를 위해 해당 테넌트에 초당 요청 상한을 하드 쿼터로 강제 바인딩.
+
+### 6.2 3대 엔지니어링 실측 검증 항목
+1. **틱 무영향(Zero-Tick Impact)**: 플러그인 `/rubeacon status` 진단을 통해 게임 메인 스레드 지연 0ms 지속 확인.
+2. **세션 복구(Self-Healing Session)**: 공용 WAN 네트워크 단절 시 익스포넨셜 백오프 기반 WSS 재연결 및 큐 적체 해소 무결성 검증.
+3. **정량 지표 확보(14-Day Production Metrics)**: 14일 연속 무중단 서빙, 누적 수집 이벤트 N건, Redis Lua 기반 테넌트 쿼터 제어 성공률 100% 입증.
