@@ -11,6 +11,7 @@ object RedisNamespaces {
 
     const val PUBSUB_HEARTBEAT = "pubsub:heartbeat"
     const val PUBSUB_COMMANDS_BROADCAST = "pubsub:commands:broadcast"
+    const val PUBSUB_DISCORD_DELIVERED = "pubsub:discord:delivered"
 
     const val GROUP_WORKER = "worker-group"
     const val GROUP_API_INGRESS = "api-ingress-group"

@@ -177,5 +177,47 @@ class WebSocketFrameSerializationTest {
         assertEquals("req_123", deserialized.requestId)
         assertEquals("say Hello", deserialized.command)
     }
+
+    @Test
+    fun `DISCORD_DELIVERED 프레임 및 DiscordDeliveredPayload 직렬화와 역직렬화가 정상 동작한다`() {
+        val payload = DiscordDeliveredPayload(
+            eventId = "evt_block_break_01",
+            eventType = "minecraft.block.break",
+            playerName = "Steve",
+            messageId = "123456789012345678",
+            channelName = "#인게임-실시간-로그",
+            occurredAt = "2026-11-10T12:00:00Z",
+            confirmedAt = "2026-11-10T12:00:00.142Z",
+            rttMs = 142L,
+            summary = "Steve 님이 다이아몬드 원석을 채굴했습니다!"
+        )
+        val frame = WebSocketFrame.discordDelivered(
+            payload = payload,
+            traceId = "trc_discord_ack_01",
+            timestamp = 1757318850000L
+        )
+
+        val serialized = json.encodeToString(frame)
+        val deserialized = json.decodeFromString<WebSocketFrame>(serialized)
+
+        assertEquals(Opcode.DISCORD_DELIVERED, deserialized.op)
+        assertEquals("trc_discord_ack_01", deserialized.traceId)
+        val decodedPayload = deserialized.decodePayload<DiscordDeliveredPayload>()
+        assertEquals("evt_block_break_01", decodedPayload.eventId)
+        assertEquals("123456789012345678", decodedPayload.messageId)
+        assertEquals(142L, decodedPayload.rttMs)
+        assertEquals("Steve 님이 다이아몬드 원석을 채굴했습니다!", decodedPayload.summary)
+
+        val broadcast = DiscordDeliveredBroadcastMessage(
+            tenantId = "tenant_demo",
+            instanceId = "paper_demo_01",
+            payload = payload
+        )
+        val broadcastJson = json.encodeToString(broadcast)
+        val decodedBroadcast = json.decodeFromString<DiscordDeliveredBroadcastMessage>(broadcastJson)
+        assertEquals("tenant_demo", decodedBroadcast.tenantId)
+        assertEquals("paper_demo_01", decodedBroadcast.instanceId)
+        assertEquals("123456789012345678", decodedBroadcast.payload.messageId)
+    }
 }
 

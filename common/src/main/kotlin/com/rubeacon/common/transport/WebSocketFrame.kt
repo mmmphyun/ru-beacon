@@ -29,7 +29,10 @@ enum class Opcode {
     PING,
 
     @SerialName("PONG")
-    PONG
+    PONG,
+
+    @SerialName("DISCORD_DELIVERED")
+    DISCORD_DELIVERED
 }
 
 /**
@@ -124,8 +127,57 @@ data class WebSocketFrame(
             timestamp = timestamp,
             json = json
         )
+
+        fun discordDelivered(
+            payload: DiscordDeliveredPayload,
+            traceId: String,
+            timestamp: Long = System.currentTimeMillis(),
+            json: Json = RuBeaconJson.default
+        ): WebSocketFrame = of(
+            op = Opcode.DISCORD_DELIVERED,
+            traceId = traceId,
+            payload = payload,
+            timestamp = timestamp,
+            json = json
+        )
     }
 }
+
+/**
+ * 디스코드 메시지 전송 성공 후 마인크래프트 클라이언트로 역전송되는 확정(ACK) 페이로드.
+ *
+ * @property eventId 연계된 원천 비즈니스 이벤트 ID
+ * @property eventType 이벤트 종류 ("minecraft.block.break", "minecraft.entity.kill", "minecraft.player.level_up" 등)
+ * @property playerName 이벤트를 격발한 플레이어 이름
+ * @property messageId 실제 디스코드에 생성된 메시지 Snowflake ID
+ * @property channelName 메시지가 게시된 디스코드 채널 이름
+ * @property occurredAt 원천 인게임 이벤트 발생 시각 (ISO-8601 UTC)
+ * @property confirmedAt 디스코드 REST API 포스팅 완료 시각 (ISO-8601 UTC)
+ * @property rttMs 원천 발생부터 디스코드 포스팅 완료까지의 실측 왕복 지연시간(밀리초)
+ * @property summary 인게임 지도 카드 및 알림에 표시될 1줄 요약 문구
+ */
+@Serializable
+data class DiscordDeliveredPayload(
+    @SerialName("event_id") val eventId: String,
+    @SerialName("event_type") val eventType: String,
+    @SerialName("player_name") val playerName: String,
+    @SerialName("message_id") val messageId: String,
+    @SerialName("channel_name") val channelName: String,
+    @SerialName("occurred_at") val occurredAt: String,
+    @SerialName("confirmed_at") val confirmedAt: String,
+    @SerialName("rtt_ms") val rttMs: Long,
+    val summary: String
+)
+
+/**
+ * 다중 API Pod 분산 세션으로 디스코드 확정 알림을 브로드캐스트하는 Redis Pub/Sub 메시지.
+ */
+@Serializable
+data class DiscordDeliveredBroadcastMessage(
+    @SerialName("tenant_id") val tenantId: String,
+    @SerialName("instance_id") val instanceId: String? = null,
+    val payload: DiscordDeliveredPayload
+)
 
 /**
  * 중앙 서버가 마인크래프트 플러그인으로 메인 틱 실행을 위임하는 명령어 요청 페이로드.
