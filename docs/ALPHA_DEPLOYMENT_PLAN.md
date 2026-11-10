@@ -63,9 +63,10 @@
   - Node 1 Control-Plane 및 Node 2 Agent 조인 완료.
   - PostgreSQL 16, Redis 7, API, Worker, Bot, Web 대시보드 Helm 릴리스 배포 완료.
   - Stateful 볼륨 유실 방지를 위해 데이터베이스 파드를 Node 1에 영구 고정(nodeSelector) 조치 완료.
-- [ ] **Step 3: 외부 마인크래프트 데모 서버 연동 라이브 쇼케이스**
-  - PaperMC 1.20.4+ 데모 서버 구동 (어드벤처 모드, 로비 맵).
-  - 플러그인 WSS 연결 및 디스코드 관제 채널 실시간 이벤트 송수신 스모크 테스트.
+- [x] **Step 3: 외부 마인크래프트 데모 서버 연동 라이브 쇼케이스**
+  - PaperMC 1.20.4+ 데모 서버 독립 번들 패키징(`deploy/demo-server`) 및 ViaVersion(1.20.4-1.21.x) 호환 완료.
+  - 채굴/처치/출석 자유 탐색형 이벤트 확장 및 Graphics2D 지도 액자 디스코드 카드 렌더링 구현 완료.
+  - 디스코드 REST API 전송 완료 ACK(`DISCORD_DELIVERED`) 역전송 기반 인과적 일관성 100% 확립 완료.
 - [x] **Step 4: k6 극한 부하 테스트 수행 및 벤치마크 리포트 작성**
   - 공용망 경유 1,000 RPS 피크 버스트 주입 완료.
   - 실측 결과 문서(`deploy/load-test/BENCHMARK_REPORT.md`) 커밋 완료.
