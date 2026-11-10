@@ -5,6 +5,8 @@ import be.seeseemelk.mockbukkit.ServerMock
 import com.rubeacon.common.event.EventEnvelope
 import com.rubeacon.common.transport.CommandRequestPayload
 import com.rubeacon.common.transport.Opcode
+import com.rubeacon.plugin.listener.BlockBreakPayload
+import com.rubeacon.plugin.listener.EntityKillPayload
 import com.rubeacon.plugin.listener.PlayerAdvancementPayload
 import com.rubeacon.plugin.listener.PlayerLevelChangePayload
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +17,9 @@ import org.bukkit.NamespacedKey
 import org.bukkit.advancement.Advancement
 import org.bukkit.command.CommandSender
 import org.bukkit.command.defaults.BukkitCommand
+import org.bukkit.entity.Zombie
+import org.bukkit.event.block.BlockBreakEvent
+import org.bukkit.event.entity.EntityDeathEvent
 import org.bukkit.event.player.PlayerAdvancementDoneEvent
 import org.bukkit.event.player.PlayerLevelChangeEvent
 import org.bukkit.inventory.ItemStack
@@ -226,5 +231,50 @@ class RuBeaconPluginTest {
         assertEquals("req_disabled_01", response.requestId)
         kotlin.test.assertFalse(response.success)
         assertEquals("Plugin is disabled", response.output)
+    }
+
+    @Test
+    fun `블록 채굴 시 BlockBreakEvent가 감지되어 minecraft block break 이벤트로 정규화되어야 한다`() {
+        val player = server.addPlayer("Steve")
+        val block = player.world.getBlockAt(10, 64, 20)
+        block.type = Material.DIAMOND_ORE
+
+        val event = BlockBreakEvent(block, player)
+        server.pluginManager.callEvent(event)
+
+        val queue = plugin.getOutboundQueue()
+        assertEquals(1, queue.size)
+        val frame = queue.first()
+        assertEquals(Opcode.EVENT, frame.op)
+
+        val envelope = frame.decodePayload<EventEnvelope>()
+        assertEquals("minecraft.block.break", envelope.eventType)
+        val payload = envelope.decodePayload<BlockBreakPayload>()
+        assertEquals("Steve", payload.playerName)
+        assertEquals("DIAMOND_ORE", payload.blockType)
+        assertEquals(10, payload.x)
+        assertEquals(64, payload.y)
+        assertEquals(20, payload.z)
+    }
+
+    @Test
+    fun `플레이어가 몬스터 처치 시 EntityDeathEvent가 감지되어 minecraft entity kill 이벤트로 정규화되어야 한다`() {
+        val player = server.addPlayer("Alex")
+        val zombie = player.world.spawn(player.location, Zombie::class.java)
+        zombie.killer = player
+
+        val event = EntityDeathEvent(zombie, mutableListOf())
+        server.pluginManager.callEvent(event)
+
+        val queue = plugin.getOutboundQueue()
+        assertEquals(1, queue.size)
+        val frame = queue.first()
+        assertEquals(Opcode.EVENT, frame.op)
+
+        val envelope = frame.decodePayload<EventEnvelope>()
+        assertEquals("minecraft.entity.kill", envelope.eventType)
+        val payload = envelope.decodePayload<EntityKillPayload>()
+        assertEquals("Alex", payload.playerName)
+        assertEquals("ZOMBIE", payload.entityType)
     }
 }

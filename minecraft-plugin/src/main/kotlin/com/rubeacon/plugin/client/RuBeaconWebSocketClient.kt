@@ -3,6 +3,7 @@ package com.rubeacon.plugin.client
 import com.rubeacon.common.serialization.RuBeaconJson
 import com.rubeacon.common.transport.CommandRequestPayload
 import com.rubeacon.common.transport.CommandResponsePayload
+import com.rubeacon.common.transport.DiscordDeliveredPayload
 import com.rubeacon.common.transport.Opcode
 import com.rubeacon.common.transport.WebSocketFrame
 import com.rubeacon.plugin.config.RuBeaconConfig
@@ -47,6 +48,7 @@ class RuBeaconWebSocketClient(
     private val scope: CoroutineScope,
     private val logger: Logger,
     private val commandHandler: suspend (CommandRequestPayload, String) -> CommandResponsePayload,
+    private val discordDeliveredHandler: ((DiscordDeliveredPayload) -> Unit)? = null,
     private val httpClient: HttpClient = HttpClient(CIO) {
         install(WebSockets)
     }
@@ -203,6 +205,14 @@ class RuBeaconWebSocketClient(
                 }
                 Opcode.EVENT -> {
                     logger.info("[RuBeacon] 비정상 수신된 EVENT 프레임 (무시): ${frame.traceId}")
+                }
+                Opcode.DISCORD_DELIVERED -> {
+                    try {
+                        val payload = frame.decodePayload<DiscordDeliveredPayload>()
+                        discordDeliveredHandler?.invoke(payload)
+                    } catch (e: Exception) {
+                        logger.warning("[RuBeacon] DISCORD_DELIVERED 페이로드 파싱 실패: ${e.message}")
+                    }
                 }
             }
         } catch (e: Exception) {

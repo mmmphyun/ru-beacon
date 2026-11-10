@@ -11,10 +11,38 @@ import kotlinx.serialization.json.jsonObject
 import org.bukkit.event.EventHandler
 import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
+import org.bukkit.event.block.BlockBreakEvent
+import org.bukkit.event.entity.EntityDeathEvent
 import org.bukkit.event.player.PlayerAdvancementDoneEvent
 import org.bukkit.event.player.PlayerLevelChangeEvent
 import java.time.Instant
 import java.util.UUID
+
+/**
+ * 블록 채굴 이벤트 페이로드 DTO.
+ */
+@Serializable
+data class BlockBreakPayload(
+    val playerUuid: String,
+    val playerName: String,
+    val blockType: String,
+    val world: String,
+    val x: Int,
+    val y: Int,
+    val z: Int
+)
+
+/**
+ * 몬스터/엔티티 처치 이벤트 페이로드 DTO.
+ */
+@Serializable
+data class EntityKillPayload(
+    val playerUuid: String,
+    val playerName: String,
+    val entityType: String,
+    val entityName: String,
+    val world: String
+)
 
 /**
  * 플레이어 레벨 변경 이벤트 페이로드 DTO.
@@ -82,6 +110,48 @@ class MinecraftEventListener(
             eventType = "minecraft.player.advancement_done",
             player = player,
             idempotencyKey = "mc:adv:${player.uniqueId}:${event.advancement.key}",
+            payloadDto = payloadDto
+        )
+        onEventGenerated(frame)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    fun onBlockBreak(event: BlockBreakEvent) {
+        val player = event.player
+        val block = event.block
+        val payloadDto = BlockBreakPayload(
+            playerUuid = player.uniqueId.toString(),
+            playerName = player.name,
+            blockType = block.type.name,
+            world = block.world.name,
+            x = block.x,
+            y = block.y,
+            z = block.z
+        )
+        val frame = buildEventFrame(
+            eventType = "minecraft.block.break",
+            player = player,
+            idempotencyKey = "mc:brk:${player.uniqueId}:${block.x}_${block.y}_${block.z}:${System.currentTimeMillis()}",
+            payloadDto = payloadDto
+        )
+        onEventGenerated(frame)
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    fun onEntityDeath(event: EntityDeathEvent) {
+        val killer = event.entity.killer ?: return
+        val entity = event.entity
+        val payloadDto = EntityKillPayload(
+            playerUuid = killer.uniqueId.toString(),
+            playerName = killer.name,
+            entityType = entity.type.name,
+            entityName = entity.name,
+            world = entity.world.name
+        )
+        val frame = buildEventFrame(
+            eventType = "minecraft.entity.kill",
+            player = killer,
+            idempotencyKey = "mc:kill:${killer.uniqueId}:${entity.entityId}:${System.currentTimeMillis()}",
             payloadDto = payloadDto
         )
         onEventGenerated(frame)
