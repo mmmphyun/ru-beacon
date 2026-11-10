@@ -6,6 +6,7 @@ import com.rubeacon.common.transport.WebSocketFrame
 import com.rubeacon.plugin.client.RuBeaconWebSocketClient
 import com.rubeacon.plugin.config.RuBeaconConfig
 import com.rubeacon.plugin.listener.MinecraftEventListener
+import com.rubeacon.plugin.map.DiscordStatusMapRenderer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,6 +34,8 @@ open class RuBeaconPlugin : JavaPlugin() {
     var webSocketClient: RuBeaconWebSocketClient? = null
         private set
 
+    val discordMapRenderer = DiscordStatusMapRenderer()
+
     // 테스트 검증 및 최근 이벤트 디버깅용 아웃바운드 프레임 큐 (최대 50개 유지, 메모리 누수 방지)
     private val outboundQueue = ConcurrentLinkedQueue<WebSocketFrame>()
 
@@ -51,7 +54,8 @@ open class RuBeaconPlugin : JavaPlugin() {
             config = ruConfig,
             scope = pluginScope,
             logger = logger,
-            commandHandler = { payload, _ -> executeCommandOnMainTick(payload) }
+            commandHandler = { payload, _ -> executeCommandOnMainTick(payload) },
+            discordDeliveredHandler = { payload -> discordMapRenderer.update(payload) }
         ).apply {
             start()
         }
@@ -141,6 +145,46 @@ open class RuBeaconPlugin : JavaPlugin() {
                 success = false,
                 output = "Error: ${e.message}"
             )
+        }
+    }
+
+    override fun onCommand(
+        sender: org.bukkit.command.CommandSender,
+        command: org.bukkit.command.Command,
+        label: String,
+        args: Array<out String>
+    ): Boolean {
+        if (!command.name.equals("rubeacon", ignoreCase = true)) return false
+
+        val subCommand = args.firstOrNull()?.lowercase() ?: "status"
+        when (subCommand) {
+            "status" -> {
+                val isConn = webSocketClient?.connected ?: false
+                sender.sendMessage("§b[RuBeacon] §fWSS: ${if (isConn) "§aONLINE" else "§cCONNECTING"} §7| §fTenant: §e${ruConfig.tenantId} §7| §fQueue: §a${outboundQueue.size}/$MAX_OUTBOUND_HISTORY")
+                return true
+            }
+            "map" -> {
+                val player = sender as? org.bukkit.entity.Player ?: run {
+                    sender.sendMessage("[RuBeacon] /rubeacon map 명령어는 플레이어만 사용할 수 있습니다.")
+                    return true
+                }
+                val mapItem = org.bukkit.inventory.ItemStack(org.bukkit.Material.FILLED_MAP)
+                val meta = mapItem.itemMeta as? org.bukkit.inventory.meta.MapMeta
+                if (meta != null) {
+                    val mapView = server.createMap(player.world)
+                    mapView.renderers.forEach { mapView.removeRenderer(it) }
+                    mapView.addRenderer(discordMapRenderer)
+                    meta.mapView = mapView
+                    mapItem.itemMeta = meta
+                }
+                player.inventory.addItem(mapItem)
+                player.sendMessage("§b[RuBeacon] §a디스코드 라이브 피드 지도가 지급되었습니다. 벽면 액자에 장착하십시오.")
+                return true
+            }
+            else -> {
+                sender.sendMessage("§b[RuBeacon] §f사용법: §e/rubeacon [status|map]")
+                return true
+            }
         }
     }
 

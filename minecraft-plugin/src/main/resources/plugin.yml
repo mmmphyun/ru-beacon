@@ -4,3 +4,7 @@ main: com.rubeacon.plugin.RuBeaconPlugin
 api-version: '1.20'
 author: RuBeacon Team
 description: Ru-Beacon Paper Minecraft Plugin with async WSS and tick-safe command dispatcher
+commands:
+  rubeacon:
+    description: RuBeacon status and admin commands
+    usage: /<command> [status|map]
