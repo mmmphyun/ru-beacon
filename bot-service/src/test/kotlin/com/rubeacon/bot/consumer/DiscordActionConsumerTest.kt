@@ -121,4 +121,42 @@ class DiscordActionConsumerTest : BaseBotIntegrationTest() {
         val idempKey = "idemp:discord:action:corr_dup_01"
         assertEquals("1", jedis.get(idempKey))
     }
+
+    @Test
+    fun `processSingleAction should publish discord delivery ACK to pubsub`() = runBlocking {
+        var receivedAckJson: String? = null
+        val subscriberThread = Thread {
+            jedis.subscribe(object : redis.clients.jedis.JedisPubSub() {
+                override fun onMessage(channel: String?, message: String?) {
+                    if (channel == RedisNamespaces.PUBSUB_DISCORD_DELIVERED) {
+                        receivedAckJson = message
+                        unsubscribe()
+                    }
+                }
+            }, RedisNamespaces.PUBSUB_DISCORD_DELIVERED)
+        }
+        subscriberThread.isDaemon = true
+        subscriberThread.start()
+        Thread.sleep(200)
+
+        consumer.processSingleAction(
+            mapOf(
+                "action" to "SEND_MESSAGE",
+                "channel_id" to "1122334455",
+                "content" to "테스트 메시지",
+                "tenant_id" to "tenant_demo",
+                "correlation_id" to "corr_ack_01",
+                "player_name" to "Steve",
+                "event_type" to "minecraft.block.break"
+            )
+        )
+
+        subscriberThread.join(2000)
+        kotlin.test.assertNotNull(receivedAckJson)
+        val decoded = com.rubeacon.common.serialization.RuBeaconJson.default
+            .decodeFromString<com.rubeacon.common.transport.DiscordDeliveredBroadcastMessage>(receivedAckJson!!)
+        assertEquals("tenant_demo", decoded.tenantId)
+        assertEquals("Steve", decoded.payload.playerName)
+        assertEquals("minecraft.block.break", decoded.payload.eventType)
+    }
 }

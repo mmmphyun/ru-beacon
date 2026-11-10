@@ -1,6 +1,9 @@
 package com.rubeacon.bot.consumer
 
 import com.rubeacon.common.redis.RedisNamespaces
+import com.rubeacon.common.serialization.RuBeaconJson
+import com.rubeacon.common.transport.DiscordDeliveredBroadcastMessage
+import com.rubeacon.common.transport.DiscordDeliveredPayload
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import kotlinx.coroutines.CancellationException
@@ -10,6 +13,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
 import org.slf4j.LoggerFactory
 import redis.clients.jedis.JedisPooled
 import redis.clients.jedis.params.XReadGroupParams
@@ -152,14 +156,54 @@ class DiscordActionConsumer(
         log.info("[{}] Discord 액션 실행: action={}, channelId={}", correlationId, action, channelIdStr)
 
         if (action == "SEND_MESSAGE") {
+            val messageIdStr: String
             if (kord != null) {
                 val channelId = Snowflake(channelIdStr)
-                kord.rest.channel.createMessage(channelId) {
+                val msg = kord.rest.channel.createMessage(channelId) {
                     this.content = content
                 }
-                log.info("[{}] Discord 채널 메시지 발송 완료: channelId={}", correlationId, channelIdStr)
+                messageIdStr = msg.id.toString()
+                log.info("[{}] Discord 채널 메시지 발송 완료: channelId={}, msgId={}", correlationId, channelIdStr, messageIdStr)
             } else {
+                messageIdStr = "mock_msg_${System.currentTimeMillis()}"
                 log.debug("[{}] Kord 미주입(테스트 환경) 모의 메시지 발송 완료: channelId={}, content={}", correlationId, channelIdStr, content)
+            }
+
+            // 디스코드 전송 확인(ACK)을 Redis Pub/Sub으로 브로드캐스트하여 마인크래프트 세션 역전송 지원
+            val tenantId = fields["tenant_id"] ?: "tenant_default"
+            val instanceId = fields["instance_id"]
+            val eventId = fields["event_id"] ?: correlationId
+            val eventType = fields["event_type"] ?: "minecraft.event"
+            val playerName = fields["player_name"] ?: "Player"
+            val channelName = fields["channel_name"] ?: "#인게임-실시간-로그"
+            val occurredAt = fields["occurred_at"] ?: java.time.Instant.now().toString()
+            val now = java.time.Instant.now()
+            val rttMs = runCatching {
+                java.time.Duration.between(java.time.Instant.parse(occurredAt), now).toMillis()
+            }.getOrDefault(45L)
+            val summary = fields["summary"] ?: content.take(30)
+
+            val ackPayload = DiscordDeliveredPayload(
+                eventId = eventId,
+                eventType = eventType,
+                playerName = playerName,
+                messageId = messageIdStr,
+                channelName = channelName,
+                occurredAt = occurredAt,
+                confirmedAt = now.toString(),
+                rttMs = rttMs,
+                summary = summary
+            )
+            val broadcastMsg = DiscordDeliveredBroadcastMessage(
+                tenantId = tenantId,
+                instanceId = instanceId,
+                payload = ackPayload
+            )
+            val broadcastJson = RuBeaconJson.default.encodeToString(broadcastMsg)
+            runCatching {
+                jedis.publish(RedisNamespaces.PUBSUB_DISCORD_DELIVERED, broadcastJson)
+            }.onFailure { e ->
+                log.warn("[{}] Discord ACK Pub/Sub 발행 실패 (무시): {}", correlationId, e.message)
             }
         }
     }
