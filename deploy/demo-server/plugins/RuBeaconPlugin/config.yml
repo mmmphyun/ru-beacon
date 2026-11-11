@@ -1,0 +1,10 @@
+# Ru-Beacon Minecraft Plugin Demo Configuration
+server-url: "wss://api.rubeacon.com/ws/minecraft/v1"
+tenant-id: "tenant_demo"
+network-id: "net_demo_01"
+instance-id: "paper_demo_01"
+instance-token: "demo-secret-token-2026"
+ping-interval-ms: 10000
+reconnect-initial-delay-ms: 1000
+reconnect-max-delay-ms: 10000
+enabled: true

@@ -16,6 +16,7 @@ dist/
 node_modules/
 .next/
 out/
+*.jar
 
 # Logs & Temporary
 *.log
