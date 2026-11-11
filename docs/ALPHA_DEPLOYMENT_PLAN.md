@@ -67,6 +67,10 @@
   - PaperMC 1.20.4+ 데모 서버 독립 번들 패키징(`deploy/demo-server`) 및 ViaVersion(1.20.4-1.21.x) 호환 완료.
   - 채굴/처치/출석 자유 탐색형 이벤트 확장 및 Graphics2D 지도 액자 디스코드 카드 렌더링 구현 완료.
   - 디스코드 REST API 전송 완료 ACK(`DISCORD_DELIVERED`) 역전송 기반 인과적 일관성 100% 확립 완료.
+  - OCI K8s 디스코드 봇 시크릿 갱신 및 봇 파드(`RuBea#9564`) 가동, 글로벌 커맨드(`/verify`, `/attend`) 등록 완료.
+  - PostgreSQL DB 데모 테넌트(`tenant_demo`), 네트워크(`net_demo_01`), 인스턴스(`paper_demo_01`), 활성 워크플로우 2종(블록 파괴/몹 처치) 적재 완료.
+  - 타 머신 독립 구동 번들 사전 설정(`plugins/RuBeaconPlugin/config.yml`) 및 인수인계 런북(`deploy/demo-server/README.md`) 작성 완료.
+  - *(대기)* 타 머신/PC에서 데모 서버 구동 및 실서버 인게임 라이브 테스트 수행 예정.
 - [x] **Step 4: k6 극한 부하 테스트 수행 및 벤치마크 리포트 작성**
   - 공용망 경유 1,000 RPS 피크 버스트 주입 완료.
   - 실측 결과 문서(`deploy/load-test/BENCHMARK_REPORT.md`) 커밋 완료.
